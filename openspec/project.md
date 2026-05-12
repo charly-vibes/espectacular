@@ -20,5 +20,6 @@ espectacular bridges the gap between specification (openspec) and verification i
 
 - Specs are the source of truth; assertions are derived artifacts
 - Drift detection is continuous, not one-shot
-- Language-agnostic at the spec level; language-specific at the assertion level
+- **Language-agnostic core**: Uses a JSON Schema IR and template-based emitters
+- **AI-friendly Structural Frames**: Emits skeletal test stubs (archetypes) for easy implementation by AI agents
 - Integrates with existing openspec workflow (proposal → implement → archive → verify)

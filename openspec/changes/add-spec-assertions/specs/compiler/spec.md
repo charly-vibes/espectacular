@@ -14,6 +14,10 @@ The compiler SHALL generate structural test stubs (frames) based on archetype ta
 - **WHEN** the compiler processes a scenario tagged with `[SA]` for a Go target
 - **THEN** it emits a Go test function with `// [espectacular:SA]` and structured setup/action/verify phases
 
+#### Scenario: Generate Rust CE Frame [CE]
+- **WHEN** the compiler processes a scenario tagged with `[CE]` for a Rust target
+- **THEN** it emits a Rust test function with `// [espectacular:CE]` and `assert_cmd` boilerplate
+
 #### Scenario: Handle PBT Hint [PF, pbt]
 - **WHEN** a scenario has both `[PF]` and `[pbt]` tags
 - **THEN** the emitted frame includes a hint to use a property-based testing library

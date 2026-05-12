@@ -33,7 +33,7 @@ Goal: detect when code no longer matches compiled assertions via result ingestio
 
 - [ ] 2.1 Define drift report format (which assertions pass/fail/orphaned, structured JSON + human-readable)
 - [ ] 2.2 Implement result parser for JUnit XML and TAP formats
-- [ ] 2.3 Implement convention-based assertion-to-code mapping (test function names ↔ assertion IDs)
+- [ ] 2.3 Implement convention-based assertion-to-code mapping (test function names ↔ assertion IDs) and define ID normalization rules for test symbol generation
 - [ ] 2.4 Detect orphaned assertions (spec references code that no longer exists in test results)
 - [ ] 2.5 Detect failing assertions (test results show failure for a mapped assertion)
 - [ ] 2.6 Support optional annotation-based mapping as override for convention failures

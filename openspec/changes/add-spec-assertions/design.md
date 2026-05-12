@@ -42,12 +42,14 @@ See `archetypes.md` for full definitions.
 
 ### Two directions
 
+### Two directions
+
 | Direction | Trigger | Input | Output |
 |-----------|---------|-------|--------|
-| **Forward** (spec → frames) | `openspec archive` or manual | archived spec.md | assertion IR + Structural Frames |
-| **Backward** (drift detection) | git hook, CI, or manual | assertion IR + current code | drift report |
+| **Forward** (spec → frames) | `openspec archive` hook | archived spec.md | assertion IR + Structural Frames |
+| **Backward** (drift detection) | git hook, CI, or manual | assertion IR + Test Results (JUnit/TAP) | drift report |
 
-The standalone CLI command exposed to users is `ah`.
+`espectacular` provides a standalone CLI (e.g., `espectacular compile`) that the `openspec` tool triggers via its existing hook system during the archive workflow.
 
 ### Drift detection strategy
 
@@ -56,7 +58,12 @@ Drift can mean:
 2. **Assertion orphaned** — code removed, spec still references it
 3. **Code uncovered** — new behavior exists without a spec
 
-**Decision:** Source in openspec archive, generated into project tests as **Structural Frames**. One-way flow (archive → tests). Drift detection leverages standard test outputs (JUnit XML, TAP) to remain language-agnostic.
+**Decision:** Source in openspec archive, generated into project tests as **Structural Frames**. One-way flow (archive → tests). 
+
+To ensure language-agnostic drift detection:
+- **Result Ingestion**: Use standard test outputs (JUnit XML, TAP).
+- **ID Embedding**: Emitters MUST embed the Assertion ID into the generated test name or metadata block (e.g., `Test_capability_req_scenario`) so the result parser can map failures back to the spec.
+
 
 ### What's the assertion granularity?
 
