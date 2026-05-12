@@ -1,0 +1,26 @@
+name: dont
+description: Integration with dont epistemic claim tracking
+detector:
+  type: directory
+  path: .dont
+commands:
+  - name: prime
+    description: Show dont project orientation
+    passthrough: dont prime --plain
+    read_only: true
+  - name: list
+    description: List dont claims and terms
+    passthrough: dont list --plain
+    read_only: true
+  - name: show
+    description: Show a dont claim or term
+    passthrough: dont show
+    read_only: true
+  - name: why
+    description: Explain claim or term status
+    passthrough: dont why
+    read_only: true
+hooks:
+  on_status:
+    command: dont prime --plain
+    inject_as: dont_status
