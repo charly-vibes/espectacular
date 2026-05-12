@@ -1,0 +1,9 @@
+plugins = []
+
+[project]
+name = "espectacular"
+version = "2026.4.8"
+description = ""
+tool_commit = "c2bfba9"
+
+[llm]
