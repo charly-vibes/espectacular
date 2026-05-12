@@ -9,6 +9,7 @@ The charly ecosystem verifies AI-generated code structurally (pretender) and epi
 - **Spec-to-assertion compiler**: Parse openspec `spec.md` files and generate executable test assertions from `WHEN`/`THEN` scenarios. Output is language-specific test code (initially Rust and Go to match wai and fabbro).
 - **Drift detector**: Compare archived spec invariants against current code state. Flag divergence as potential openspec proposals or alerts.
 - **Integration hooks**: Wire into the openspec archive workflow — when a change is archived, automatically generate/update assertions. Periodically (or on relevant file changes) run drift checks.
+- **CLI identity**: Define the standalone CLI command as `ah`, with `compile`, `drift`, and `report` subcommands.
 
 ## Milestones
 
@@ -18,12 +19,12 @@ The charly ecosystem verifies AI-generated code structurally (pretender) and epi
 | **M1: Compiler** | Parser handles full openspec scenario format, IR is stable, Go + Rust emitters produce compilable test stubs | M0 |
 | **M2: Drift detection** | Convention-based code mapping, orphan + failure detection, structured drift report | M1 |
 | **M3: Integration** | Hooks into `openspec archive`, git hooks, CI step, cross-tool signals to dont/pretender/wai | M2 |
-| **M4: Distribution** | Release workflow, homebrew-charly formula, CLI interface, documentation | M3 |
+| **M4: Distribution** | Release workflow, homebrew-charly formula, `ah` CLI interface, documentation | M3 |
 
 See `tasks.md` for per-milestone work items.
 
 ## Impact
 
 - Affected specs: all repos using openspec (wai, pretender, nayra, fotos, etc.)
-- Affected code: openspec CLI (new subcommands or companion binary), CI pipelines (new verification step)
+- Affected code: `ah` companion binary, openspec archive integration points, CI pipelines (new verification step)
 - **BREAKING**: None — purely additive. Existing openspec workflows are unchanged.

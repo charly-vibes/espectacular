@@ -7,51 +7,56 @@
 An openspec scenario:
 
 ```markdown
-#### Scenario: User toggles calendar
+#### Scenario: User toggles calendar [PF]
 - **WHEN** user clicks the calendar toggle
 - **THEN** the display switches to Holocene Era format
 ```
 
-Becomes a **spec assertion** — a structured intermediate representation:
+Becomes a **spec assertion** — a structured intermediate representation (IR) defined via **JSON Schema**:
 
-```yaml
-assertion:
-  id: calendar-support/toggle-calendar
-  when: "user clicks the calendar toggle"
-  then: "the display switches to Holocene Era format"
-  source: specs/calendar-support/spec.md:42
-  archived: 2026-04-15
+```json
+{
+  "assertion": {
+    "id": "calendar-support/toggle-calendar",
+    "archetype": "PF",
+    "when": "user clicks the calendar toggle",
+    "then": "the display switches to Holocene Era format",
+    "source": "specs/calendar-support/spec.md:42",
+    "archived": "2026-04-15"
+  }
+}
 ```
 
-This IR is language-agnostic. **Emitters** translate it into language-specific test stubs.
+This IR is language-agnostic. **Emitters** (using templates) translate it into **Structural Frames** — skeletal code blocks that an AI agent or developer can implement.
+
+### Structural Frames (Archetypes)
+
+To help LLMs implement these assertions reliably, we categorize scenarios into **Archetypes**:
+- **PF (Pure Functional):** Deterministic, ideal for PBT/Fuzzing.
+- **SA (Stateful API):** Side-effecting handlers and state transitions.
+- **BP (Boundary Protocol):** External integrations and mocks.
+
+The emitters generate the **frame** (signature, metadata tags, TODOs for WHEN/THEN) but NOT the implementation logic. This keeps the tool simple, robust, and truly language-agnostic.
+
+See `archetypes.md` for full definitions.
 
 ### Two directions
 
 | Direction | Trigger | Input | Output |
 |-----------|---------|-------|--------|
-| **Forward** (spec → assertions) | `openspec archive` or manual | archived spec.md | assertion IR + test stubs |
+| **Forward** (spec → frames) | `openspec archive` or manual | archived spec.md | assertion IR + Structural Frames |
 | **Backward** (drift detection) | git hook, CI, or manual | assertion IR + current code | drift report |
+
+The standalone CLI command exposed to users is `ah`.
 
 ### Drift detection strategy
 
 Drift can mean:
-1. **Assertion fails** — code changed behavior, spec is stale
+1. **Assertion fails** — code changed behavior, spec is stale (detected via test result ingestion)
 2. **Assertion orphaned** — code removed, spec still references it
 3. **Code uncovered** — new behavior exists without a spec
 
-For v1, focus on (1) and (2). (3) requires code analysis beyond what spec assertions can provide.
-
-## Decisions
-
-### Where do assertions live?
-
-| Option | Pros | Cons |
-|--------|------|------|
-| Alongside tests in project | Natural to run, visible to devs | Scattered across repos, sync problem |
-| In openspec archive as "contracts" | Single source of truth | Not directly executable |
-| Both (generated into tests, source in archive) | Best of both | Complexity of two-way sync |
-
-**Decision:** Source in openspec archive, generated into project tests. One-way flow (archive → tests), regenerate on drift. No two-way sync — the archive is authoritative, generated tests are disposable.
+**Decision:** Source in openspec archive, generated into project tests as **Structural Frames**. One-way flow (archive → tests). Drift detection leverages standard test outputs (JUnit XML, TAP) to remain language-agnostic.
 
 ### What's the assertion granularity?
 
@@ -72,12 +77,12 @@ Options:
 
 ### Language / runtime
 
-espectacular itself could be:
+The implementation behind espectacular could be:
 - A Rust binary (consistent with wai, fotos)
 - A Python script (consistent with release tooling)
 - An openspec subcommand (extension to existing CLI if one exists)
 
-**Decision:** Rust binary, distributed via homebrew-charly like the other tools. The assertion IR is YAML/JSON so emitters can be added without recompiling.
+**Decision:** Ship a Rust binary surfaced to users as the `ah` command, distributed via homebrew-charly like the other tools. The assertion IR is YAML/JSON so emitters can be added without recompiling.
 
 ## Risks and mitigations
 
