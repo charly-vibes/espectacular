@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://charly.dev/espectacular/check-output.schema.json",
+  "title": "ah check output",
+  "type": "object",
+  "required": ["scope", "summary", "findings"],
+  "additionalProperties": false,
+  "properties": {
+    "scope": {
+      "type": "object",
+      "required": ["deployed", "changes"],
+      "additionalProperties": false,
+      "properties": {
+        "deployed": { "type": "boolean" },
+        "changes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["structural", "execution", "passed"],
+      "additionalProperties": false,
+      "properties": {
+        "structural": { "type": "integer", "minimum": 0 },
+        "execution": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["kind", "category", "spec", "spec_path", "scenario"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": ["no-toml", "orphan-toml", "slug-collision", "id-mismatch", "invalid-status", "no-tests-declared", "missing-runner", "malformed-contract", "missing-replacement", "overlay-conflict", "test-failing"]
+        },
+        "category": { "enum": ["structural", "execution"] },
+        "spec": { "type": "string" },
+        "spec_path": { "type": "string" },
+        "scenario": { "$ref": "#/$defs/scenario" },
+        "test": { "$ref": "#/$defs/testResult" },
+        "message": { "type": "string" }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "required": ["id", "title", "body_markdown"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "body_markdown": { "type": "string" }
+      }
+    },
+    "testResult": {
+      "type": "object",
+      "required": ["type", "command", "exit_code", "timed_out", "stdout_tail", "stderr_tail"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string" },
+        "command": { "type": "string" },
+        "exit_code": { "type": ["integer", "null"] },
+        "timed_out": { "type": "boolean" },
+        "stdout_tail": { "type": "string" },
+        "stderr_tail": { "type": "string" }
+      }
+    }
+  }
+}

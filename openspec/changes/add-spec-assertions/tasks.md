@@ -1,56 +1,78 @@
-## M0: Tracer bullet — one scenario, end-to-end
+## 1. Gate core
 
-Goal: prove the full pipeline works for one hardcoded case before building the general-purpose parser.
+- [ ] 1.1 Red: add failing tests for OpenSpec scenario discovery from `#### Scenario:` headings.
+- [ ] 1.2 Green: implement deployed-spec scenario discovery.
+- [ ] 1.3 Refactor: isolate markdown heading parsing and source-location reporting.
+- [ ] 1.4 Red: add failing tests for slugification, scenario-id collisions, and id/file/slug mismatch.
+- [ ] 1.5 Green: implement deterministic slugification, collision detection, and contract id matching.
+- [ ] 1.6 Refactor: centralize scenario identity normalization.
+- [ ] 1.7 Red: add failing tests for `.espectacular/config.toml` schema validation against `schemas/config.schema.json`.
+- [ ] 1.8 Green: implement config loading, path defaults, tool-version parsing, and runner argv map validation.
+- [ ] 1.9 Red: add failing tests for per-scenario TOML schema validation against `schemas/scenario-contract.schema.json`, status enum validation, and superseded metadata.
+- [ ] 1.10 Green: implement contract loading and schema validation.
+- [ ] 1.11 Red: add failing tests for missing contracts, orphan contracts, duplicate contracts, and no tests declared.
+- [ ] 1.12 Green: implement structural correspondence findings.
+- [ ] 1.13 Refactor: separate structural finding construction from filesystem traversal.
 
-- [ ] 0.1 Pick one real WHEN/THEN scenario from an existing openspec spec (wai or fabbro)
-- [ ] 0.2 Hardcode the parser: extract that scenario into the assertion IR (JSON)
-- [ ] 0.3 Hardcode the emitter: generate a Go (or Rust) **Structural Frame** from the IR
-- [ ] 0.4 Manually implement the frame — verify it compiles and runs
-- [ ] 0.5 Simulate drift: change the code so the test fails; verify the drift checker flags it using test results (JUnit XML)
-- [ ] 0.6 Validate convention-based mapping works for the target repo's test structure
-- [ ] 0.7 Document: write the assertion IR JSON Schema and the event format for cross-tool signals
+## 2. Test execution and JSON output
 
-Validates: RISK-001 (parseability), RISK-002 (convention mapping), overall pipeline viability.
+- [ ] 2.1 Red: add failing tests for composing configured runner commands with TOML test flags.
+- [ ] 2.2 Green: implement non-shell test command composition and execution.
+- [ ] 2.3 Red: add failing tests for `tests.shell` command execution.
+- [ ] 2.4 Green: execute shell tests through the system shell.
+- [ ] 2.5 Red: add failing tests proving non-zero exits and timeouts become `test-failing` execution findings.
+- [ ] 2.6 Green: map command exit status, timeout flag, bounded stdout/stderr tails, and test type into execution findings.
+- [ ] 2.7 Red: add failing tests for repository-root working directory, inherited environment, sequential execution, and `/bin/sh -c` shell mode.
+- [ ] 2.8 Green: implement deterministic execution defaults.
+- [ ] 2.9 Red: add failing snapshot/schema tests for `ah check` JSON output against `schemas/check-output.schema.json`, including success output.
+- [ ] 2.10 Green: emit stable JSON with scope, summary, findings, scenario context, command details, and exit status.
+- [ ] 2.11 Refactor: keep JSON serialization deterministic and ordered by spec path plus scenario id.
 
-## M1: Compiler — parser + IR + emitters
+## 3. Change-overlay support
 
-Goal: handle the full openspec scenario format and produce **Structural Frames** for Go and Rust.
+- [ ] 3.1 Red: add failing tests for `ah check --changes <name>` using deployed-plus-change overlay validation.
+- [ ] 3.2 Green: load OpenSpec change scenarios and staged contracts from `.espectacular/changes/<change>/`.
+- [ ] 3.3 Red: add failing tests for multiple `--changes` flags and conflicting new scenario ids.
+- [ ] 3.4 Green: implement multi-change overlays and conflict findings.
+- [ ] 3.5 Red: add failing tests for staged superseded metadata updates on deployed scenarios and missing replacement ids.
+- [ ] 3.6 Green: apply staged superseded contracts over deployed contracts in change scope and reject dangling `superseded_by` values.
+- [ ] 3.7 Refactor: share deployed and overlay scope resolution.
 
-- [ ] 1.1 Implement spec parser: extract requirements and scenarios from openspec `spec.md` files
-- [ ] 1.2 Handle archetype tags (e.g. `[PF]`) and metadata blocks in scenarios
-- [ ] 1.3 Handle ADDED/MODIFIED/REMOVED delta format from change specs
-- [ ] 1.4 Resolve capability references across `specs/` directory
-- [ ] 1.5 Stabilize assertion IR JSON Schema (id, archetype, when, then, source location, archive date)
-- [ ] 1.6 Build IR generator from parsed specs with incremental updates (only changed specs)
-- [ ] 1.7 Define template-based emitter system (e.g. Handlebars)
-- [ ] 1.8 Implement Go emitter (generates `Test*` structural frames with TODOs and metadata tags)
-- [ ] 1.9 Implement Rust emitter (generates `#[test]` structural frames with TODOs and metadata tags)
-- [ ] 1.10 Measure parse success rate across existing specs in wai, fabbro, fotos — target ≥80%
+## 4. Lifecycle commands
 
-## M2: Drift detection
+- [ ] 4.1 Red: add failing tests for idempotent `ah init` file creation, missing-`openspec/` refusal, and managed-block refresh.
+- [ ] 4.2 Green: implement `ah init` for `.espectacular/config.toml`, `.espectacular/AGENTS.md`, top-level `AGENTS.md`, and `CLAUDE.md`.
+- [ ] 4.3 Red: add failing tests for `ah init` stubbing empty TOML contracts for existing deployed scenarios.
+- [ ] 4.4 Green: implement deployed-scenario contract stubbing without overwriting existing contracts.
+- [ ] 4.5 Red: add failing tests for hook detection precedence: `lefthook`, then `prek`, no raw git hook fallback.
+- [ ] 4.6 Green: implement supported pre-commit hook integration and missing-framework concern reporting.
+- [ ] 4.7 Red: add failing tests for `ah doctor` setup checks.
+- [ ] 4.8 Green: implement `ah doctor` for config, paths, version compatibility, managed blocks, hooks, collisions, orphans, and archetype names.
+- [ ] 4.9 Red: add failing tests for `ah scenario new <change> <spec> --requirement "<requirement>" "<heading>"` including exact markdown and TOML skeletons.
+- [ ] 4.10 Green: implement scenario creation under an existing requirement and matching staged contract creation.
+- [ ] 4.11 Red: add failing tests that scenario creation fails without the target change spec file or requirement heading.
+- [ ] 4.12 Green: implement non-destructive failure for missing scenario creation targets.
+- [ ] 4.13 Red: add failing tests for `ah scenario supersede <spec> <old-id> --with=<new-id> --in-change=<change>` and missing replacement ids.
+- [ ] 4.14 Green: implement staged supersession contract creation and replacement-id validation.
+- [ ] 4.15 Red: add failing tests for `ah archive <change>` moving staged contracts, refusing collisions, and refusing pre-OpenSpec-archive orphans.
+- [ ] 4.16 Green: implement archive precondition checks, moves, and allowed superseded-contract replacement.
+- [ ] 4.17 Red: add failing tests for `ah upgrade` reporting tool-version drift and compatibility changes without rewriting existing contract `authored_with` values.
+- [ ] 4.18 Green: implement `ah upgrade` reporting and config update only.
+- [ ] 4.19 Refactor: extract shared managed-file and filesystem-write helpers.
 
-Goal: detect when code no longer matches compiled assertions via result ingestion.
+## 5. Archetype documentation commands
 
-- [ ] 2.1 Define drift report format (which assertions pass/fail/orphaned, structured JSON + human-readable)
-- [ ] 2.2 Implement result parser for JUnit XML and TAP formats
-- [ ] 2.3 Implement convention-based assertion-to-code mapping (test function names ↔ assertion IDs) and define ID normalization rules for test symbol generation
-- [ ] 2.4 Detect orphaned assertions (spec references code that no longer exists in test results)
-- [ ] 2.5 Detect failing assertions (test results show failure for a mapped assertion)
-- [ ] 2.6 Support optional annotation-based mapping as override for convention failures
+- [ ] 5.1 Red: add failing tests that `ah type` lists PF, SA, BP, and CE with one-line descriptions.
+- [ ] 5.2 Green: embed the v1 archetype catalog and implement `ah type`.
+- [ ] 5.3 Red: add failing tests that `ah type <archetype>` prints full documentation and unknown archetypes fail clearly.
+- [ ] 5.4 Green: implement detailed archetype lookup and compatibility-mode access.
+- [ ] 5.5 Refactor: keep archetype catalog append-only and version-addressable.
 
-## M3: Integration
+## 6. Documentation and validation
 
-Goal: wire the `ah` CLI into the openspec lifecycle and cross-tool feedback loops.
-
-- [ ] 3.1 Hook into `openspec archive` — auto-generate/update assertions when a change is archived
-- [ ] 3.2 Git hook adapter — run drift check when spec-referenced files change
-- [ ] 3.3 CI integration — drift check as a pipeline step (exit code for pass/fail)
-- [ ] 3.4 Cross-tool signals — emit structured events for wai (drift → stale artifact), dont (drift → ungrounded claim), pretender (drift pattern → constraint)
-
-## M4: Distribution and documentation
-
-Goal: ship `ah` as the standalone CLI for espectacular in the charly ecosystem.
-
-- [ ] 4.1 Release workflow (GitHub Actions, homebrew-charly formula, scoop-charly manifest)
-- [ ] 4.2 CLI interface: `ah compile`, `ah drift`, `ah report`
-- [ ] 4.3 Usage examples and ecosystem integration guide in README
+- [ ] 6.1 Document local pre-commit as convenience gate and CI `ah check` as enforcement gate.
+- [ ] 6.2 Document `.espectacular/` layout, config schema, scenario TOML schema, and schema file paths.
+- [ ] 6.3 Document append-only scenario workflow, requirement targeting, and supersession rules.
+- [ ] 6.4 Document `ah check` JSON output schema, success output, and finding kinds.
+- [ ] 6.5 Document that test meaningfulness and prose-drift detection are non-goals.
+- [ ] 6.6 Run `openspec validate add-spec-assertions --strict` and fix all validation errors.

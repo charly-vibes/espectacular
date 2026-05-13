@@ -1,30 +1,29 @@
-# Epic: Spec-to-assertion compilation and drift detection
+# Change: Add deterministic spec-test correspondence gate
 
 ## Why
 
-The charly ecosystem verifies AI-generated code structurally (pretender) and epistemically (dont), but nothing verifies **behavioral correctness** — whether the code actually does what the spec says. OpenSpec specs already contain testable invariants in the form of requirements with scenarios (`WHEN`/`THEN` pairs), but these are never compiled into executable checks. Meanwhile, archived specs silently drift from reality as code evolves.
+AI coding harnesses can implement behavior that is only loosely connected to the OpenSpec scenarios they were asked to satisfy. The project needs deterministic friction: a tool that raises missing wiring, missing tests, and failing scenario checks back to the AI before code is committed.
 
 ## What Changes
 
-- **Spec-to-assertion compiler**: Parse openspec `spec.md` files and generate executable test assertions from `WHEN`/`THEN` scenarios. Output is language-specific test code (initially Rust and Go to match wai and fabbro).
-- **Drift detector**: Compare archived spec invariants against current code state. Flag divergence as potential openspec proposals or alerts.
-- **Integration hooks**: Wire into the openspec archive workflow — when a change is archived, automatically generate/update assertions. Periodically (or on relevant file changes) run drift checks.
-- **CLI identity**: Define the standalone CLI command as `ah`, with `compile`, `drift`, and `report` subcommands.
+- Replace speculative spec-to-test compilation with a deterministic correspondence gate exposed as `ah check`.
+- Add `.espectacular/` as the sidecar contract directory that mirrors OpenSpec specs and change proposals.
+- Require one TOML contract per OpenSpec scenario; each contract declares the scenario id, description, archetype tag, status, and the test commands/selectors that cover the scenario.
+- Require the discovered scenario slug, TOML filename stem, and TOML `id` to match.
+- Run declared tests through project-configured runners and emit stable JSON findings for missing contracts, orphan contracts, invalid contract wiring, and failing tests.
+- Add authoring and lifecycle commands: `ah init`, `ah doctor`, `ah type`, `ah scenario new`, `ah scenario supersede`, `ah archive`, and `ah upgrade`.
+- Install local pre-commit integration during `ah init` when a supported hook framework is present, and document CI as the enforcement gate.
 
-## Milestones
+## Non-Goals
 
-| Milestone | Outcome | Depends on |
-|-----------|---------|------------|
-| **M0: Tracer bullet** | One hardcoded scenario parsed → IR → Go test stub → compiles → drift check detects removal | Nothing |
-| **M1: Compiler** | Parser handles full openspec scenario format, IR is stable, Go + Rust emitters produce compilable test stubs | M0 |
-| **M2: Drift detection** | Convention-based code mapping, orphan + failure detection, structured drift report | M1 |
-| **M3: Integration** | Hooks into `openspec archive`, git hooks, CI step, cross-tool signals to dont/pretender/wai | M2 |
-| **M4: Distribution** | Release workflow, homebrew-charly formula, `ah` CLI interface, documentation | M3 |
-
-See `tasks.md` for per-milestone work items.
+- `ah` does not judge whether a test is meaningful, sufficient, or semantically aligned with scenario prose.
+- `ah` does not parse natural language `WHEN`/`THEN` text into assertions.
+- `ah` does not generate language-specific test code, maintain an assertion IR, or provide emitters.
+- `ah` does not inspect test internals such as fixtures, mocks, assertions, or setup/teardown.
+- `ah check` does not detect prose drift inside a scenario body; reviewers must require append-only supersession for substantive intent changes.
 
 ## Impact
 
-- Affected specs: all repos using openspec (wai, pretender, nayra, fotos, etc.)
-- Affected code: `ah` companion binary, openspec archive integration points, CI pipelines (new verification step)
-- **BREAKING**: None — purely additive. Existing openspec workflows are unchanged.
+- Affected specs: `cli`, `gate`
+- Affected code: new Rust `ah` CLI (`Cargo.toml`, `src/*.rs`), normative schemas under `schemas/`, `.espectacular/` project files, pre-commit/CI setup, OpenSpec-adjacent scenario lifecycle commands
+- **BREAKING**: none for existing OpenSpec projects; projects opt in with `ah init`.
