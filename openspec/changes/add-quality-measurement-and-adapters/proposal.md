@@ -28,6 +28,15 @@ This change adds quality *measurement* (not enforcement) and the language adapte
 - No project-local playbook override in v1. The playbook is binary-shipped and version-bound.
 - No hermetic execution mode in v1.
 
+## Delivery Priorities
+
+- **P0**: custom runner envelope schema, finding schema extension, adapter dispatch contract, deterministic doctor/check/explain surfaces
+- **P1**: pytest, cargo test, and vitest adapters; `ah doctor --enable`; `ah explain` compile-enforced registry
+- **P2**: mutation/property/snapshot quality measurements and recommendation ergonomics
+- **Deferred**: persistent history, additional adapters (including jest), project-local playbook overrides, hermetic execution
+
+These priorities are sequencing guidance for implementation and trade-off decisions; they do not change the normative requirements in the delta specs.
+
 ## Impact
 
 - Affected specs: `cli` (new `ah doctor --enable`, `ah explain` requirements), `gate` (finding schema extension, quality measurement)
@@ -37,7 +46,8 @@ This change adds quality *measurement* (not enforcement) and the language adapte
 
 ## Resolved Clarifications
 
-- Adapter detection precedence is defined as manifest → environment → source import, and the selected `detection_source` is reported in doctor/check output. Per-language v1 signals are defined in the design document.
+- Adapter detection precedence is defined as configured → manifest → environment → source import, and the selected `detection_source` is reported in doctor/check output. Per-language v1 signals are defined in the design document.
 - `ah explain --json` includes `hints` as an array of objects, where each item contains `kind` and `message`. Richer hint payloads are deferred to v0.2 without changing the v1 minimum shape.
 - Per-archetype default mutation thresholds are intentionally absent in v1. Completed quality measurements below user-configured thresholds emit warning/info findings and do not fail the gate; tool execution failures still fail the gate.
 - `[runners.custom.<name>]` uses the envelope defined in `schemas/custom-runner.schema.json`; process exit failures override successful envelopes, and envelope failures override process success.
+- `ah doctor`, `ah doctor --enable`, and `ah explain --json` have stable minimum machine-readable fields; richer formatting may evolve only outside those minimum contracts.

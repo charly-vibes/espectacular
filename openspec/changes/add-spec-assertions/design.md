@@ -211,6 +211,16 @@ ah check --changes add-parser --changes update-cli
 
 validates the post-merge overlay: deployed specs plus selected OpenSpec change deltas, with corresponding contracts under `.espectacular/changes/<change>/`. V1 change overlays support added scenarios and staged contract metadata updates for existing deployed scenarios. Removed scenarios are not supported by the gate; behavior removal must be represented by adding a new scenario and superseding the old one. If multiple selected changes claim the same new scenario id for the same spec, `ah check` fails loudly.
 
+Overlay resolution is deterministic:
+
+1. Start from deployed `openspec/specs/` scenarios plus deployed `.espectacular/<spec>/` contracts.
+2. Normalize the selected `--changes` set by sorting change ids lexicographically.
+3. For each selected change, load added scenarios from `openspec/changes/<change>/specs/<spec>/spec.md`.
+4. For each selected change, apply staged contract metadata updates from `.espectacular/changes/<change>/<spec>/` only when the target scenario id already exists in deployed scope or is added by a selected change.
+5. If two selected changes add the same new scenario id for the same spec, emit `overlay-conflict` and stop.
+6. If two selected changes both stage metadata updates for the same deployed scenario id, emit `overlay-conflict` and stop.
+7. Otherwise, the resolved overlay scope is the deployed baseline plus all non-conflicting selected-change additions and staged updates.
+
 `ah check` reports all findings in stable `(spec_path, scenario_id)` order and exits `0` only when `findings` is empty. It exits non-zero for any finding. JSON output includes the checked scope and enough context for an AI agent to act without an additional lookup, including spec path, scenario title, and scenario body markdown. Scenario body markdown is the markdown after the `#### Scenario:` heading until the next heading whose level is `####` or higher. If the scenario has no body lines, `body_markdown` is an empty string.
 
 Normative schema: `schemas/check-output.schema.json`.
@@ -339,6 +349,17 @@ The generated contract intentionally fails `ah check` with `no-tests-declared` u
 - reports a concern if no supported hook framework is present and does not write raw `.git/hooks/pre-commit`
 
 `ah doctor` validates installation health: config schema, configured paths, tool-version compatibility, managed blocks, supported hook integration, slug collisions, orphan contracts, and known archetype names. Unknown archetype names are warnings because archetypes are advisory; slug collisions and orphan contracts are errors.
+
+Command outcomes are normalized for testability:
+
+| Command | Success | Failure |
+| --- | --- | --- |
+| `ah init` | exits `0`; writes or refreshes managed files and hook integration when applicable | exits non-zero; writes nothing when `openspec/` is absent |
+| `ah doctor` | exits `0` when only warnings/info are present; machine-readable findings remain stable | exits non-zero when any error-class diagnostic is present |
+| `ah scenario new` | exits `0`; appends one scenario skeleton and one staged contract | exits non-zero; writes nothing when the target change spec or requirement heading is missing |
+| `ah scenario supersede` | exits `0`; stages one superseded contract update | exits non-zero; writes nothing when the replacement scenario id is absent from scope |
+| `ah archive` | exits `0`; moves staged contracts after OpenSpec archive preconditions hold | exits non-zero; moves nothing when archive preconditions fail or a non-supersession collision exists |
+| `ah upgrade` | exits `0`; reports compatibility changes and updates `tool_version` only | exits non-zero; leaves scenario contracts untouched when compatibility or write preconditions fail |
 
 `ah upgrade` compatibility changes include config schema version changes, execution default changes, archetype additions, and archetype deprecations.
 

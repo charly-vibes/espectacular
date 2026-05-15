@@ -7,18 +7,25 @@ Language adapters normalize test execution across Python, Rust, and TypeScript i
 ### Requirement: Adapter detection precedence
 The system SHALL detect framework availability through a defined precedence chain before invoking any adapter, SHALL dispatch adapters per declared contract test type rather than selecting one global adapter for the whole repository, and SHALL record the selected detection source in doctor and check output.
 
-#### Scenario: Manifest declaration takes precedence
-- **GIVEN** a project declares a test framework in its language manifest (e.g., `pyproject.toml`, `Cargo.toml`, `package.json`)
+#### Scenario: Explicit config takes precedence
+- **GIVEN** `.espectacular/config.toml` selects an adapter for a declared contract test type
 - **WHEN** adapter detection runs
-- **THEN** the manifest declaration is treated as the strongest signal, overriding environment and source signals
+- **THEN** the configured adapter is treated as the strongest signal
+- **AND** the command reports `detection_source = configured`
 
-#### Scenario: Environment detection is second
+#### Scenario: Manifest declaration is second
+- **GIVEN** no explicit adapter config exists
+- **AND** a project declares a test framework in its language manifest (e.g., `pyproject.toml`, `Cargo.toml`, `package.json`)
+- **WHEN** adapter detection runs
+- **THEN** the manifest declaration overrides environment and source signals
+
+#### Scenario: Environment detection is third
 - **GIVEN** a framework is not declared in a manifest but is installed in the environment
 - **WHEN** adapter detection runs
 - **THEN** the environment presence is used to confirm availability
 
 #### Scenario: Source import is weakest signal
-- **GIVEN** a framework is not in the manifest or environment, but is imported in a test file
+- **GIVEN** a framework is not configured, not in the manifest, and not in the environment, but is imported in a test file
 - **WHEN** adapter detection runs
 - **THEN** the source import is recognized as the weakest positive signal
 

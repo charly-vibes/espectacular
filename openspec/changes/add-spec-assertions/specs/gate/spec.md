@@ -188,6 +188,18 @@ The system SHALL support checking selected OpenSpec changes as overlays on deplo
 - **THEN** the command emits a structural finding for the conflict
 - **AND** exits non-zero
 
+#### Scenario: Reject conflicting staged updates for one deployed scenario
+- **GIVEN** two selected changes both stage metadata updates for the same deployed scenario id in the same spec
+- **WHEN** a user runs `ah check --changes first --changes second`
+- **THEN** the command emits an `overlay-conflict` structural finding
+- **AND** exits non-zero
+
+#### Scenario: Overlay resolution is deterministic
+- **GIVEN** selected changes do not conflict
+- **WHEN** a user runs `ah check --changes zeta --changes alpha`
+- **THEN** the command resolves selected changes in sorted change-id order
+- **AND** produces the same validation scope as `ah check --changes alpha --changes zeta`
+
 ### Requirement: Deterministic Scope Boundary
 The system SHALL avoid semantic evaluation of test quality or scenario prose.
 

@@ -44,6 +44,13 @@ Detection follows a precedence chain per adapter and per contract test type:
 
 The selected source is reported as `configured`, `manifest`, `environment`, or `source_import` in doctor/check output. Environment and source-import detection are allowed to produce recommendations and missing-adapter diagnostics, but `ah check` only invokes adapters selected by explicit config or by the contract's declared test type mapping.
 
+Detection is bounded to the repository root for determinism:
+- manifest discovery reads manifests rooted in the repository (`pyproject.toml`, `Cargo.toml`, workspace manifests, `package.json`) and does not traverse outside the repo
+- environment detection checks the current process environment and PATH without installing dependencies or mutating the environment
+- source-import detection scans tracked project files under the repo root and ignores generated/vendor directories such as `.git/`, `node_modules/`, `dist/`, `build/`, and `.venv/`
+
+This keeps detection reproducible in CI and local development while still supporting mono-repos and language workspaces inside the repository boundary.
+
 V1 manifest/source signals:
 
 | Adapter | Manifest signal | Source-import signal |
@@ -64,6 +71,16 @@ A `[runners.custom.<name>]` config block lets users wire arbitrary shell command
 Python (pytest), Rust (cargo test), TypeScript (vitest). Scope is deliberately constrained to keep the maintenance budget honest. jest is a v0.2 fast-follow.
 
 Each v1 baseline adapter does exactly one thing: run the test command in the contract, capture exit code and bounded stdout/stderr tails, normalize into the finding schema. PBT shrinking, mutation parsing, and snapshot review arrive as separate adapter modules in later minor versions, gated by `ah doctor` detection.
+
+### Adapter dispatch matrix
+
+| Evidence state | `ah doctor` behavior | `ah check` behavior |
+| --- | --- | --- |
+| explicit config present | report configured adapter with `detection_source = configured` | invoke the configured adapter |
+| no config; manifest signal present | emit `recommendation` finding with `apply_command` | do not invoke until enabled/configured |
+| no config; environment signal present | emit `recommendation` finding with `apply_command` | do not invoke until enabled/configured |
+| no config; source-import signal present | emit `recommendation` finding with `apply_command` | do not invoke until enabled/configured |
+| no signal at all | report nothing for that capability | emit `missing-adapter` only if a contract declared that test type |
 
 ## D4. Progressive enablement UX
 
@@ -118,16 +135,45 @@ Envelope: `{ scope, summary: { counts_by_kind, exit_status }, findings: [...] }`
 
 **Rationale**: `scenario_prose` verbatim closes the most common agent failure mode (editing code without reading what the scenario demands); `suggested_action` as an enum lets the playbook be a deterministic switch rather than NLP.
 
+### Quality outcome matrix
+
+| Capability state | Tool execution | Measurement result | Finding | Exit status |
+| --- | --- | --- | --- | --- |
+| disabled / not requested | not run | none | none | unchanged |
+| enabled, command succeeds | score at/above threshold | `quality-*` info | `0` if no other errors |
+| enabled, command succeeds | score below threshold | `quality-*` warning/info | `0` if no other errors |
+| enabled, command fails before producing measurement | none | `test-failing` | non-zero |
+| property/snapshot test entry times out or exits non-zero | none | `test-failing` | non-zero |
+| mutation enabled in pre-commit without explicit flag | skipped | none | none | unchanged |
+
+This table is normative for exit semantics: quality measurement scores inform findings, but only execution failure turns a completed quality run into a failing gate in v1.
+
+### Custom runner precedence matrix
+
+| Process exit | Envelope parse/result | Outcome |
+| --- | --- | --- |
+| zero | valid envelope with `passed = true` and empty `findings` | pass |
+| zero | valid envelope with `passed = false` or non-empty `findings` | emit envelope findings; contract does not pass |
+| non-zero | valid success envelope | emit `test-failing`; preserve process exit in finding |
+| non-zero | invalid or missing envelope | emit `test-failing` with raw stdout/stderr tails |
+
 ## D6. Playbook as `ah explain <topic>`
 
 The playbook ships in the binary. Each Rust enum variant carries its playbook body inline. The build fails if a variant has no body.
+
+Implementation may use a proc macro, `build.rs`, or generated registry, but the externally visible rule is fixed: a missing topic body or duplicate topic registration is a compile-time failure covered by a compile-fail test fixture.
 
 - `ah explain <topic>` prints markdown guidance
 - `--json` emits structured output: `topic`, `summary`, `when`, `do`, `human_approval`, `related_topics`, `hints`
 - `hints` is an array of objects; each object has `kind` and `message` strings in v1
 - Topics: every `SuggestedAction` value, every `FindingKind` value, plus general topics
 - Every finding sets `playbook_command`
-- `ah explain --list` enumerates all topics
+- `ah explain --list` enumerates all topics in stable sorted order
+
+Stable machine-readable minimums:
+- `ah doctor --json` exposes findings with `kind`, `message`, `suggested_action`, `apply_command`, `playbook_command`, and `detection_source` when capability detection is reported
+- `ah doctor --enable <capability>` prints the written file path and table name on success, and leaves the file unchanged on error/no-op paths
+- `ah explain --json` always emits the minimum field set declared in the `explain` capability spec; richer presentation may be added without removing or renaming those fields in v1
 
 **Rationale**: collapses the enum, playbook, and AGENTS.md managed block into one compile-enforced source of truth.
 

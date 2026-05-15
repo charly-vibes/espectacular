@@ -24,8 +24,8 @@
 
 - [ ] 2.1 Red: add failing tests for the `Adapter` trait interface (detect, invoke, normalize)
 - [ ] 2.2 Green: define `Adapter` trait in `src/adapters/mod.rs` with detection precedence chain and `detection_source` reporting
-- [ ] 2.3 Red: add failing tests for adapter dispatch selecting the correct adapter from config and reporting non-configured detections as recommendations only
-- [ ] 2.4 Green: implement adapter dispatch in the gate runner
+- [ ] 2.3 Red: add failing tests for adapter dispatch selecting the correct adapter from explicit config, reporting non-configured detections as recommendations only, and ignoring manifests/imports outside the repository root
+- [ ] 2.4 Green: implement adapter dispatch in the gate runner with repository-bounded detection
 - [ ] 2.5 Refactor: isolate detection from invocation in the trait
 
 ## 3. Python pytest adapter
@@ -65,7 +65,7 @@
 
 ## 7. `ah doctor` detection and `--enable`
 
-- [ ] 7.1 Red: add failing tests for framework detection reporting in `ah doctor` output (pytest, cargo, vitest, PBT tools)
+- [ ] 7.1 Red: add failing tests for framework detection reporting in `ah doctor` output (pytest, cargo, vitest, PBT tools), including `detection_source = configured` precedence
 - [ ] 7.2 Green: implement detection reporting in `src/doctor.rs`
 - [ ] 7.3 Red: add failing tests for `recommendation` finding emitted when available framework is not configured
 - [ ] 7.4 Green: emit recommendation findings with `apply_command` set to the `--enable` invocation
@@ -91,8 +91,8 @@
 
 ## 9. `ah explain` subcommand
 
-- [ ] 9.1 Red: add failing build test proving missing variant body causes compile failure
-- [ ] 9.2 Green: implement compile-time enforcement via proc macro or build.rs assertion
+- [ ] 9.1 Red: add failing build tests proving missing variant body and duplicate topic registration each cause compile failure
+- [ ] 9.2 Green: implement compile-time enforcement via proc macro, build.rs assertion, or generated registry
 - [ ] 9.3 Red: add failing tests for markdown output for each `FindingKind` variant (including `quality-mutation`, `quality-property`, `quality-snapshot`) and each `SuggestedAction` variant
 - [ ] 9.4 Green: implement topic bodies in `src/explain.rs` — quality finding kinds must have bodies that explain the score, how to enable the capability, and when the finding appears
 - [ ] 9.5 Red: add failing tests for general topics (workflow, supersession, archetypes, progressive-enablement)
