@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://charly.dev/espectacular/check-output.schema.json",
+  "title": "ah check output (v0.2 — quality + adapters)",
+  "description": "Envelope emitted by ah check after the add-quality-measurement-and-adapters change. Findings are sorted by (spec_path, scenario_id, kind). Compatible with custom-runner envelope finding references.",
+  "type": "object",
+  "required": ["scope", "summary", "findings"],
+  "additionalProperties": false,
+  "properties": {
+    "scope": {
+      "type": "object",
+      "required": ["deployed", "changes"],
+      "additionalProperties": false,
+      "properties": {
+        "deployed": { "type": "boolean" },
+        "changes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["counts_by_kind", "exit_status"],
+      "additionalProperties": false,
+      "properties": {
+        "counts_by_kind": {
+          "type": "object",
+          "description": "Map of finding kind to count of that kind in findings[]. Keys MUST be values of the finding kind enum.",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "exit_status": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The integer exit code ah will return. Zero iff findings contains no error-severity items."
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    }
+  },
+  "$defs": {
+    "findingKind": {
+      "enum": [
+        "no-toml",
+        "orphan-toml",
+        "slug-collision",
+        "id-mismatch",
+        "invalid-status",
+        "no-tests-declared",
+        "missing-runner",
+        "missing-adapter",
+        "malformed-contract",
+        "missing-replacement",
+        "overlay-conflict",
+        "test-failing",
+        "recommendation",
+        "unknown-action",
+        "quality-mutation",
+        "quality-property",
+        "quality-snapshot"
+      ]
+    },
+    "severity": {
+      "enum": ["error", "warning", "info"]
+    },
+    "findingScope": {
+      "type": "string",
+      "pattern": "^(deployed|change:[A-Za-z0-9][A-Za-z0-9._-]*)$",
+      "description": "Either the literal 'deployed' or 'change:<change-id>'."
+    },
+    "suggestedAction": {
+      "enum": [
+        "run_ah_init",
+        "run_ah_scenario_new",
+        "run_ah_scenario_supersede",
+        "edit_code_not_scenario",
+        "enable_capability",
+        "review_and_apply",
+        "human_review_required"
+      ]
+    },
+    "detectionSource": {
+      "enum": ["configured", "manifest", "environment", "source_import"]
+    },
+    "finding": {
+      "type": "object",
+      "required": [
+        "kind",
+        "severity",
+        "scope",
+        "message",
+        "suggested_action",
+        "playbook_command"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "$ref": "#/$defs/findingKind" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "scope": { "$ref": "#/$defs/findingScope" },
+        "message": { "type": "string", "minLength": 1 },
+        "category": {
+          "enum": ["structural", "execution", "recommendation", "quality"],
+          "description": "Optional derived grouping. Retained for back-compat with v1 baseline; severity is the primary discriminator going forward."
+        },
+        "spec": { "type": "string", "minLength": 1 },
+        "spec_path": { "type": "string", "minLength": 1 },
+        "scenario_id": { "type": "string", "minLength": 1 },
+        "scenario_path": { "type": "string", "minLength": 1 },
+        "scenario_prose": {
+          "type": "string",
+          "description": "Full markdown body of the scenario heading, verbatim, no truncation."
+        },
+        "contract_path": { "type": "string", "minLength": 1 },
+        "command": { "type": "string" },
+        "command_exit": { "type": ["integer", "null"] },
+        "timed_out": { "type": "boolean" },
+        "stdout_tail": { "type": "string", "maxLength": 8192 },
+        "stderr_tail": { "type": "string", "maxLength": 8192 },
+        "test_type": { "type": "string", "minLength": 1 },
+        "adapter": { "type": "string", "minLength": 1 },
+        "detection_source": { "$ref": "#/$defs/detectionSource" },
+        "suggested_action": { "$ref": "#/$defs/suggestedAction" },
+        "apply_command": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          ],
+          "description": "Shell-safe argv when the suggested_action is mechanically resolvable; null otherwise."
+        },
+        "playbook_command": {
+          "type": "string",
+          "pattern": "^ah explain [A-Za-z0-9_-]+$",
+          "description": "An 'ah explain <topic>' invocation that prints the playbook for this finding."
+        }
+      },
+      "allOf": [
+        {
+          "description": "apply_command MUST be null when suggested_action is non-mechanical.",
+          "if": {
+            "properties": {
+              "suggested_action": {
+                "enum": ["human_review_required", "edit_code_not_scenario"]
+              }
+            },
+            "required": ["suggested_action"]
+          },
+          "then": {
+            "properties": {
+              "apply_command": { "type": "null" }
+            }
+          }
+        },
+        {
+          "description": "apply_command MUST be a non-empty argv when suggested_action is enable_capability.",
+          "if": {
+            "properties": {
+              "suggested_action": { "const": "enable_capability" }
+            },
+            "required": ["suggested_action"]
+          },
+          "then": {
+            "properties": {
+              "apply_command": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1 }
+              }
+            },
+            "required": ["apply_command"]
+          }
+        },
+        {
+          "description": "recommendation findings MUST carry detection_source.",
+          "if": {
+            "properties": { "kind": { "const": "recommendation" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["detection_source"]
+          }
+        },
+        {
+          "description": "test-failing findings MUST carry execution context.",
+          "if": {
+            "properties": { "kind": { "const": "test-failing" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["command", "command_exit", "stdout_tail", "stderr_tail"]
+          }
+        },
+        {
+          "description": "Quality findings default to info or warning severity; they never carry the 'error' severity in v1.",
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": ["quality-mutation", "quality-property", "quality-snapshot"]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "severity": { "enum": ["warning", "info"] }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

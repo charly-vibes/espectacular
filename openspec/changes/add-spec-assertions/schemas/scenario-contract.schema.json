@@ -22,6 +22,20 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "superseded" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": { "superseded_by": { "type": "string", "minLength": 1 } }
+      },
+      "else": {
+        "properties": { "superseded_by": { "type": "string" } }
+      }
+    }
+  ],
   "$defs": {
     "testEntry": {
       "type": "object",

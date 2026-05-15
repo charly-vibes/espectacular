@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://charly.dev/espectacular/custom-runner.schema.json",
   "title": "ah custom runner envelope",
-  "description": "Envelope emitted on stdout by a configured [runners.custom.<name>] command. Each object in findings MUST conform to check-output.schema.json#/$defs/finding.",
+  "description": "Envelope emitted on stdout by a configured [runners.custom.<name>] command. Each object in findings MUST conform to check-output.schema.json#/$defs/finding. The envelope encodes the runner's self-reported verdict; ah applies the precedence matrix in design.md (D5) to resolve the final outcome against the process exit code.",
   "type": "object",
   "required": ["exit_code", "passed", "findings"],
   "additionalProperties": false,
@@ -13,7 +13,7 @@
     },
     "passed": {
       "type": "boolean",
-      "description": "True when the runner considers the invocation successful."
+      "description": "True when the runner considers the invocation successful. MUST be true if and only if findings is empty: a passing verdict cannot carry failure reasons, and a failing verdict MUST cite at least one finding."
     },
     "findings": {
       "type": "array",
@@ -22,5 +22,19 @@
         "$ref": "https://charly.dev/espectacular/check-output.schema.json#/$defs/finding"
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "passed": { "const": true } },
+        "required": ["passed"]
+      },
+      "then": {
+        "properties": { "findings": { "maxItems": 0 } }
+      },
+      "else": {
+        "properties": { "findings": { "minItems": 1 } }
+      }
+    }
+  ]
 }
