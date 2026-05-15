@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://charly.dev/espectacular/custom-runner.schema.json",
+  "title": "ah custom runner envelope",
+  "description": "Envelope emitted on stdout by a configured [runners.custom.<name>] command. Each object in findings MUST conform to check-output.schema.json#/$defs/finding.",
+  "type": "object",
+  "required": ["exit_code", "passed", "findings"],
+  "additionalProperties": false,
+  "properties": {
+    "exit_code": {
+      "type": "integer",
+      "description": "The custom runner process exit code as observed by ah."
+    },
+    "passed": {
+      "type": "boolean",
+      "description": "True when the runner considers the invocation successful."
+    },
+    "findings": {
+      "type": "array",
+      "description": "Normalized findings produced by the runner; items conform to check-output.schema.json#/$defs/finding.",
+      "items": {
+        "$ref": "https://charly.dev/espectacular/check-output.schema.json#/$defs/finding"
+      }
+    }
+  }
+}

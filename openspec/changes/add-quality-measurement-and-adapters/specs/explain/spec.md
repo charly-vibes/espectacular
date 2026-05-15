@@ -21,8 +21,8 @@ The system SHALL fail to build if any `FindingKind` or `SuggestedAction` enum va
 The system SHALL provide `ah explain` topics for every `FindingKind` value, every `SuggestedAction` value, and a set of general topics.
 
 #### Scenario: Finding kind topic exists
-- **WHEN** a user runs `ah explain missing-contract`
-- **THEN** the command prints guidance for the `missing-contract` finding kind and exits zero
+- **WHEN** a user runs `ah explain no-toml`
+- **THEN** the command prints guidance for the `no-toml` finding kind and exits zero
 
 #### Scenario: Suggested action topic exists
 - **WHEN** a user runs `ah explain run_ah_scenario_new`
@@ -36,7 +36,7 @@ The system SHALL provide `ah explain` topics for every `FindingKind` value, ever
 The system SHALL support `--json` output for `ah explain` that emits a machine-readable object.
 
 #### Scenario: JSON output has required fields
-- **WHEN** a user runs `ah explain missing-contract --json`
+- **WHEN** a user runs `ah explain no-toml --json`
 - **THEN** the output is a valid JSON object containing: `topic` (string), `summary` (string), `when` (string), `do` (array of strings), `human_approval` (boolean), `related_topics` (array of strings), `hints` (array — shape provisional until v0.2)
 
 #### Scenario: JSON output is valid for every topic

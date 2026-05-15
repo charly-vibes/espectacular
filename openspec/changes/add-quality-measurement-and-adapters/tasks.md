@@ -75,7 +75,7 @@
 
 ## 8. Quality measurement capabilities
 
-- [ ] 8.1 Red: add failing tests for mutation finding emitted when `tests.mutation = true` and tool is configured
+- [ ] 8.1 Red: add failing tests for mutation finding emitted when `[quality.mutation] enabled = true` and tool is configured
 - [ ] 8.2 Green: implement mutation dispatch in `src/quality.rs`
 - [ ] 8.3 Red: add failing tests proving mutation is skipped in pre-commit scope without explicit flag
 - [ ] 8.4 Green: implement pre-commit scope guard
@@ -112,5 +112,5 @@
 - [ ] 11.1 Add end-to-end integration test: Python project with pytest, `ah check` produces zero findings
 - [ ] 11.2 Add end-to-end integration test: Rust project with cargo test, `ah check` produces zero findings
 - [ ] 11.3 Add end-to-end integration test: TypeScript project with vitest, `ah check` produces zero findings
-- [ ] 11.4 Add end-to-end integration test: `ah explain missing-contract` exits zero with non-empty output
+- [ ] 11.4 Add end-to-end integration test: `ah explain no-toml` exits zero with non-empty output
 - [ ] 11.5 Run `openspec validate add-quality-measurement-and-adapters --strict` and resolve all issues

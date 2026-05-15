@@ -38,10 +38,10 @@ The system SHALL include agent-action fields on every finding in the JSON output
 The system SHALL support opt-in quality measurement capabilities that run during `ah check` and emit measurement findings without failing the gate.
 
 #### Scenario: Mutation testing runs when enabled
-- **GIVEN** a contract declares `tests.mutation = true`
+- **GIVEN** a contract declares `[quality.mutation] enabled = true`
 - **AND** a mutation tool is configured in `.espectacular/config.toml`
-- **WHEN** a user runs `ah check`
-- **THEN** the gate runs the mutation tool against the test
+- **WHEN** a user runs `ah check --mutation`
+- **THEN** the gate runs the mutation tool against the contract's declared tests
 - **AND** emits a `quality-mutation` info finding with the measured score
 - **AND** exits zero when the score is below any configured threshold
 
@@ -68,6 +68,20 @@ The system SHALL support opt-in quality measurement capabilities that run during
 - **AND** `ah check` is invoked without an explicit `--mutation` flag
 - **WHEN** the command runs in pre-commit mode
 - **THEN** mutation testing is skipped
+
+### Requirement: Quality contract schema
+The system SHALL represent quality measurements without changing the baseline rule that `tests.<type>` entries are arrays of runnable test declarations.
+
+#### Scenario: Mutation configuration is not a test entry
+- **GIVEN** mutation measurement is enabled for a scenario contract
+- **WHEN** the contract is validated
+- **THEN** mutation settings are read from a `[quality.mutation]` table
+- **AND** `tests.mutation` as a boolean is rejected as a malformed contract
+
+#### Scenario: Property and snapshot are runnable test entries
+- **GIVEN** a scenario contract declares `[[tests.property]]` or `[[tests.snapshot]]`
+- **WHEN** the contract is validated
+- **THEN** each entry follows the same runnable test-entry shape as other `tests.<type>` arrays
 
 ### Requirement: apply_command is conditionally present
 The system SHALL set `apply_command` only when the finding's `suggested_action` maps to a concrete, mechanical shell command; it SHALL be null for findings that require non-mechanical human action.

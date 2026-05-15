@@ -71,8 +71,8 @@ The system SHALL provide `ah doctor --enable <capability>` to write a single con
 The system SHALL provide an `ah explain <topic>` subcommand that prints playbook guidance for a finding kind or suggested action.
 
 #### Scenario: Explain a finding kind
-- **WHEN** a user runs `ah explain missing-contract`
-- **THEN** the command prints markdown guidance for the `missing-contract` finding kind
+- **WHEN** a user runs `ah explain no-toml`
+- **THEN** the command prints markdown guidance for the `no-toml` finding kind
 
 #### Scenario: Explain a suggested action
 - **WHEN** a user runs `ah explain run_ah_scenario_new`
@@ -83,7 +83,7 @@ The system SHALL provide an `ah explain <topic>` subcommand that prints playbook
 - **THEN** the command prints markdown guidance for the general `workflow` topic
 
 #### Scenario: Explain with JSON output
-- **WHEN** a user runs `ah explain missing-contract --json`
+- **WHEN** a user runs `ah explain no-toml --json`
 - **THEN** the command emits a JSON object with fields: `topic`, `summary`, `when`, `do`, `human_approval`, `related_topics`, `hints`
 
 #### Scenario: List all topics

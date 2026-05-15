@@ -28,7 +28,7 @@ schemas/
 
 ## D1. Quality measurement is in v1 — measurement, not enforcement
 
-The finding schema gains `tests.property` and `tests.snapshot` as first-class optional entries from day one. Mutation runs behind a flag, off in pre-commit, on in nightly CI. `ah doctor` warns below per-archetype thresholds; `ah check` does not fail on them.
+The scenario contract schema gains `tests.property` and `tests.snapshot` as first-class optional test-entry arrays from day one. Mutation uses a separate `[quality.mutation]` table because it is a measurement over declared tests, not a runnable test selector itself. Mutation runs behind a flag, off in pre-commit, on in nightly CI. `ah doctor` warns below per-archetype thresholds; `ah check` does not fail on them.
 
 **Rationale**: deciding the schema shape now is cheap; retrofitting it later forces a migration across every contract in every adopting project.
 
@@ -36,12 +36,14 @@ The finding schema gains `tests.property` and `tests.snapshot` as first-class op
 
 v1 ships first-class adapters for curated stacks. Each adapter is a small Rust module with two responsibilities: detect the framework's presence and version, and invoke it then normalize output into the finding schema.
 
-Detection follows a precedence chain:
+Detection follows a precedence chain per adapter and per contract test type:
 1. Declared in the language manifest (strongest) — e.g., `pyproject.toml`, `Cargo.toml`, `package.json`
 2. Installed in environment — e.g., `pytest` on `$PATH`
 3. Imported in source — e.g., `import pytest` in a test file
 
-A `[runners.custom.<name>]` config block lets users wire arbitrary shell commands that emit a documented JSON envelope. The envelope schema lives in `schemas/custom-runner.schema.json` and must be fully specified before implementation begins.
+A multi-language repository may have multiple available adapters at once. There is no single global active adapter; dispatch selects the configured or detected adapter for each declared test type.
+
+A `[runners.custom.<name>]` config block lets users wire arbitrary shell commands that emit a documented JSON envelope. The envelope schema lives in `schemas/custom-runner.schema.json` and is part of this change.
 
 **Rationale**: a purely declarative model gives `ah doctor` nothing concrete to detect; a fully bundled model makes every framework version bump an `ah` release.
 
@@ -61,17 +63,17 @@ Recommendations appear as a dedicated finding kind so an agent can read them, ga
 
 ## D5. Rich JSON finding schema
 
-The finding schema is the most permanent external surface. Per-finding fields:
+The finding schema is the most permanent external surface. This change preserves baseline finding-kind names from `add-spec-assertions` and only adds new names for new concepts. Per-finding fields:
 
 **Required on every finding:**
-- `kind` — enum: `missing-contract | orphan-contract | slug-mismatch | id-mismatch | no-tests-declared | test-failing | dangling-supersession | recommendation | unknown-action | quality-mutation | quality-property | quality-snapshot`
+- `kind` — enum extending the baseline names: `no-toml | orphan-toml | slug-collision | id-mismatch | invalid-status | no-tests-declared | missing-runner | missing-adapter | malformed-contract | missing-replacement | overlay-conflict | test-failing | recommendation | unknown-action | quality-mutation | quality-property | quality-snapshot`
 - `severity` — `error | warning | info`
 - `scope` — `deployed | change:<id>`
 - `message` — human-readable one-liner
 
 **Present when applicable:**
 - `scenario_id`, `scenario_path`, `scenario_prose` (full markdown body, verbatim, no truncation)
-- `contract_path`, `command`, `command_exit`, `stdout_tail` (~4KB), `stderr_tail` (~4KB)
+- `contract_path`, `command`, `command_exit`, `stdout_tail` (final 8 KiB), `stderr_tail` (final 8 KiB)
 
 **Agent-action fields:**
 - `suggested_action` — enum: `run_ah_init | run_ah_scenario_new | run_ah_scenario_supersede | edit_code_not_scenario | enable_capability | review_and_apply | human_review_required` — **always present**

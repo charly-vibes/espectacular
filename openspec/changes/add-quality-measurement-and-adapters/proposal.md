@@ -2,7 +2,7 @@
 
 Change-id: `add-quality-measurement-and-adapters`
 Status: draft
-Builds on: `add-spec-assertions`
+Depends on: `add-spec-assertions` being archived/deployed first. This change modifies `cli` and `gate` requirements introduced by that baseline change and must not be archived before it.
 
 ## Why
 
@@ -40,4 +40,4 @@ This change adds quality *measurement* (not enforcement) and the language adapte
 - Adapter detection precedence is defined (manifest → environment → source import), but the exact per-language signals need pinning — e.g., does a Rust property adapter look for `proptest` in `Cargo.toml` dev-dependencies only, or also workspace dependencies?
 - `ah explain --json` field set is provisional; the `hints` field shape is undefined until the first context-aware hint lands (likely v0.2 with state).
 - Per-archetype default mutation thresholds are unset. v1 ships with thresholds absent (measure-only, no warning) until real-world scores inform defaults.
-- **Blocker**: `[runners.custom.<name>]` JSON envelope is named but not yet specified. Nothing in the plugin path can be built or tested until its shape is fixed. This must be resolved before implementation begins.
+- `[runners.custom.<name>]` uses the envelope defined in `schemas/custom-runner.schema.json`; the schema is the first implementation deliverable and gates custom-runner execution work.

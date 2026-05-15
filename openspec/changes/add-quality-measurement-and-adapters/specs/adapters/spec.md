@@ -5,7 +5,7 @@ Language adapters normalize test execution across Python, Rust, and TypeScript i
 ## ADDED Requirements
 
 ### Requirement: Adapter detection precedence
-The system SHALL detect framework availability through a defined precedence chain before invoking any adapter.
+The system SHALL detect framework availability through a defined precedence chain before invoking any adapter, and SHALL dispatch adapters per declared contract test type rather than selecting one global adapter for the whole repository.
 
 #### Scenario: Manifest declaration takes precedence
 - **GIVEN** a project declares a test framework in its language manifest (e.g., `pyproject.toml`, `Cargo.toml`, `package.json`)
@@ -22,12 +22,12 @@ The system SHALL detect framework availability through a defined precedence chai
 - **WHEN** adapter detection runs
 - **THEN** the source import is recognized as the weakest positive signal
 
-#### Scenario: Manifest signal wins over conflicting environment signal
-- **GIVEN** a project manifest declares pytest as the test framework
+#### Scenario: Manifest signal wins for the matching adapter
+- **GIVEN** a project manifest declares pytest as the Python test framework
 - **AND** the environment also has vitest installed
-- **WHEN** adapter detection runs
-- **THEN** pytest is selected as the active adapter (manifest takes precedence over environment)
-- **AND** the vitest environment presence is not treated as a detection conflict
+- **WHEN** adapter detection runs for a Python contract test type
+- **THEN** pytest is selected for that Python test invocation because manifest takes precedence over environment
+- **AND** the vitest environment presence remains available for TypeScript test invocations and is not treated as a conflict
 
 ### Requirement: Python pytest adapter
 The system SHALL provide a bundled pytest adapter that detects pytest, runs the declared test command, and normalizes output into the finding schema.
@@ -84,14 +84,15 @@ The system SHALL provide a bundled vitest adapter that detects vitest, runs the 
 - **THEN** the adapter emits a `test-failing` finding with bounded stdout/stderr tails
 
 ### Requirement: No-adapter-configured path
-The system SHALL emit a clear finding when a contract declares a test command but no adapter is configured or detected for the project's language.
+The system SHALL emit a clear finding when a contract declares a test command but no adapter is configured or detected for the declared test type.
 
-#### Scenario: Missing adapter emits no-tests-declared finding
+#### Scenario: Missing adapter emits missing-adapter finding
 - **GIVEN** a contract declares a test command
-- **AND** no adapter is configured in `.espectacular/config.toml` for the project's language
+- **AND** no adapter is configured in `.espectacular/config.toml` for the declared test type
 - **AND** adapter detection finds no matching framework
 - **WHEN** `ah check` runs
-- **THEN** a `no-tests-declared` finding is emitted with a message directing the user to run `ah doctor`
+- **THEN** a `missing-adapter` finding is emitted with a message directing the user to run `ah doctor`
+- **AND** the finding is distinct from `no-tests-declared` because the contract did declare a test
 
 ### Requirement: Custom runner plugin protocol
 The system SHALL support `[runners.custom.<name>]` config blocks that wire arbitrary shell commands into the adapter layer via a documented JSON envelope defined in `schemas/custom-runner.schema.json`.
