@@ -35,9 +35,9 @@ This change adds quality *measurement* (not enforcement) and the language adapte
 - Affected code: `src/adapters/` module tree, `src/explain.rs`, `src/doctor.rs` (detection + `--enable`), finding schema types, `schemas/check-output.schema.json`
 - **BREAKING**: none. Projects opt into adapters and capabilities; the baseline gate behavior from `add-spec-assertions` is unchanged.
 
-## Open Questions
+## Resolved Clarifications
 
-- Adapter detection precedence is defined (manifest → environment → source import), but the exact per-language signals need pinning — e.g., does a Rust property adapter look for `proptest` in `Cargo.toml` dev-dependencies only, or also workspace dependencies?
-- `ah explain --json` field set is provisional; the `hints` field shape is undefined until the first context-aware hint lands (likely v0.2 with state).
-- Per-archetype default mutation thresholds are unset. v1 ships with thresholds absent (measure-only, no warning) until real-world scores inform defaults.
-- `[runners.custom.<name>]` uses the envelope defined in `schemas/custom-runner.schema.json`; the schema is the first implementation deliverable and gates custom-runner execution work.
+- Adapter detection precedence is defined as manifest → environment → source import, and the selected `detection_source` is reported in doctor/check output. Per-language v1 signals are defined in the design document.
+- `ah explain --json` includes `hints` as an array of objects, where each item contains `kind` and `message`. Richer hint payloads are deferred to v0.2 without changing the v1 minimum shape.
+- Per-archetype default mutation thresholds are intentionally absent in v1. Completed quality measurements below user-configured thresholds emit warning/info findings and do not fail the gate; tool execution failures still fail the gate.
+- `[runners.custom.<name>]` uses the envelope defined in `schemas/custom-runner.schema.json`; process exit failures override successful envelopes, and envelope failures override process success.

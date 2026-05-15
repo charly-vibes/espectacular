@@ -28,7 +28,7 @@ schemas/
 
 ## D1. Quality measurement is in v1 — measurement, not enforcement
 
-The scenario contract schema gains `tests.property` and `tests.snapshot` as first-class optional test-entry arrays from day one. Mutation uses a separate `[quality.mutation]` table because it is a measurement over declared tests, not a runnable test selector itself. Mutation runs behind a flag, off in pre-commit, on in nightly CI. `ah doctor` warns below per-archetype thresholds; `ah check` does not fail on them.
+The scenario contract schema gains `tests.property` and `tests.snapshot` as first-class optional test-entry arrays from day one. Mutation uses a separate `[quality.mutation]` table because it is a measurement over declared tests, not a runnable test selector itself. Mutation runs behind a flag, off in pre-commit, on in nightly CI. `ah doctor` warns below per-archetype thresholds; `ah check` does not fail on completed measurements whose scores are below thresholds. Command execution failures still fail the gate: a non-zero or timed-out property/snapshot command, or a mutation tool failure before producing a measurement, emits `test-failing` and exits non-zero.
 
 **Rationale**: deciding the schema shape now is cheap; retrofitting it later forces a migration across every contract in every adopting project.
 
@@ -37,11 +37,23 @@ The scenario contract schema gains `tests.property` and `tests.snapshot` as firs
 v1 ships first-class adapters for curated stacks. Each adapter is a small Rust module with two responsibilities: detect the framework's presence and version, and invoke it then normalize output into the finding schema.
 
 Detection follows a precedence chain per adapter and per contract test type:
-1. Declared in the language manifest (strongest) — e.g., `pyproject.toml`, `Cargo.toml`, `package.json`
-2. Installed in environment — e.g., `pytest` on `$PATH`
-3. Imported in source — e.g., `import pytest` in a test file
+1. Configured in `.espectacular/config.toml` — strongest and reproducible
+2. Declared in the language manifest — e.g., `pyproject.toml`, `Cargo.toml`, `package.json`
+3. Installed in environment — e.g., `pytest` on `$PATH`
+4. Imported in source — e.g., `import pytest` in a test file
 
-A multi-language repository may have multiple available adapters at once. There is no single global active adapter; dispatch selects the configured or detected adapter for each declared test type.
+The selected source is reported as `configured`, `manifest`, `environment`, or `source_import` in doctor/check output. Environment and source-import detection are allowed to produce recommendations and missing-adapter diagnostics, but `ah check` only invokes adapters selected by explicit config or by the contract's declared test type mapping.
+
+V1 manifest/source signals:
+
+| Adapter | Manifest signal | Source-import signal |
+| --- | --- | --- |
+| pytest | `pyproject.toml` `[tool.pytest.ini_options]` or pytest in project dependencies | `import pytest` in `test_*.py` or `*_test.py` |
+| cargo | `Cargo.toml` or workspace manifest with test target available | not used |
+| vitest | `package.json` `dependencies` or `devDependencies` contains `vitest` | `import ... from "vitest"` or `from 'vitest'` in test files |
+| property | `hypothesis` in Python dependencies or `proptest` in Cargo dev-dependencies/workspace dependencies | `from hypothesis` / `import hypothesis` or Rust `proptest!` macro use |
+
+A multi-language repository may have multiple available adapters at once. There is no single global active adapter; dispatch selects the configured adapter for each declared test type, using detection results to explain missing configuration and recommend enablement.
 
 A `[runners.custom.<name>]` config block lets users wire arbitrary shell commands that emit a documented JSON envelope. The envelope schema lives in `schemas/custom-runner.schema.json` and is part of this change.
 
@@ -55,7 +67,29 @@ Each v1 baseline adapter does exactly one thing: run the test command in the con
 
 ## D4. Progressive enablement UX
 
-On detecting a newly-available framework, `ah doctor` prints a structured recommendation block. Capability-specific flags — `ah doctor --enable property`, `--enable mutation`, `--enable snapshot` — write a single config block. Nothing else turns features on.
+On detecting a newly-available framework, `ah doctor` prints a structured recommendation block. Capability-specific flags write exactly one config table and print the file path plus table name:
+
+```toml
+[runners.pytest]
+command = ["pytest"]
+
+[runners.cargo]
+command = ["cargo", "test"]
+
+[runners.vitest]
+command = ["vitest", "run"]
+
+[capabilities.mutation]
+enabled = true
+
+[capabilities.property]
+enabled = true
+
+[capabilities.snapshot]
+enabled = true
+```
+
+Nothing else turns features on.
 
 Recommendations appear as a dedicated finding kind so an agent can read them, gate on human approval, and enable selectively.
 
@@ -90,6 +124,7 @@ The playbook ships in the binary. Each Rust enum variant carries its playbook bo
 
 - `ah explain <topic>` prints markdown guidance
 - `--json` emits structured output: `topic`, `summary`, `when`, `do`, `human_approval`, `related_topics`, `hints`
+- `hints` is an array of objects; each object has `kind` and `message` strings in v1
 - Topics: every `SuggestedAction` value, every `FindingKind` value, plus general topics
 - Every finding sets `playbook_command`
 - `ah explain --list` enumerates all topics

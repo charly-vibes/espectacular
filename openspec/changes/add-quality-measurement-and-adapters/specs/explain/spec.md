@@ -37,7 +37,8 @@ The system SHALL support `--json` output for `ah explain` that emits a machine-r
 
 #### Scenario: JSON output has required fields
 - **WHEN** a user runs `ah explain no-toml --json`
-- **THEN** the output is a valid JSON object containing: `topic` (string), `summary` (string), `when` (string), `do` (array of strings), `human_approval` (boolean), `related_topics` (array of strings), `hints` (array — shape provisional until v0.2)
+- **THEN** the output is a valid JSON object containing: `topic` (string), `summary` (string), `when` (string), `do` (array of strings), `human_approval` (boolean), `related_topics` (array of strings), `hints` (array of objects)
+- **AND** each `hints` item contains `kind` (string) and `message` (string)
 
 #### Scenario: JSON output is valid for every topic
 - **GIVEN** any valid topic identifier
@@ -56,7 +57,7 @@ The system SHALL enumerate all available topics on demand.
 - **THEN** the output is identical (topics are sorted alphabetically)
 
 ### Requirement: Unknown topic handling
-The system SHALL reject unknown topics with a clear error and exit non-zero.
+When a user requests an unknown `ah explain` topic, the system SHALL exit non-zero and print either `Run ah explain --list` or the sorted list of available topic identifiers.
 
 #### Scenario: Unknown topic exits non-zero
 - **WHEN** a user runs `ah explain no-such-topic`

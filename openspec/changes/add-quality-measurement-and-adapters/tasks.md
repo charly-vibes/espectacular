@@ -23,8 +23,8 @@
 ## 2. Adapter trait and dispatch
 
 - [ ] 2.1 Red: add failing tests for the `Adapter` trait interface (detect, invoke, normalize)
-- [ ] 2.2 Green: define `Adapter` trait in `src/adapters/mod.rs` with detection precedence chain
-- [ ] 2.3 Red: add failing tests for adapter dispatch selecting the correct adapter from config
+- [ ] 2.2 Green: define `Adapter` trait in `src/adapters/mod.rs` with detection precedence chain and `detection_source` reporting
+- [ ] 2.3 Red: add failing tests for adapter dispatch selecting the correct adapter from config and reporting non-configured detections as recommendations only
 - [ ] 2.4 Green: implement adapter dispatch in the gate runner
 - [ ] 2.5 Refactor: isolate detection from invocation in the trait
 
@@ -58,8 +58,10 @@
 - [ ] 6.2 Green: implement envelope parsing and normalization in `src/adapters/custom.rs`
 - [ ] 6.3 Red: add failing tests for non-zero exit without valid envelope producing `test-failing`
 - [ ] 6.4 Green: implement error path
-- [ ] 6.5 Red: add failing test proving no custom runner runs without explicit config
-- [ ] 6.6 Green: guard invocation behind config presence check
+- [ ] 6.5 Red: add failing tests for conflict precedence: envelope failure over process success, and process failure over envelope success
+- [ ] 6.6 Green: implement conflict precedence rules
+- [ ] 6.7 Red: add failing test proving no custom runner runs without explicit config
+- [ ] 6.8 Green: guard invocation behind config presence check
 
 ## 7. `ah doctor` detection and `--enable`
 
@@ -67,8 +69,8 @@
 - [ ] 7.2 Green: implement detection reporting in `src/doctor.rs`
 - [ ] 7.3 Red: add failing tests for `recommendation` finding emitted when available framework is not configured
 - [ ] 7.4 Green: emit recommendation findings with `apply_command` set to the `--enable` invocation
-- [ ] 7.5 Red: add failing tests for `ah doctor --enable <capability>` writing config block
-- [ ] 7.6 Green: implement `--enable` flag writing config block to `.espectacular/config.toml`
+- [ ] 7.5 Red: add golden-file failing tests for `ah doctor --enable <capability>` writing the exact v1 config table for pytest, cargo, vitest, mutation, property, and snapshot
+- [ ] 7.6 Green: implement `--enable` flag writing the exact config table to `.espectacular/config.toml`
 - [ ] 7.7 Red: add failing tests for unknown capability error and already-enabled no-op
 - [ ] 7.8 Green: implement error and no-op paths
 - [ ] 7.9 Refactor: share config-write path between `ah init` and `ah doctor --enable`
@@ -81,9 +83,11 @@
 - [ ] 8.4 Green: implement pre-commit scope guard
 - [ ] 8.5 Red: add failing tests for `tests.property` and `tests.snapshot` finding emission
 - [ ] 8.6 Green: implement property and snapshot capability dispatch
-- [ ] 8.7 Red: add failing test proving quality findings do not cause non-zero exit
+- [ ] 8.7 Red: add failing test proving completed quality measurements below threshold do not cause non-zero exit
 - [ ] 8.8 Green: ensure gate exit code is unaffected by quality finding severity
-- [ ] 8.9 Refactor: unify quality finding construction
+- [ ] 8.9 Red: add failing tests proving property/snapshot command failures and mutation tool execution failures emit `test-failing` and exit non-zero
+- [ ] 8.10 Green: implement quality command failure exit semantics
+- [ ] 8.11 Refactor: unify quality finding construction
 
 ## 9. `ah explain` subcommand
 
@@ -93,7 +97,7 @@
 - [ ] 9.4 Green: implement topic bodies in `src/explain.rs` — quality finding kinds must have bodies that explain the score, how to enable the capability, and when the finding appears
 - [ ] 9.5 Red: add failing tests for general topics (workflow, supersession, archetypes, progressive-enablement)
 - [ ] 9.6 Green: implement general topic bodies
-- [ ] 9.7 Red: add failing tests for `--json` output shape against provisional schema
+- [ ] 9.7 Red: add failing tests for `--json` output shape, including `hints[].kind` and `hints[].message`
 - [ ] 9.8 Green: implement `--json` serialization
 - [ ] 9.9 Red: add failing tests for `--list` stable output and unknown topic error
 - [ ] 9.10 Green: implement listing and error path

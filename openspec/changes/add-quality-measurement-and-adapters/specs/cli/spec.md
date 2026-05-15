@@ -5,7 +5,7 @@ The standalone command-line interface for espectacular is exposed as `ah` and pr
 ## MODIFIED Requirements
 
 ### Requirement: Doctor capability detection
-The system SHALL have `ah doctor` detect available test frameworks and quality tools in the project and report them with actionable recommendations.
+When `ah doctor` detects an available framework or quality tool that is not configured, the system SHALL emit a `recommendation` finding with `kind`, `suggested_action`, `apply_command`, `playbook_command`, and `detection_source`.
 
 #### Scenario: Detect installed pytest
 - **GIVEN** a project contains a Python test file or has `pytest` installed
@@ -44,23 +44,48 @@ The system SHALL have `ah doctor` detect available test frameworks and quality t
 ## ADDED Requirements
 
 ### Requirement: Doctor enable flag
-The system SHALL provide `ah doctor --enable <capability>` to write a single config block that activates a detected capability.
+When a user runs `ah doctor --enable <capability>` for a detected inactive capability, the system SHALL write exactly one config table for that capability and SHALL print the path and table name written.
 
 #### Scenario: Enable pytest adapter
 - **GIVEN** pytest is detected by `ah doctor`
 - **WHEN** a user runs `ah doctor --enable pytest`
-- **THEN** the command writes a `[runners.pytest]` block to `.espectacular/config.toml`
-- **AND** prints a summary of what was written
+- **THEN** the command writes `[runners.pytest] command = ["pytest"]` to `.espectacular/config.toml`
+- **AND** prints `.espectacular/config.toml` and `[runners.pytest]`
+
+#### Scenario: Enable cargo adapter
+- **GIVEN** cargo is detected by `ah doctor`
+- **WHEN** a user runs `ah doctor --enable cargo`
+- **THEN** the command writes `[runners.cargo] command = ["cargo", "test"]` to `.espectacular/config.toml`
+- **AND** prints `.espectacular/config.toml` and `[runners.cargo]`
+
+#### Scenario: Enable vitest adapter
+- **GIVEN** vitest is detected by `ah doctor`
+- **WHEN** a user runs `ah doctor --enable vitest`
+- **THEN** the command writes `[runners.vitest] command = ["vitest", "run"]` to `.espectacular/config.toml`
+- **AND** prints `.espectacular/config.toml` and `[runners.vitest]`
 
 #### Scenario: Enable mutation capability
 - **GIVEN** a mutation testing tool is detected
 - **WHEN** a user runs `ah doctor --enable mutation`
-- **THEN** the command writes a `[capabilities.mutation]` block to `.espectacular/config.toml`
-- **AND** prints a summary of what was written
+- **THEN** the command writes `[capabilities.mutation] enabled = true` to `.espectacular/config.toml`
+- **AND** prints `.espectacular/config.toml` and `[capabilities.mutation]`
+
+#### Scenario: Enable property capability
+- **GIVEN** a property-based testing framework is detected
+- **WHEN** a user runs `ah doctor --enable property`
+- **THEN** the command writes `[capabilities.property] enabled = true` to `.espectacular/config.toml`
+- **AND** prints `.espectacular/config.toml` and `[capabilities.property]`
+
+#### Scenario: Enable snapshot capability
+- **GIVEN** a snapshot testing framework is detected
+- **WHEN** a user runs `ah doctor --enable snapshot`
+- **THEN** the command writes `[capabilities.snapshot] enabled = true` to `.espectacular/config.toml`
+- **AND** prints `.espectacular/config.toml` and `[capabilities.snapshot]`
 
 #### Scenario: Enable unknown capability is an error
 - **WHEN** a user runs `ah doctor --enable nonexistent`
-- **THEN** the command exits non-zero with a clear error message naming the unrecognized capability
+- **THEN** the command exits non-zero
+- **AND** prints `unrecognized capability: nonexistent`
 
 #### Scenario: Enable already-active capability is a no-op
 - **GIVEN** a capability is already present in `.espectacular/config.toml`
@@ -85,6 +110,7 @@ The system SHALL provide an `ah explain <topic>` subcommand that prints playbook
 #### Scenario: Explain with JSON output
 - **WHEN** a user runs `ah explain no-toml --json`
 - **THEN** the command emits a JSON object with fields: `topic`, `summary`, `when`, `do`, `human_approval`, `related_topics`, `hints`
+- **AND** each `hints` item contains `kind` and `message` string fields
 
 #### Scenario: List all topics
 - **WHEN** a user runs `ah explain --list`
@@ -92,7 +118,8 @@ The system SHALL provide an `ah explain <topic>` subcommand that prints playbook
 
 #### Scenario: Unknown topic is an error
 - **WHEN** a user runs `ah explain no-such-topic`
-- **THEN** the command exits non-zero with a message listing available topics
+- **THEN** the command exits non-zero
+- **AND** prints either `Run ah explain --list` or the sorted list of available topic identifiers
 
 ### Requirement: Recommendation findings
 The system SHALL emit `recommendation` findings when `ah doctor` detects capabilities that are available but not yet configured.

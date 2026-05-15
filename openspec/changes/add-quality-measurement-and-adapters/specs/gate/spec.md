@@ -57,11 +57,24 @@ The system SHALL support opt-in quality measurement capabilities that run during
 - **THEN** the gate runs the snapshot test command
 - **AND** emits a `quality-snapshot` finding with the run result
 
-#### Scenario: Quality failures do not fail the gate in v1
-- **GIVEN** a quality measurement capability produces a score below threshold
+#### Scenario: Quality scores below threshold do not fail the gate in v1
+- **GIVEN** a quality measurement capability completes successfully and produces a score below threshold
 - **WHEN** a user runs `ah check`
 - **THEN** the finding severity is `warning` or `info`
 - **AND** the overall exit status is zero
+
+#### Scenario: Property or snapshot command failure fails the gate
+- **GIVEN** a contract declares `[[tests.property]]` or `[[tests.snapshot]]`
+- **AND** the declared command exits non-zero or times out
+- **WHEN** a user runs `ah check`
+- **THEN** the command emits a `test-failing` execution finding
+- **AND** the overall exit status is non-zero
+
+#### Scenario: Mutation tool execution failure fails the gate
+- **GIVEN** mutation measurement is enabled and the mutation tool command exits non-zero before producing a measurement
+- **WHEN** a user runs `ah check --mutation`
+- **THEN** the command emits a `test-failing` execution finding
+- **AND** the overall exit status is non-zero
 
 #### Scenario: Mutation is off in pre-commit scope by default
 - **GIVEN** mutation testing is configured

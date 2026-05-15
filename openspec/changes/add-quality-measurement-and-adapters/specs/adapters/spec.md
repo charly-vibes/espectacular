@@ -5,7 +5,7 @@ Language adapters normalize test execution across Python, Rust, and TypeScript i
 ## ADDED Requirements
 
 ### Requirement: Adapter detection precedence
-The system SHALL detect framework availability through a defined precedence chain before invoking any adapter, and SHALL dispatch adapters per declared contract test type rather than selecting one global adapter for the whole repository.
+The system SHALL detect framework availability through a defined precedence chain before invoking any adapter, SHALL dispatch adapters per declared contract test type rather than selecting one global adapter for the whole repository, and SHALL record the selected detection source in doctor and check output.
 
 #### Scenario: Manifest declaration takes precedence
 - **GIVEN** a project declares a test framework in its language manifest (e.g., `pyproject.toml`, `Cargo.toml`, `package.json`)
@@ -28,6 +28,12 @@ The system SHALL detect framework availability through a defined precedence chai
 - **WHEN** adapter detection runs for a Python contract test type
 - **THEN** pytest is selected for that Python test invocation because manifest takes precedence over environment
 - **AND** the vitest environment presence remains available for TypeScript test invocations and is not treated as a conflict
+
+#### Scenario: Detection source is reported
+- **GIVEN** adapter detection selects a framework through manifest, environment, or source-import evidence
+- **WHEN** `ah doctor --json` or `ah check --json` reports the selected adapter
+- **THEN** the report includes `adapter`, `test_type`, and `detection_source`
+- **AND** `detection_source` is one of `manifest`, `environment`, `source_import`, or `configured`
 
 ### Requirement: Python pytest adapter
 The system SHALL provide a bundled pytest adapter that detects pytest, runs the declared test command, and normalizes output into the finding schema.
@@ -84,7 +90,7 @@ The system SHALL provide a bundled vitest adapter that detects vitest, runs the 
 - **THEN** the adapter emits a `test-failing` finding with bounded stdout/stderr tails
 
 ### Requirement: No-adapter-configured path
-The system SHALL emit a clear finding when a contract declares a test command but no adapter is configured or detected for the declared test type.
+When a contract declares a test command but no adapter is configured or detected for the declared test type, the system SHALL emit a `missing-adapter` finding with `kind`, `message`, `suggested_action`, and `playbook_command` fields.
 
 #### Scenario: Missing adapter emits missing-adapter finding
 - **GIVEN** a contract declares a test command
@@ -110,6 +116,20 @@ Note: The envelope schema (`schemas/custom-runner.schema.json`) specifies the to
 - **AND** the envelope `findings` array is empty
 - **WHEN** the adapter processes the result
 - **THEN** no `test-failing` finding is emitted for that contract
+
+#### Scenario: Envelope failure overrides process success
+- **GIVEN** a custom runner exits zero
+- **AND** stdout contains a valid envelope with `passed = false` or non-empty `findings`
+- **WHEN** the adapter processes the result
+- **THEN** the adapter emits the envelope findings
+- **AND** treats the contract as not passing
+
+#### Scenario: Process failure overrides envelope success
+- **GIVEN** a custom runner exits non-zero
+- **AND** stdout contains a valid envelope with `passed = true` and an empty `findings` array
+- **WHEN** the adapter processes the result
+- **THEN** a `test-failing` finding is emitted with the raw stdout/stderr tails
+- **AND** the process exit code is preserved in the finding
 
 #### Scenario: Custom runner non-zero exit without valid envelope is an error finding
 - **GIVEN** a custom runner exits non-zero
