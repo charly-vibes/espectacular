@@ -96,6 +96,31 @@ The system SHALL represent quality measurements without changing the baseline ru
 - **WHEN** the contract is validated
 - **THEN** each entry follows the same runnable test-entry shape as other `tests.<type>` arrays
 
+### Requirement: Conformance coverage matrix
+The system SHALL compute a per-spec, per-archetype coverage matrix aggregating scenario contract status across all specs in scope.
+
+#### Scenario: Matrix counts covered scenarios
+- **GIVEN** `openspec/specs/` contains multiple specs, each with scenarios that have contracts
+- **WHEN** a user runs `ah report`
+- **THEN** the command emits a matrix row for each spec with columns for each archetype
+- **AND** each cell contains `covered`, `missing`, and `failing` counts
+
+#### Scenario: Matrix includes archetype totals
+- **GIVEN** `ah report` runs against deployed specs
+- **WHEN** the output is inspected
+- **THEN** the matrix includes a totals row summing counts across all specs
+
+#### Scenario: Missing contracts appear as uncovered
+- **GIVEN** a deployed scenario has no sidecar contract
+- **WHEN** `ah report` runs
+- **THEN** the scenario is counted as `missing` for its spec row
+- **AND** the `archetype` column is `unassigned`
+
+#### Scenario: Machine-readable matrix output
+- **WHEN** a user runs `ah report --json`
+- **THEN** the command emits a JSON object with a `matrix` array
+- **AND** each row contains `spec`, `archetype`, `covered`, `missing`, and `failing` integer fields
+
 ### Requirement: apply_command is conditionally present
 The system SHALL set `apply_command` only when the finding's `suggested_action` maps to a concrete, mechanical shell command; it SHALL be null for findings that require non-mechanical human action.
 

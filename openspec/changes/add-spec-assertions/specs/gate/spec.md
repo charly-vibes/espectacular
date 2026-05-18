@@ -200,6 +200,27 @@ The system SHALL support checking selected OpenSpec changes as overlays on deplo
 - **THEN** the command resolves selected changes in sorted change-id order
 - **AND** produces the same validation scope as `ah check --changes alpha --changes zeta`
 
+### Requirement: Non-Regression Archetype
+The system SHALL support an `NR` (Non-Regression) archetype for contracts that assert existing behavior is preserved during change proposals.
+
+#### Scenario: NR contract is valid
+- **GIVEN** a scenario contract has `archetype = "NR"`
+- **WHEN** a user runs `ah check`
+- **THEN** the gate accepts `NR` as a valid archetype value
+- **AND** validates and runs the contract's declared tests identically to other archetypes
+
+#### Scenario: NR contract runs in change overlay scope
+- **GIVEN** a change proposal modifies a capability
+- **AND** an existing scenario is covered by a contract with `archetype = "NR"`
+- **WHEN** a user runs `ah check --changes <change-id>`
+- **THEN** the NR contract is validated as part of the overlay scope
+- **AND** a failing NR test exits non-zero
+
+#### Scenario: ah upgrade reports NR as archetype addition
+- **GIVEN** `.espectacular/config.toml` pins a tool version that predates `NR` support
+- **WHEN** a user runs `ah upgrade`
+- **THEN** the command reports `NR` as a newly available archetype before updating the configured tool version
+
 ### Requirement: Deterministic Scope Boundary
 The system SHALL avoid semantic evaluation of test quality or scenario prose.
 

@@ -121,6 +121,28 @@ The system SHALL provide an `ah explain <topic>` subcommand that prints playbook
 - **THEN** the command exits non-zero
 - **AND** prints either `Run ah explain --list` or the sorted list of available topic identifiers
 
+### Requirement: Coverage report command
+The system SHALL provide `ah report` to display a conformance coverage matrix across all deployed specs and archetype tiers, modeled on the OpenTelemetry per-language compliance matrix pattern.
+
+#### Scenario: Report coverage by spec and archetype
+- **WHEN** a user runs `ah report`
+- **THEN** the command prints a table showing each spec as a row and each archetype as a column
+- **AND** each cell shows covered/missing/failing counts
+
+#### Scenario: Report exits zero when coverage is complete
+- **GIVEN** every deployed scenario has a valid, passing contract
+- **WHEN** a user runs `ah report`
+- **THEN** the command exits zero
+
+#### Scenario: Report exits non-zero when scenarios are missing contracts
+- **GIVEN** at least one deployed scenario has no sidecar contract
+- **WHEN** a user runs `ah report`
+- **THEN** the command exits non-zero
+
+#### Scenario: Report JSON output
+- **WHEN** a user runs `ah report --json`
+- **THEN** the command emits a JSON conformance matrix consumable by CI dashboards and agent harnesses
+
 ### Requirement: Recommendation findings
 The system SHALL emit `recommendation` findings when `ah doctor` detects capabilities that are available but not yet configured.
 

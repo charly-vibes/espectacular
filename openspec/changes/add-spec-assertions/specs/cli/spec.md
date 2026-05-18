@@ -92,7 +92,7 @@ The system SHALL expose built-in archetype guidance through `ah type` commands.
 #### Scenario: List archetypes
 - **WHEN** a user runs `ah type`
 - **THEN** the command lists all known archetypes with one-line descriptions
-- **AND** includes `PF`, `SA`, `BP`, and `CE`
+- **AND** includes `PF`, `SA`, `BP`, `CE`, and `NR`
 
 #### Scenario: Show archetype details
 - **WHEN** a user runs `ah type PF`

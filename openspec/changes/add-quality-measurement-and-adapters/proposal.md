@@ -18,6 +18,7 @@ This change adds quality *measurement* (not enforcement) and the language adapte
 - Add quality measurement as stateless, per-run, opt-in capabilities: mutation testing, property-based testing, snapshot testing. Measurement is surfaced via `ah doctor`; it is not a hard gate in v1.
 - Define the v1 JSON finding schema, including agent-targeted fields (`scenario_prose`, `suggested_action`, `apply_command`, `playbook_command`) and deterministic ordering.
 - Replace the embedded-markdown playbook with an `ah explain <topic>` subcommand. The playbook ships in the binary, compile-enforced against the finding/action enums. AGENTS.md shrinks to a single meta-instruction.
+- Add `ah report`: a per-spec, per-archetype conformance coverage matrix (covered/missing/failing counts) modeled on the OpenTelemetry compliance matrix pattern. Gives CI and agent harnesses a dashboard-level view of contract health without repeating full findings.
 - Keep v1 a pure function: no persistent state. Features that require cross-run history (flake detection, test-impact caching, mutation trends) defer to v0.2+.
 
 ## Non-Goals
@@ -39,9 +40,9 @@ These priorities are sequencing guidance for implementation and trade-off decisi
 
 ## Impact
 
-- Affected specs: `cli` (new `ah doctor --enable`, `ah explain` requirements), `gate` (finding schema extension, quality measurement)
+- Affected specs: `cli` (new `ah doctor --enable`, `ah explain`, `ah report` requirements), `gate` (finding schema extension, quality measurement, conformance matrix)
 - New specs: `adapters` (language adapter layer and plugin protocol), `explain` (`ah explain` subcommand)
-- Affected code: `src/adapters/` module tree, `src/explain.rs`, `src/doctor.rs` (detection + `--enable`), finding schema types, `schemas/check-output.schema.json`
+- Affected code: `src/adapters/` module tree, `src/explain.rs`, `src/doctor.rs` (detection + `--enable`), `src/report.rs` (coverage matrix), finding schema types, `schemas/check-output.schema.json`
 - **BREAKING**: none. Projects opt into adapters and capabilities; the baseline gate behavior from `add-spec-assertions` is unchanged.
 
 ## Resolved Clarifications
