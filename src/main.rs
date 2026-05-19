@@ -1,3 +1,4 @@
+mod archive;
 mod check;
 mod config;
 mod contracts;
@@ -24,6 +25,9 @@ enum Command {
     },
     Doctor,
     Init,
+    Archive {
+        change: String,
+    },
     Scenario {
         #[command(subcommand)]
         command: ScenarioCommand,
@@ -90,6 +94,13 @@ fn run() -> anyhow::Result<()> {
             }
             for concern in &result.concerns {
                 eprintln!("concern: {concern}");
+            }
+            Ok(())
+        }
+        Command::Archive { change } => {
+            let result = archive::run_archive(&std::env::current_dir()?, &change)?;
+            for item in &result.moved {
+                println!("archived: {item}");
             }
             Ok(())
         }
