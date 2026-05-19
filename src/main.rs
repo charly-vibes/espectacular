@@ -1,6 +1,7 @@
 mod check;
 mod config;
 mod contracts;
+mod init;
 mod openspec;
 mod runner;
 
@@ -19,6 +20,7 @@ enum Command {
         #[arg(long = "changes")]
         changes: Vec<String>,
     },
+    Init,
 }
 
 fn main() {
@@ -36,6 +38,22 @@ fn run() -> anyhow::Result<()> {
             println!("{}", serde_json::to_string_pretty(&report)?);
             let exit_code = if report.findings.is_empty() { 0 } else { 1 };
             std::process::exit(exit_code);
+        }
+        Command::Init => {
+            let result = init::run_init(&std::env::current_dir()?)?;
+            for path in &result.created {
+                println!("created: {path}");
+            }
+            for path in &result.refreshed {
+                println!("refreshed: {path}");
+            }
+            for contract in &result.stubbed_contracts {
+                println!("stubbed: {contract}");
+            }
+            for concern in &result.concerns {
+                eprintln!("concern: {concern}");
+            }
+            Ok(())
         }
     }
 }

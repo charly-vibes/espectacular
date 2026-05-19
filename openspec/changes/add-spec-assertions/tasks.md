@@ -40,12 +40,12 @@
 
 ## 4. Lifecycle commands
 
-- [ ] 4.1 Red: add failing tests for idempotent `ah init` file creation, missing-`openspec/` refusal, and managed-block refresh.
-- [ ] 4.2 Green: implement `ah init` for `.espectacular/config.toml`, `.espectacular/AGENTS.md`, top-level `AGENTS.md`, and `CLAUDE.md`.
-- [ ] 4.3 Red: add failing tests for `ah init` stubbing empty TOML contracts for existing deployed scenarios.
-- [ ] 4.4 Green: implement deployed-scenario contract stubbing without overwriting existing contracts.
-- [ ] 4.5 Red: add failing tests for hook detection precedence: `lefthook`, then `prek`, no raw git hook fallback.
-- [ ] 4.6 Green: implement supported pre-commit hook integration and missing-framework concern reporting.
+- [x] 4.1 Red: add failing tests for idempotent `ah init` file creation, missing-`openspec/` refusal, and managed-block refresh.
+- [x] 4.2 Green: implement `ah init` for `.espectacular/config.toml`, `.espectacular/AGENTS.md`, top-level `AGENTS.md`, and `CLAUDE.md`.
+- [x] 4.3 Red: add failing tests for `ah init` stubbing empty TOML contracts for existing deployed scenarios.
+- [x] 4.4 Green: implement deployed-scenario contract stubbing without overwriting existing contracts.
+- [x] 4.5 Red: add failing tests for hook detection precedence: `lefthook`, then `prek`, no raw git hook fallback.
+- [x] 4.6 Green: implement supported pre-commit hook integration and missing-framework concern reporting.
 - [ ] 4.7 Red: add failing tests for `ah doctor` setup checks.
 - [ ] 4.8 Green: implement `ah doctor` for config, paths, version compatibility, managed blocks, hooks, collisions, orphans, and archetype names.
 - [ ] 4.9 Red: add failing tests for `ah scenario new <change> <spec> --requirement "<requirement>" "<heading>"` including exact markdown and TOML skeletons.
