@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://charly.dev/espectacular/scenario-contract.schema.json",
+  "title": "espectacular scenario contract",
+  "type": "object",
+  "required": ["id", "description", "archetype", "status", "superseded_by", "authored_with", "tests"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "archetype": { "type": "string" },
+    "status": { "enum": ["active", "superseded"] },
+    "superseded_by": { "type": "string" },
+    "authored_with": { "type": "string", "minLength": 1 },
+    "tests": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "items": { "$ref": "#/$defs/testEntry" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "superseded" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": { "superseded_by": { "type": "string", "minLength": 1 } }
+      },
+      "else": {
+        "properties": { "superseded_by": { "type": "string" } }
+      }
+    }
+  ],
+  "$defs": {
+    "testEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "flags": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "minLength": 1 },
+        "timeout_seconds": { "type": "integer", "minimum": 1 }
+      },
+      "oneOf": [
+        { "required": ["flags"], "not": { "required": ["command"] } },
+        { "required": ["command"], "not": { "required": ["flags"] } }
+      ]
+    }
+  }
+}

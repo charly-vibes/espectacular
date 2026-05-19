@@ -19,8 +19,20 @@ enum Command {
 }
 
 fn main() {
+    if let Err(error) = run() {
+        eprintln!("{error:#}");
+        std::process::exit(2);
+    }
+}
+
+fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Check => todo!("ah check not yet implemented"),
+        Command::Check => {
+            let report = check::run_check(&std::env::current_dir()?)?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            let exit_code = if report.findings.is_empty() { 0 } else { 1 };
+            std::process::exit(exit_code);
+        }
     }
 }

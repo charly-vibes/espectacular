@@ -17,20 +17,32 @@ pub struct Paths {
 }
 
 pub fn load_config(config_path: &str) -> anyhow::Result<Config> {
-    let text = fs::read_to_string(config_path)
-        .with_context(|| format!("cannot read {config_path}"))?;
-    let config: Config = toml::from_str(&text)
-        .with_context(|| format!("invalid TOML in {config_path}"))?;
+    let text =
+        fs::read_to_string(config_path).with_context(|| format!("cannot read {config_path}"))?;
+    let config: Config =
+        toml::from_str(&text).with_context(|| format!("invalid TOML in {config_path}"))?;
     validate_config(&config)?;
     Ok(config)
 }
 
 fn validate_config(config: &Config) -> anyhow::Result<()> {
-    anyhow::ensure!(!config.tool_version.is_empty(), "tool_version must be non-empty");
-    anyhow::ensure!(!config.paths.specs.is_empty(), "paths.specs must be non-empty");
-    anyhow::ensure!(!config.paths.changes.is_empty(), "paths.changes must be non-empty");
+    anyhow::ensure!(
+        !config.tool_version.is_empty(),
+        "tool_version must be non-empty"
+    );
+    anyhow::ensure!(
+        !config.paths.specs.is_empty(),
+        "paths.specs must be non-empty"
+    );
+    anyhow::ensure!(
+        !config.paths.changes.is_empty(),
+        "paths.changes must be non-empty"
+    );
     for (name, argv) in &config.runners {
-        anyhow::ensure!(!argv.is_empty(), "runner {name} must have at least one argv entry");
+        anyhow::ensure!(
+            !argv.is_empty(),
+            "runner {name} must have at least one argv entry"
+        );
         for arg in argv {
             anyhow::ensure!(!arg.is_empty(), "runner {name} has an empty argv entry");
         }
@@ -82,7 +94,6 @@ changes = "openspec/changes"
 [runners]
 bad = [""]
 "#;
-        let result: Result<Config, _> = toml::from_str(toml);
         // toml parsing succeeds for empty strings; validation must be explicit
         // load_config enforces this — use a temp file approach here
         let dir = tempfile::tempdir().unwrap();

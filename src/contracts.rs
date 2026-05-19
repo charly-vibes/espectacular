@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Contract {
     pub id: String,
     pub description: String,
@@ -14,7 +14,7 @@ pub struct Contract {
     pub tests: HashMap<String, Vec<TestEntry>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct TestEntry {
     pub flags: Option<String>,
     pub command: Option<String>,
@@ -22,10 +22,9 @@ pub struct TestEntry {
 }
 
 pub fn load_contract(toml_path: &str) -> anyhow::Result<Contract> {
-    let text = fs::read_to_string(toml_path)
-        .with_context(|| format!("cannot read {toml_path}"))?;
-    let contract: Contract = toml::from_str(&text)
-        .with_context(|| format!("invalid TOML in {toml_path}"))?;
+    let text = fs::read_to_string(toml_path).with_context(|| format!("cannot read {toml_path}"))?;
+    let contract: Contract =
+        toml::from_str(&text).with_context(|| format!("invalid TOML in {toml_path}"))?;
     validate_contract(&contract)?;
     Ok(contract)
 }
@@ -41,6 +40,46 @@ fn validate_contract(contract: &Contract) -> anyhow::Result<()> {
             "superseded contract must set superseded_by"
         );
     }
+
+    anyhow::ensure!(
+        !contract.authored_with.is_empty(),
+        "authored_with must be non-empty"
+    );
+    anyhow::ensure!(!contract.id.is_empty(), "id must be non-empty");
+
+    for (test_type, entries) in &contract.tests {
+        for entry in entries {
+            anyhow::ensure!(
+                entry.timeout_seconds.unwrap_or(1) > 0,
+                "test entry timeout_seconds must be positive"
+            );
+            if test_type == "shell" {
+                anyhow::ensure!(
+                    entry
+                        .command
+                        .as_deref()
+                        .is_some_and(|value| !value.is_empty()),
+                    "shell test entry must declare command"
+                );
+                anyhow::ensure!(
+                    entry.flags.is_none(),
+                    "shell test entry may not declare flags"
+                );
+            } else {
+                anyhow::ensure!(
+                    entry
+                        .flags
+                        .as_deref()
+                        .is_some_and(|value| !value.is_empty()),
+                    "non-shell test entry must declare flags"
+                );
+                anyhow::ensure!(
+                    entry.command.is_none(),
+                    "non-shell test entry may not declare command"
+                );
+            }
+        }
+    }
     Ok(())
 }
 
@@ -49,7 +88,8 @@ mod tests {
     use super::*;
 
     const VALID: &str = "tests/fixtures/simple/.espectacular/compiler/empty-input-rejected.toml";
-    const SUPERSEDED: &str = "tests/fixtures/simple/.espectacular/compiler/superseded-scenario.toml";
+    const SUPERSEDED: &str =
+        "tests/fixtures/simple/.espectacular/compiler/superseded-scenario.toml";
 
     #[test]
     fn loads_valid_contract() {
@@ -111,7 +151,10 @@ unit = [{flags = "test::foo"}]
         let path = dir.path().join("foo.toml");
         std::fs::write(&path, toml).unwrap();
         let result = load_contract(path.to_str().unwrap());
-        assert!(result.is_err(), "superseded with empty superseded_by should fail");
+        assert!(
+            result.is_err(),
+            "superseded with empty superseded_by should fail"
+        );
     }
 
     #[test]
@@ -124,6 +167,42 @@ superseded_by = ""
 authored_with = "0.1.0"
 [tests]
 unit = [{flags = "test::foo"}]
+"#;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("foo.toml");
+        std::fs::write(&path, toml).unwrap();
+        assert!(load_contract(path.to_str().unwrap()).is_err());
+    }
+
+    #[test]
+    fn shell_entry_requires_command_only() {
+        let toml = r#"
+id = "foo"
+description = ""
+archetype = ""
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+[tests]
+shell = [{flags = "oops"}]
+"#;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("foo.toml");
+        std::fs::write(&path, toml).unwrap();
+        assert!(load_contract(path.to_str().unwrap()).is_err());
+    }
+
+    #[test]
+    fn non_shell_entry_requires_flags_only() {
+        let toml = r#"
+id = "foo"
+description = ""
+archetype = ""
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+[tests]
+unit = [{command = "echo nope"}]
 "#;
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("foo.toml");

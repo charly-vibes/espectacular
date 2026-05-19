@@ -16,17 +16,17 @@
 
 ## 2. Test execution and JSON output
 
-- [ ] 2.1 Red: add failing tests for composing configured runner commands with TOML test flags.
-- [ ] 2.2 Green: implement non-shell test command composition and execution.
-- [ ] 2.3 Red: add failing tests for `tests.shell` command execution.
-- [ ] 2.4 Green: execute shell tests through the system shell.
-- [ ] 2.5 Red: add failing tests proving non-zero exits and timeouts become `test-failing` execution findings.
-- [ ] 2.6 Green: map command exit status, timeout flag, bounded stdout/stderr tails, and test type into execution findings.
-- [ ] 2.7 Red: add failing tests for repository-root working directory, inherited environment, sequential execution, and `/bin/sh -c` shell mode.
-- [ ] 2.8 Green: implement deterministic execution defaults.
-- [ ] 2.9 Red: add failing snapshot/schema tests for `ah check` JSON output against `schemas/check-output.schema.json`, including success output.
-- [ ] 2.10 Green: emit stable JSON with scope, summary, findings, scenario context, command details, and exit status.
-- [ ] 2.11 Refactor: keep JSON serialization deterministic and ordered by spec path plus scenario id.
+- [x] 2.1 Red: add failing tests for composing configured runner commands with TOML test flags.
+- [x] 2.2 Green: implement non-shell test command composition and execution.
+- [x] 2.3 Red: add failing tests for `tests.shell` command execution.
+- [x] 2.4 Green: execute shell tests through the system shell.
+- [x] 2.5 Red: add failing tests proving non-zero exits and timeouts become `test-failing` execution findings.
+- [x] 2.6 Green: map command exit status, timeout flag, bounded stdout/stderr tails, and test type into execution findings.
+- [x] 2.7 Red: add failing tests for repository-root working directory, inherited environment, sequential execution, and `/bin/sh -c` shell mode.
+- [x] 2.8 Green: implement deterministic execution defaults.
+- [x] 2.9 Red: add failing snapshot/schema tests for `ah check` JSON output against `schemas/check-output.schema.json`, including success output.
+- [x] 2.10 Green: emit stable JSON with scope, summary, findings, scenario context, command details, and exit status.
+- [x] 2.11 Refactor: keep JSON serialization deterministic and ordered by spec path plus scenario id.
 
 ## 3. Change-overlay support
 

@@ -119,21 +119,30 @@ mod tests {
     #[test]
     fn scenario_heading_preserved_verbatim() {
         let scenarios = discover_scenarios(FIXTURE).unwrap();
-        let found = scenarios.iter().find(|s| s.id == "empty-input-rejected").unwrap();
+        let found = scenarios
+            .iter()
+            .find(|s| s.id == "empty-input-rejected")
+            .unwrap();
         assert_eq!(found.heading, "Empty input rejected");
     }
 
     #[test]
     fn scenario_spec_path_is_relative_spec_name() {
         let scenarios = discover_scenarios(FIXTURE).unwrap();
-        let found = scenarios.iter().find(|s| s.id == "empty-input-rejected").unwrap();
+        let found = scenarios
+            .iter()
+            .find(|s| s.id == "empty-input-rejected")
+            .unwrap();
         assert_eq!(found.spec_path, "compiler");
     }
 
     #[test]
     fn scenario_source_line_is_one_based() {
         let scenarios = discover_scenarios(FIXTURE).unwrap();
-        let found = scenarios.iter().find(|s| s.id == "empty-input-rejected").unwrap();
+        let found = scenarios
+            .iter()
+            .find(|s| s.id == "empty-input-rejected")
+            .unwrap();
         // heading is at line 7 in the fixture
         assert_eq!(found.source_line, 7);
     }
@@ -141,7 +150,10 @@ mod tests {
     #[test]
     fn scenario_body_contains_given_when_then() {
         let scenarios = discover_scenarios(FIXTURE).unwrap();
-        let found = scenarios.iter().find(|s| s.id == "empty-input-rejected").unwrap();
+        let found = scenarios
+            .iter()
+            .find(|s| s.id == "empty-input-rejected")
+            .unwrap();
         assert!(found.body.contains("GIVEN"));
         assert!(found.body.contains("WHEN"));
         assert!(found.body.contains("THEN"));
