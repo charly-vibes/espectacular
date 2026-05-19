@@ -5,6 +5,7 @@ mod doctor;
 mod init;
 mod openspec;
 mod runner;
+mod scenario;
 
 use clap::{Parser, Subcommand};
 
@@ -23,6 +24,29 @@ enum Command {
     },
     Doctor,
     Init,
+    Scenario {
+        #[command(subcommand)]
+        command: ScenarioCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum ScenarioCommand {
+    New {
+        change: String,
+        spec: String,
+        #[arg(long)]
+        requirement: String,
+        heading: String,
+    },
+    Supersede {
+        spec: String,
+        old_id: String,
+        #[arg(long = "with")]
+        with: String,
+        #[arg(long = "in-change")]
+        in_change: String,
+    },
 }
 
 fn main() {
@@ -69,5 +93,40 @@ fn run() -> anyhow::Result<()> {
             }
             Ok(())
         }
+        Command::Scenario { command } => match command {
+            ScenarioCommand::New {
+                change,
+                spec,
+                requirement,
+                heading,
+            } => {
+                let result = scenario::run_scenario_new(
+                    &std::env::current_dir()?,
+                    &change,
+                    &spec,
+                    &requirement,
+                    &heading,
+                )?;
+                println!("scenario: {}", result.scenario_path);
+                println!("contract: {}", result.contract_path);
+                Ok(())
+            }
+            ScenarioCommand::Supersede {
+                spec,
+                old_id,
+                with,
+                in_change,
+            } => {
+                let result = scenario::run_scenario_supersede(
+                    &std::env::current_dir()?,
+                    &spec,
+                    &old_id,
+                    &with,
+                    &in_change,
+                )?;
+                println!("superseded: {}", result.contract_path);
+                Ok(())
+            }
+        },
     }
 }

@@ -46,14 +46,14 @@
 - [x] 4.4 Green: implement deployed-scenario contract stubbing without overwriting existing contracts.
 - [x] 4.5 Red: add failing tests for hook detection precedence: `lefthook`, then `prek`, no raw git hook fallback.
 - [x] 4.6 Green: implement supported pre-commit hook integration and missing-framework concern reporting.
-- [ ] 4.7 Red: add failing tests for `ah doctor` setup checks.
-- [ ] 4.8 Green: implement `ah doctor` for config, paths, version compatibility, managed blocks, hooks, collisions, orphans, and archetype names.
-- [ ] 4.9 Red: add failing tests for `ah scenario new <change> <spec> --requirement "<requirement>" "<heading>"` including exact markdown and TOML skeletons.
-- [ ] 4.10 Green: implement scenario creation under an existing requirement and matching staged contract creation.
-- [ ] 4.11 Red: add failing tests that scenario creation fails without the target change spec file or requirement heading.
-- [ ] 4.12 Green: implement non-destructive failure for missing scenario creation targets.
-- [ ] 4.13 Red: add failing tests for `ah scenario supersede <spec> <old-id> --with=<new-id> --in-change=<change>` and missing replacement ids.
-- [ ] 4.14 Green: implement staged supersession contract creation and replacement-id validation.
+- [x] 4.7 Red: add failing tests for `ah doctor` setup checks.
+- [x] 4.8 Green: implement `ah doctor` for config, paths, version compatibility, managed blocks, hooks, collisions, orphans, and archetype names.
+- [x] 4.9 Red: add failing tests for `ah scenario new <change> <spec> --requirement "<requirement>" "<heading>"` including exact markdown and TOML skeletons.
+- [x] 4.10 Green: implement scenario creation under an existing requirement and matching staged contract creation.
+- [x] 4.11 Red: add failing tests that scenario creation fails without the target change spec file or requirement heading.
+- [x] 4.12 Green: implement non-destructive failure for missing scenario creation targets.
+- [x] 4.13 Red: add failing tests for `ah scenario supersede <spec> <old-id> --with=<new-id> --in-change=<change>` and missing replacement ids.
+- [x] 4.14 Green: implement staged supersession contract creation and replacement-id validation.
 - [ ] 4.15 Red: add failing tests for `ah archive <change>` moving staged contracts, refusing collisions, and refusing pre-OpenSpec-archive orphans.
 - [ ] 4.16 Green: implement archive precondition checks, moves, and allowed superseded-contract replacement.
 - [ ] 4.17 Red: add failing tests for `ah upgrade` reporting tool-version drift and compatibility changes without rewriting existing contract `authored_with` values.
