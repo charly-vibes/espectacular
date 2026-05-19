@@ -30,13 +30,13 @@
 
 ## 3. Change-overlay support
 
-- [ ] 3.1 Red: add failing tests for `ah check --changes <name>` using deployed-plus-change overlay validation.
-- [ ] 3.2 Green: load OpenSpec change scenarios and staged contracts from `.espectacular/changes/<change>/`.
-- [ ] 3.3 Red: add failing tests for multiple `--changes` flags, deterministic lexicographic overlay resolution, and conflicting new scenario ids.
-- [ ] 3.4 Green: implement multi-change overlays, sorted change-id normalization, and conflict findings.
-- [ ] 3.5 Red: add failing tests for staged superseded metadata updates on deployed scenarios, conflicting staged updates for one deployed scenario id, and missing replacement ids.
-- [ ] 3.6 Green: apply staged superseded contracts over deployed contracts in change scope, reject duplicate staged updates, and reject dangling `superseded_by` values.
-- [ ] 3.7 Refactor: share deployed and overlay scope resolution.
+- [x] 3.1 Red: add failing tests for `ah check --changes <name>` using deployed-plus-change overlay validation.
+- [x] 3.2 Green: load OpenSpec change scenarios and staged contracts from `.espectacular/changes/<change>/`.
+- [x] 3.3 Red: add failing tests for multiple `--changes` flags, deterministic lexicographic overlay resolution, and conflicting new scenario ids.
+- [x] 3.4 Green: implement multi-change overlays, sorted change-id normalization, and conflict findings.
+- [x] 3.5 Red: add failing tests for staged superseded metadata updates on deployed scenarios, conflicting staged updates for one deployed scenario id, and missing replacement ids.
+- [x] 3.6 Green: apply staged superseded contracts over deployed contracts in change scope, reject duplicate staged updates, and reject dangling `superseded_by` values.
+- [x] 3.7 Refactor: share deployed and overlay scope resolution.
 
 ## 4. Lifecycle commands
 

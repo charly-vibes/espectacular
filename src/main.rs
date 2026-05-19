@@ -15,7 +15,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    Check,
+    Check {
+        #[arg(long = "changes")]
+        changes: Vec<String>,
+    },
 }
 
 fn main() {
@@ -28,8 +31,8 @@ fn main() {
 fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Check => {
-            let report = check::run_check(&std::env::current_dir()?)?;
+        Command::Check { changes } => {
+            let report = check::run_check(&std::env::current_dir()?, &changes)?;
             println!("{}", serde_json::to_string_pretty(&report)?);
             let exit_code = if report.findings.is_empty() { 0 } else { 1 };
             std::process::exit(exit_code);

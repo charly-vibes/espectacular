@@ -95,3 +95,57 @@ fn ah_check_failure_emits_execution_details_and_exit_one() {
     assert_eq!(failing["test"]["exit_code"], 7);
     assert_eq!(failing["test"]["stderr_tail"], "boom");
 }
+
+#[test]
+fn ah_check_with_changes_includes_overlay_scope() {
+    let repo = base_repo();
+    fs::create_dir_all(
+        repo.path()
+            .join("openspec/changes/add-parser/specs/compiler"),
+    )
+    .unwrap();
+    fs::create_dir_all(
+        repo.path()
+            .join(".espectacular/changes/add-parser/compiler"),
+    )
+    .unwrap();
+    fs::write(
+        repo.path().join("openspec/changes/add-parser/specs/compiler/spec.md"),
+        "# Capability: compiler\n\n#### Scenario: Added path\n- **WHEN** overlay applies\n- **THEN** it passes\n",
+    )
+    .unwrap();
+    fs::write(
+        repo.path().join(".espectacular/changes/add-parser/compiler/added-path.toml"),
+        "id = \"added-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"ok\"\n",
+    )
+    .unwrap();
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["check", "--changes", "add-parser"])
+        .assert()
+        .success();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_schema_valid(&output);
+    assert_eq!(
+        output["scope"]["changes"],
+        serde_json::json!(["add-parser"])
+    );
+    assert_eq!(output["summary"]["passed"], 3);
+}
+
+#[test]
+fn ah_check_missing_change_has_clear_diagnostic() {
+    let repo = base_repo();
+    Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["check", "--changes", "missing-change"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "change 'missing-change' does not exist",
+        ));
+}

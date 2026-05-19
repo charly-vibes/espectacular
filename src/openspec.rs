@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+#[derive(Debug, Clone)]
 pub struct Scenario {
     pub id: String,
     pub heading: String,
