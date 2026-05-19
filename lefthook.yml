@@ -1,0 +1,12 @@
+pre-commit:
+  parallel: true
+  commands:
+    fmt-check:
+      run: cargo fmt -- --check
+    check:
+      run: cargo check
+
+pre-push:
+  commands:
+    test:
+      run: cargo test
