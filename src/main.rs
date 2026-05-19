@@ -1,6 +1,7 @@
 mod check;
 mod config;
 mod contracts;
+mod doctor;
 mod init;
 mod openspec;
 mod runner;
@@ -20,6 +21,7 @@ enum Command {
         #[arg(long = "changes")]
         changes: Vec<String>,
     },
+    Doctor,
     Init,
 }
 
@@ -38,6 +40,18 @@ fn run() -> anyhow::Result<()> {
             println!("{}", serde_json::to_string_pretty(&report)?);
             let exit_code = if report.findings.is_empty() { 0 } else { 1 };
             std::process::exit(exit_code);
+        }
+        Command::Doctor => {
+            let report = doctor::run_doctor(&std::env::current_dir()?)?;
+            if report.healthy {
+                println!("healthy: all checks passed");
+            } else {
+                for d in &report.diagnostics {
+                    eprintln!("{}: {}", d.kind, d.detail);
+                }
+                std::process::exit(1);
+            }
+            Ok(())
         }
         Command::Init => {
             let result = init::run_init(&std::env::current_dir()?)?;

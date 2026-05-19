@@ -11,10 +11,10 @@ pub struct InitResult {
     pub stubbed_contracts: Vec<String>,
 }
 
-const AH_BLOCK_START: &str = "<!-- ah:managed:start -->";
+pub const AH_BLOCK_START: &str = "<!-- ah:managed:start -->";
 const AH_BLOCK_END: &str = "<!-- ah:managed:end -->";
 
-const AH_BLOCK_CONTENT: &str = r#"<!-- ah:managed:start -->
+pub const AH_BLOCK_CONTENT: &str = r#"<!-- ah:managed:start -->
 ## espectacular
 
 Run `ah check` to verify spec-test correspondence before committing.
