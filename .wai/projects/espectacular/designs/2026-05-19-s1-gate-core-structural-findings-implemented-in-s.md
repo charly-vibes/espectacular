@@ -1,0 +1,1 @@
+S1 gate core: structural findings implemented in src/check.rs with two extracted functions (contract_findings_for_scenario, orphan_findings_for_contracts_dir). Duplicate-slug scenarios are excluded from missing-contract check — only the duplicate-id finding is emitted per (spec, id) collision. Findings sorted by (spec_path, scenario_id, kind) via Ord derive on Finding struct.

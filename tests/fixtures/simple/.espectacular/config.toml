@@ -1,0 +1,9 @@
+tool_version = "0.1.0"
+
+[paths]
+specs = "openspec/specs"
+changes = "openspec/changes"
+
+[runners]
+pytest = ["pytest"]
+cargo = ["cargo", "test"]

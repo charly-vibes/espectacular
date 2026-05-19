@@ -1,0 +1,8 @@
+id = "no-tests-declared"
+description = "Contract with no tests."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[tests]

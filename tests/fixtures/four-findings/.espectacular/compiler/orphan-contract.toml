@@ -1,0 +1,9 @@
+id = "orphan-contract"
+description = "No matching scenario in spec."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.unit]]
+flags = "tests/test_orphan.py::test_orphan"

@@ -1,18 +1,18 @@
 ## 1. Gate core
 
-- [ ] 1.1 Red: add failing tests for OpenSpec scenario discovery from `#### Scenario:` headings.
-- [ ] 1.2 Green: implement deployed-spec scenario discovery.
-- [ ] 1.3 Refactor: isolate markdown heading parsing and source-location reporting.
-- [ ] 1.4 Red: add failing tests for slugification, scenario-id collisions, and id/file/slug mismatch.
-- [ ] 1.5 Green: implement deterministic slugification, collision detection, and contract id matching.
-- [ ] 1.6 Refactor: centralize scenario identity normalization.
-- [ ] 1.7 Red: add failing tests for `.espectacular/config.toml` schema validation against `schemas/config.schema.json`.
-- [ ] 1.8 Green: implement config loading, path defaults, tool-version parsing, and runner argv map validation.
-- [ ] 1.9 Red: add failing tests for per-scenario TOML schema validation against `schemas/scenario-contract.schema.json`, status enum validation, and superseded metadata.
-- [ ] 1.10 Green: implement contract loading and schema validation.
-- [ ] 1.11 Red: add failing tests for missing contracts, orphan contracts, duplicate contracts, and no tests declared.
-- [ ] 1.12 Green: implement structural correspondence findings.
-- [ ] 1.13 Refactor: separate structural finding construction from filesystem traversal.
+- [x] 1.1 Red: add failing tests for OpenSpec scenario discovery from `#### Scenario:` headings.
+- [x] 1.2 Green: implement deployed-spec scenario discovery.
+- [x] 1.3 Refactor: isolate markdown heading parsing and source-location reporting.
+- [x] 1.4 Red: add failing tests for slugification, scenario-id collisions, and id/file/slug mismatch.
+- [x] 1.5 Green: implement deterministic slugification, collision detection, and contract id matching.
+- [x] 1.6 Refactor: centralize scenario identity normalization.
+- [x] 1.7 Red: add failing tests for `.espectacular/config.toml` schema validation against `schemas/config.schema.json`.
+- [x] 1.8 Green: implement config loading, path defaults, tool-version parsing, and runner argv map validation.
+- [x] 1.9 Red: add failing tests for per-scenario TOML schema validation against `schemas/scenario-contract.schema.json`, status enum validation, and superseded metadata.
+- [x] 1.10 Green: implement contract loading and schema validation.
+- [x] 1.11 Red: add failing tests for missing contracts, orphan contracts, duplicate contracts, and no tests declared.
+- [x] 1.12 Green: implement structural correspondence findings.
+- [x] 1.13 Refactor: separate structural finding construction from filesystem traversal.
 
 ## 2. Test execution and JSON output
 

@@ -1,0 +1,9 @@
+id = "superseded-scenario"
+description = "This scenario has been superseded."
+archetype = "PF"
+status = "superseded"
+superseded_by = "empty-input-rejected"
+authored_with = "0.1.0"
+
+[[tests.unit]]
+flags = "tests/compiler/test_parser.py::test_old"

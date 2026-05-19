@@ -1,0 +1,10 @@
+id = "empty-input-rejected"
+description = "Empty input is rejected before parsing."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.unit]]
+flags = "tests/compiler/test_parser.py::test_empty_input_rejected"
+timeout_seconds = 60

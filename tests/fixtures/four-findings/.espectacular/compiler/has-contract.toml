@@ -1,0 +1,9 @@
+id = "has-contract"
+description = "Valid scenario with a contract."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.unit]]
+flags = "tests/test_foo.py::test_foo"
