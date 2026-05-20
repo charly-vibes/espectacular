@@ -7,6 +7,7 @@ mod init;
 mod openspec;
 mod runner;
 mod scenario;
+mod upgrade;
 
 use clap::{Parser, Subcommand};
 
@@ -28,6 +29,7 @@ enum Command {
     Archive {
         change: String,
     },
+    Upgrade,
     Scenario {
         #[command(subcommand)]
         command: ScenarioCommand,
@@ -101,6 +103,19 @@ fn run() -> anyhow::Result<()> {
             let result = archive::run_archive(&std::env::current_dir()?, &change)?;
             for item in &result.moved {
                 println!("archived: {item}");
+            }
+            Ok(())
+        }
+        Command::Upgrade => {
+            let report = upgrade::run_upgrade(&std::env::current_dir()?)?;
+            if report.drift {
+                println!(
+                    "upgraded: tool_version {} → {}",
+                    report.config_version, report.binary_version
+                );
+                std::process::exit(1);
+            } else {
+                println!("up to date: tool_version {}", report.binary_version);
             }
             Ok(())
         }
