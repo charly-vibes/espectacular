@@ -1,3 +1,4 @@
+mod archetypes;
 mod archive;
 mod check;
 mod config;
@@ -28,6 +29,9 @@ enum Command {
     Init,
     Archive {
         change: String,
+    },
+    Type {
+        name: Option<String>,
     },
     Upgrade,
     Scenario {
@@ -103,6 +107,35 @@ fn run() -> anyhow::Result<()> {
             let result = archive::run_archive(&std::env::current_dir()?, &change)?;
             for item in &result.moved {
                 println!("archived: {item}");
+            }
+            Ok(())
+        }
+        Command::Type { name } => {
+            match name.as_deref() {
+                None => {
+                    println!("{}", archetypes::list_archetypes());
+                }
+                Some(code) => {
+                    let upper = code.to_uppercase();
+                    match archetypes::lookup(&upper) {
+                        Some(a) => println!("{}", a.body),
+                        None => {
+                            let suggestions = archetypes::did_you_mean(code);
+                            if suggestions.is_empty() {
+                                eprintln!(
+                                    "unknown archetype: {code}. Known: {}",
+                                    archetypes::known_codes().join(", ")
+                                );
+                            } else {
+                                eprintln!(
+                                    "unknown archetype: {code}. Did you mean: {}?",
+                                    suggestions.join(", ")
+                                );
+                            }
+                            std::process::exit(1);
+                        }
+                    }
+                }
             }
             Ok(())
         }

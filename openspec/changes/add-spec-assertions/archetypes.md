@@ -67,3 +67,19 @@ Typical test shapes:
 - schema validation tests
 - golden JSON comparisons
 - event presence/absence checks
+
+## NR — Non-Regression
+
+Behavior asserting existing guarantees remain true while nearby changes land.
+
+Use for:
+- bug-fix guardrails
+- refactors that must preserve behavior
+- compatibility promises
+- migration safety checks
+- regression coverage for unchanged contracts
+
+Typical test shapes:
+- existing regression tests replayed in change scope
+- before/after fixture comparisons
+- smoke tests that lock existing observable behavior

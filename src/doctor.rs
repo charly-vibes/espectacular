@@ -1,3 +1,4 @@
+use crate::archetypes;
 use crate::init::{detect_hook_framework, HookFramework, AH_BLOCK_START};
 use crate::openspec;
 use crate::{config, contracts};
@@ -17,7 +18,6 @@ pub struct DoctorReport {
     pub diagnostics: Vec<DoctorDiagnostic>,
 }
 
-const VALID_ARCHETYPES: &[&str] = &["PF", "SA", "BP", "CE"];
 const TOOL_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
@@ -125,7 +125,9 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
                                 // Archetype check
                                 if let Ok(contract) = contracts::load_contract(cp.to_str().unwrap())
                                 {
-                                    if !VALID_ARCHETYPES.contains(&contract.archetype.as_str()) {
+                                    if !contract.archetype.is_empty()
+                                        && !archetypes::is_known(&contract.archetype)
+                                    {
                                         diagnostics.push(DoctorDiagnostic {
                                             kind: "unknown-archetype".into(),
                                             detail: format!(

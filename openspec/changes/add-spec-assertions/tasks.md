@@ -62,11 +62,11 @@
 
 ## 5. Archetype documentation commands
 
-- [ ] 5.1 Red: add failing tests that `ah type` lists PF, SA, BP, and CE with one-line descriptions.
-- [ ] 5.2 Green: embed the v1 archetype catalog and implement `ah type`.
-- [ ] 5.3 Red: add failing tests that `ah type <archetype>` prints full documentation and unknown archetypes fail clearly.
-- [ ] 5.4 Green: implement detailed archetype lookup and compatibility-mode access.
-- [ ] 5.5 Refactor: keep archetype catalog append-only and version-addressable.
+- [x] 5.1 Red: add failing tests that `ah type` lists PF, SA, BP, and CE with one-line descriptions.
+- [x] 5.2 Green: embed the v1 archetype catalog and implement `ah type`.
+- [x] 5.3 Red: add failing tests that `ah type <archetype>` prints full documentation and unknown archetypes fail clearly.
+- [x] 5.4 Green: implement detailed archetype lookup and compatibility-mode access.
+- [x] 5.5 Refactor: keep archetype catalog append-only and version-addressable.
 
 ## 6. Documentation and validation
 
