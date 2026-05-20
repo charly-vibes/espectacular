@@ -4,6 +4,7 @@ mod check;
 mod config;
 mod contracts;
 mod doctor;
+mod fsutil;
 mod init;
 mod openspec;
 mod runner;

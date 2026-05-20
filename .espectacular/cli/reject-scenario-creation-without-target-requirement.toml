@@ -1,0 +1,10 @@
+id = "reject-scenario-creation-without-target-requirement"
+description = "Repo-local proof contract for cli/reject-scenario-creation-without-target-requirement."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.shell]]
+command = "cargo test -q ah_scenario_"
+timeout_seconds = 60

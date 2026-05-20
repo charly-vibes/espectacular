@@ -1,0 +1,10 @@
+id = "nr-contract-is-valid"
+description = "Repo-local proof contract for gate/nr-contract-is-valid."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.shell]]
+command = "cargo test -q archetypes::tests::current_catalog_includes_nr"
+timeout_seconds = 60

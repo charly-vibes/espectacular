@@ -1,3 +1,4 @@
+use crate::fsutil::{refresh_managed_file, write_text};
 use crate::openspec;
 use anyhow::Context;
 use std::fs;
@@ -88,15 +89,14 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
     // config.toml — only if missing
     let config_path = espectacular_dir.join("config.toml");
     if !config_path.exists() {
-        fs::write(&config_path, DEFAULT_CONFIG_TOML).context("cannot write config.toml")?;
+        write_text(&config_path, DEFAULT_CONFIG_TOML)?;
         result.created.push(".espectacular/config.toml".into());
     }
 
     // .espectacular/AGENTS.md — always refresh
     let espectacular_agents = espectacular_dir.join("AGENTS.md");
     let agents_existed = espectacular_agents.exists();
-    fs::write(&espectacular_agents, ESPECTACULAR_AGENTS_CONTENT)
-        .context("cannot write .espectacular/AGENTS.md")?;
+    write_text(&espectacular_agents, ESPECTACULAR_AGENTS_CONTENT)?;
     if agents_existed {
         result.refreshed.push(".espectacular/AGENTS.md".into());
     } else {
@@ -105,21 +105,11 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
 
     // Top-level AGENTS.md — create if absent, inject managed block if present
     let agents_md = repo_root.join("AGENTS.md");
-    if !agents_md.exists() {
-        fs::write(&agents_md, AH_BLOCK_CONTENT).context("cannot write AGENTS.md")?;
-        result.created.push("AGENTS.md".into());
-    } else {
-        inject_managed_block(&agents_md, &mut result)?;
-    }
+    update_managed_file(&agents_md, &mut result)?;
 
     // Top-level CLAUDE.md — create if absent, inject managed block if present
     let claude_md = repo_root.join("CLAUDE.md");
-    if !claude_md.exists() {
-        fs::write(&claude_md, AH_BLOCK_CONTENT).context("cannot write CLAUDE.md")?;
-        result.created.push("CLAUDE.md".into());
-    } else {
-        inject_managed_block(&claude_md, &mut result)?;
-    }
+    update_managed_file(&claude_md, &mut result)?;
 
     // Stub contracts for deployed scenarios without existing contracts
     let specs_dir = repo_root.join("openspec/specs");
@@ -152,28 +142,15 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
     Ok(result)
 }
 
-fn inject_managed_block(path: &Path, result: &mut InitResult) -> anyhow::Result<()> {
-    let existing =
-        fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
-
-    let new_content = if existing.contains(AH_BLOCK_START) {
-        // Replace block between markers
-        let before = existing
-            .find(AH_BLOCK_START)
-            .map(|i| &existing[..i])
-            .unwrap_or("");
-        let after_end = existing
-            .find(AH_BLOCK_END)
-            .map(|i| &existing[i + AH_BLOCK_END.len()..])
-            .unwrap_or("");
-        format!("{}{}{}", before, AH_BLOCK_CONTENT, after_end)
-    } else {
-        format!("{}\n\n{}\n", existing.trim_end(), AH_BLOCK_CONTENT)
-    };
-
-    fs::write(path, new_content).with_context(|| format!("cannot write {}", path.display()))?;
+fn update_managed_file(path: &Path, result: &mut InitResult) -> anyhow::Result<()> {
+    let existed = path.exists();
+    refresh_managed_file(path, AH_BLOCK_CONTENT, AH_BLOCK_START, AH_BLOCK_END)?;
     let name = path.file_name().unwrap().to_string_lossy().to_string();
-    result.refreshed.push(name);
+    if existed {
+        result.refreshed.push(name);
+    } else {
+        result.created.push(name);
+    }
     Ok(())
 }
 
@@ -207,7 +184,7 @@ fn install_lefthook(repo_root: &Path, result: &mut InitResult) -> anyhow::Result
         format!("{}pre-commit:\n  commands:{}", existing, LEFTHOOK_AH_BLOCK)
     };
 
-    fs::write(&path, new_content).context("cannot write lefthook.yml")?;
+    write_text(&path, new_content)?;
     let name = path.file_name().unwrap().to_string_lossy().to_string();
     result.refreshed.push(name);
     Ok(())
@@ -238,8 +215,7 @@ fn stub_contract_if_missing(
         "id = \"{id}\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n",
         id = scenario.id
     );
-    fs::write(&contract_path, stub)
-        .with_context(|| format!("cannot write {}", contract_path.display()))?;
+    write_text(&contract_path, stub)?;
 
     result
         .stubbed_contracts
@@ -262,7 +238,7 @@ fn install_prek(repo_root: &Path, result: &mut InitResult) -> anyhow::Result<()>
     }
 
     let new_content = format!("{}ah check\n", existing);
-    fs::write(&path, new_content).context("cannot write .prek")?;
+    write_text(&path, new_content)?;
     let name = path.file_name().unwrap().to_string_lossy().to_string();
     result.refreshed.push(name);
     Ok(())

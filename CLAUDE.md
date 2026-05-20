@@ -139,3 +139,14 @@ _Add a brief overview of your project architecture_
 ## Conventions & Patterns
 
 _Add your project-specific conventions here_
+
+<!-- ah:managed:start -->
+## espectacular
+
+Run `ah check` to verify spec-test correspondence before committing.
+
+- `ah check` — validate all deployed specs
+- `ah check --changes <name>` — validate with a change overlay
+- `ah init` — set up or refresh espectacular project files
+- `ah doctor` — diagnose setup issues
+<!-- ah:managed:end -->

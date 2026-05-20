@@ -1,0 +1,10 @@
+id = "extract-scenario-body-boundaries"
+description = "Repo-local proof contract for gate/extract-scenario-body-boundaries."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.shell]]
+command = "cargo test -q check::tests::"
+timeout_seconds = 60

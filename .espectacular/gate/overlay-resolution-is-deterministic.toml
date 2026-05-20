@@ -1,0 +1,10 @@
+id = "overlay-resolution-is-deterministic"
+description = "Repo-local proof contract for gate/overlay-resolution-is-deterministic."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.shell]]
+command = "cargo test -q check::tests::"
+timeout_seconds = 60

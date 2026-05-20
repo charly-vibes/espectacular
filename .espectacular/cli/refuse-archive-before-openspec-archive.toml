@@ -1,0 +1,10 @@
+id = "refuse-archive-before-openspec-archive"
+description = "Repo-local proof contract for cli/refuse-archive-before-openspec-archive."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.shell]]
+command = "cargo test -q ah_archive_"
+timeout_seconds = 60

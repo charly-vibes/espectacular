@@ -1,0 +1,10 @@
+id = "check-deployed-specs"
+description = "Repo-local proof contract for cli/check-deployed-specs."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.shell]]
+command = "cargo test -q ah_check_"
+timeout_seconds = 60

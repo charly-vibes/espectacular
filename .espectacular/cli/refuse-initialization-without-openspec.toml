@@ -1,0 +1,10 @@
+id = "refuse-initialization-without-openspec"
+description = "Repo-local proof contract for cli/refuse-initialization-without-openspec."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.shell]]
+command = "cargo test -q init::tests::"
+timeout_seconds = 60

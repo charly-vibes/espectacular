@@ -1,0 +1,10 @@
+id = "prefer-lefthook-before-prek"
+description = "Repo-local proof contract for cli/prefer-lefthook-before-prek."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.shell]]
+command = "cargo test -q init::tests::"
+timeout_seconds = 60

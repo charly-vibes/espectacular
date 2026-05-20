@@ -1,0 +1,10 @@
+id = "reject-unknown-status"
+description = "Repo-local proof contract for gate/reject-unknown-status."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.shell]]
+command = "cargo test -q contracts::tests::"
+timeout_seconds = 60

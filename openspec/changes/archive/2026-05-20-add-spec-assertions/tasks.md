@@ -58,7 +58,7 @@
 - [x] 4.16 Green: implement archive precondition checks, moves, and allowed superseded-contract replacement.
 - [x] 4.17 Red: add failing tests for `ah upgrade` reporting tool-version drift and compatibility changes without rewriting existing contract `authored_with` values.
 - [x] 4.18 Green: implement `ah upgrade` reporting and config update only.
-- [ ] 4.19 Refactor: extract shared managed-file and filesystem-write helpers.
+- [x] 4.19 Refactor: extract shared managed-file and filesystem-write helpers.
 
 ## 5. Archetype documentation commands
 

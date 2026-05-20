@@ -1,0 +1,10 @@
+id = "stub-existing-deployed-scenarios"
+description = "Repo-local proof contract for cli/stub-existing-deployed-scenarios."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.shell]]
+command = "cargo test -q init::tests::"
+timeout_seconds = 60

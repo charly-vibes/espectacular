@@ -1,0 +1,10 @@
+id = "capture-bounded-output-tails"
+description = "Repo-local proof contract for gate/capture-bounded-output-tails."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.shell]]
+command = "cargo test -q runner::tests::"
+timeout_seconds = 60

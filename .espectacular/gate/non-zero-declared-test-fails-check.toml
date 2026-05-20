@@ -1,0 +1,10 @@
+id = "non-zero-declared-test-fails-check"
+description = "Repo-local proof contract for gate/non-zero-declared-test-fails-check."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.shell]]
+command = "cargo test -q check::tests::"
+timeout_seconds = 60

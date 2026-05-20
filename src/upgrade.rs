@@ -1,3 +1,4 @@
+use crate::fsutil::write_text;
 use anyhow::Context;
 use std::path::Path;
 
@@ -29,8 +30,7 @@ pub fn run_upgrade(repo_root: &Path) -> anyhow::Result<UpgradeReport> {
         &format!("tool_version = \"{TOOL_VERSION}\""),
         1,
     );
-    std::fs::write(&config_path, updated)
-        .with_context(|| format!("cannot write {}", config_path.display()))?;
+    write_text(&config_path, updated)?;
 
     Ok(UpgradeReport {
         drift: true,

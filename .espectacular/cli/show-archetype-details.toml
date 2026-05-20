@@ -1,0 +1,10 @@
+id = "show-archetype-details"
+description = "Repo-local proof contract for cli/show-archetype-details."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.shell]]
+command = "cargo test -q ah_type_"
+timeout_seconds = 60
