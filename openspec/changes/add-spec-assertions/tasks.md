@@ -70,9 +70,9 @@
 
 ## 6. Documentation and validation
 
-- [ ] 6.1 Document local pre-commit as convenience gate and CI `ah check` as enforcement gate.
-- [ ] 6.2 Document `.espectacular/` layout, config schema, scenario TOML schema, and schema file paths.
-- [ ] 6.3 Document append-only scenario workflow, requirement targeting, and supersession rules.
-- [ ] 6.4 Document `ah check` JSON output schema, success output, and finding kinds.
-- [ ] 6.5 Document that test meaningfulness and prose-drift detection are non-goals.
-- [ ] 6.6 Run `openspec validate add-spec-assertions --strict` and fix all validation errors.
+- [x] 6.1 Document local pre-commit as convenience gate and CI `ah check` as enforcement gate.
+- [x] 6.2 Document `.espectacular/` layout, config schema, scenario TOML schema, and schema file paths.
+- [x] 6.3 Document append-only scenario workflow, requirement targeting, and supersession rules.
+- [x] 6.4 Document `ah check` JSON output schema, success output, and finding kinds.
+- [x] 6.5 Document that test meaningfulness and prose-drift detection are non-goals.
+- [x] 6.6 Run `openspec validate add-spec-assertions --strict` and fix all validation errors.
