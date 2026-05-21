@@ -73,6 +73,18 @@ fn assert_schema_valid(instance: &Value) {
     }
 }
 
+fn assert_custom_runner_schema_valid(instance: &Value) {
+    let raw: Value =
+        serde_json::from_str(&fs::read_to_string("schemas/custom-runner.schema.json").unwrap())
+            .unwrap();
+    let compiled = jsonschema::JSONSchema::compile(&raw).unwrap();
+    let validation = compiled.validate(instance);
+    if let Err(errors) = validation {
+        let messages: Vec<_> = errors.map(|error| error.to_string()).collect();
+        panic!("custom runner schema validation failed: {messages:?}");
+    }
+}
+
 fn write_executable(path: &Path, body: &str) {
     fs::write(path, format!("#!/bin/sh\nset -eu\n{body}\n")).unwrap();
     let mut perms = fs::metadata(path).unwrap().permissions();
@@ -110,6 +122,16 @@ fn base_repo() -> tempfile::TempDir {
 }
 
 #[test]
+fn custom_runner_schema_accepts_empty_findings_pass_case() {
+    let instance = serde_json::json!({
+        "exit_code": 0,
+        "passed": true,
+        "findings": []
+    });
+    assert_custom_runner_schema_valid(&instance);
+}
+
+#[test]
 fn ah_check_success_emits_schema_valid_json() {
     let repo = base_repo();
     let assert = Command::cargo_bin("ah")
@@ -123,6 +145,7 @@ fn ah_check_success_emits_schema_valid_json() {
     assert_schema_valid(&output);
     assert_eq!(output["findings"], Value::Array(vec![]));
     assert_eq!(output["summary"]["passed"], 2);
+    assert_eq!(output["summary"]["counts_by_kind"], serde_json::json!({}));
     assert_eq!(output["scope"]["deployed"], true);
 }
 
@@ -148,9 +171,19 @@ fn ah_check_failure_emits_execution_details_and_exit_one() {
         .unwrap();
     assert_eq!(failing["category"], "execution");
     assert_eq!(failing["scenario"]["id"], "green-path");
+    assert_eq!(failing["suggested_action"], "edit_code_not_scenario");
+    assert_eq!(
+        failing["playbook_command"],
+        "ah explain edit_code_not_scenario"
+    );
+    assert_eq!(
+        failing["scenario_prose"],
+        serde_json::json!("- **WHEN** it runs\n- **THEN** it passes")
+    );
     assert_eq!(failing["test"]["type"], "unit");
     assert_eq!(failing["test"]["exit_code"], 7);
     assert_eq!(failing["test"]["stderr_tail"], "boom");
+    assert_eq!(output["summary"]["counts_by_kind"]["test-failing"], 1);
 }
 
 #[test]
@@ -191,6 +224,82 @@ fn ah_check_with_changes_includes_overlay_scope() {
         serde_json::json!(["add-parser"])
     );
     assert_eq!(output["summary"]["passed"], 3);
+}
+
+#[test]
+fn ah_check_pytest_contract_uses_adapter_dispatch() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = dir.path();
+    fs::create_dir_all(repo.join("openspec/specs/python")).unwrap();
+    fs::create_dir_all(repo.join(".espectacular/python")).unwrap();
+    fs::write(
+        repo.join("openspec/specs/python/spec.md"),
+        "# Capability: python\n\n#### Scenario: Pytest green\n- **WHEN** pytest runs\n- **THEN** it passes\n",
+    )
+    .unwrap();
+    fs::write(repo.join("pytest.ini"), "[pytest]\n").unwrap();
+    fs::write(
+        repo.join(".espectacular/config.toml"),
+        "tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\npytest = [\"/bin/sh\", \"pytest.sh\"]\n",
+    )
+    .unwrap();
+    fs::write(
+        repo.join(".espectacular/python/pytest-green.toml"),
+        "id = \"pytest-green\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.pytest]]\nflags = \"tests/test_demo.py::test_green\"\n",
+    )
+    .unwrap();
+    write_executable(&repo.join("pytest.sh"), "printf '%s' \"$1\"");
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo)
+        .arg("check")
+        .assert()
+        .success();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_schema_valid(&output);
+    assert_eq!(output["summary"]["passed"], 1);
+}
+
+#[test]
+fn ah_check_pytest_failure_emits_execution_details() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = dir.path();
+    fs::create_dir_all(repo.join("openspec/specs/python")).unwrap();
+    fs::create_dir_all(repo.join(".espectacular/python")).unwrap();
+    fs::write(
+        repo.join("openspec/specs/python/spec.md"),
+        "# Capability: python\n\n#### Scenario: Pytest red\n- **WHEN** pytest fails\n- **THEN** it reports an execution finding\n",
+    )
+    .unwrap();
+    fs::write(repo.join("pytest.ini"), "[pytest]\n").unwrap();
+    fs::write(
+        repo.join(".espectacular/config.toml"),
+        "tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\npytest = [\"/bin/sh\", \"pytest.sh\"]\n",
+    )
+    .unwrap();
+    fs::write(
+        repo.join(".espectacular/python/pytest-red.toml"),
+        "id = \"pytest-red\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.pytest]]\nflags = \"tests/test_demo.py::test_red\"\n",
+    )
+    .unwrap();
+    write_executable(&repo.join("pytest.sh"), "printf 'import boom' >&2\nexit 9");
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo)
+        .arg("check")
+        .assert()
+        .failure();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_schema_valid(&output);
+    let failing = output["findings"].as_array().unwrap()[0].clone();
+    assert_eq!(failing["kind"], "test-failing");
+    assert_eq!(failing["test"]["type"], "pytest");
+    assert_eq!(failing["test"]["exit_code"], 9);
+    assert_eq!(failing["test"]["stderr_tail"], "import boom");
 }
 
 #[test]

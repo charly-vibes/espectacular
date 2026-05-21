@@ -17,12 +17,16 @@
     },
     "summary": {
       "type": "object",
-      "required": ["structural", "execution", "passed"],
+      "required": ["structural", "execution", "passed", "counts_by_kind"],
       "additionalProperties": false,
       "properties": {
         "structural": { "type": "integer", "minimum": 0 },
         "execution": { "type": "integer", "minimum": 0 },
-        "passed": { "type": "integer", "minimum": 0 }
+        "passed": { "type": "integer", "minimum": 0 },
+        "counts_by_kind": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
       }
     },
     "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
@@ -30,16 +34,24 @@
   "$defs": {
     "finding": {
       "type": "object",
-      "required": ["kind", "category", "spec", "spec_path", "scenario"],
+      "required": ["kind", "category", "spec", "spec_path", "scenario", "suggested_action", "playbook_command"],
       "additionalProperties": false,
       "properties": {
         "kind": {
           "enum": ["no-toml", "orphan-toml", "slug-collision", "id-mismatch", "invalid-status", "no-tests-declared", "missing-runner", "malformed-contract", "missing-replacement", "overlay-conflict", "test-failing"]
         },
+        "suggested_action": {
+          "enum": ["run_ah_init", "run_ah_scenario_new", "run_ah_scenario_supersede", "edit_code_not_scenario", "enable_capability", "review_and_apply", "human_review_required"]
+        },
+        "playbook_command": {
+          "type": "string",
+          "pattern": "^ah explain [A-Za-z0-9_-]+$"
+        },
         "category": { "enum": ["structural", "execution"] },
         "spec": { "type": "string" },
         "spec_path": { "type": "string" },
         "scenario": { "$ref": "#/$defs/scenario" },
+        "scenario_prose": { "type": "string" },
         "test": { "$ref": "#/$defs/testResult" },
         "message": { "type": "string" }
       }

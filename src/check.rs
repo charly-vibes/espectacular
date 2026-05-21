@@ -1,3 +1,4 @@
+use crate::adapters;
 use crate::config;
 use crate::contracts;
 use crate::openspec::{self, Scenario};
@@ -46,6 +47,7 @@ pub struct Summary {
     pub structural: usize,
     pub execution: usize,
     pub passed: usize,
+    pub counts_by_kind: BTreeMap<String, usize>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
@@ -55,6 +57,10 @@ pub struct ReportFinding {
     pub spec: String,
     pub spec_path: String,
     pub scenario: ScenarioContext,
+    pub suggested_action: String,
+    pub playbook_command: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scenario_prose: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub test: Option<TestResult>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -155,26 +161,27 @@ fn resolve_scope(
         for scenario in added_scenarios {
             let key = (scenario.spec_path.clone(), scenario.id.clone());
             if scenarios.contains_key(&key) {
-                findings.push(ReportFinding {
-                    kind: "overlay-conflict".to_string(),
-                    category: "structural".to_string(),
-                    spec: scenario.spec_path.clone(),
-                    spec_path: change_specs
+                findings.push(report_finding(
+                    "overlay-conflict",
+                    "structural",
+                    scenario.spec_path.clone(),
+                    change_specs
                         .join(&scenario.spec_path)
                         .join("spec.md")
                         .to_string_lossy()
                         .into_owned(),
-                    scenario: ScenarioContext {
+                    ScenarioContext {
                         id: scenario.id.clone(),
                         title: scenario.heading.clone(),
                         body_markdown: scenario.body.clone(),
                     },
-                    test: None,
-                    message: Some(format!(
+                    Some(scenario.body.clone()),
+                    None,
+                    Some(format!(
                         "change '{change}' defines scenario '{}', which already exists in scope",
                         scenario.id
                     )),
-                });
+                ));
                 continue;
             }
             let contract_path = contracts_dir
@@ -195,25 +202,26 @@ fn resolve_scope(
         for (spec, id, path) in collect_contract_files(&staged_root) {
             let key = (spec.clone(), id.clone());
             if let Some(previous) = contract_overrides.insert(key.clone(), path.clone()) {
-                findings.push(ReportFinding {
-                    kind: "overlay-conflict".to_string(),
-                    category: "structural".to_string(),
-                    spec: spec.clone(),
-                    spec_path: spec_markdown_path(specs_dir, &spec),
-                    scenario: ScenarioContext {
+                findings.push(report_finding(
+                    "overlay-conflict",
+                    "structural",
+                    spec.clone(),
+                    spec_markdown_path(specs_dir, &spec),
+                    ScenarioContext {
                         id: id.clone(),
                         title: String::new(),
                         body_markdown: String::new(),
                     },
-                    test: None,
-                    message: Some(format!(
+                    None,
+                    None,
+                    Some(format!(
                         "multiple staged contract updates for {}:{} ({} and {})",
                         spec,
                         id,
                         previous.display(),
                         path.display()
                     )),
-                });
+                ));
                 continue;
             }
             contract_files.push((spec.clone(), id.clone(), path.clone()));
@@ -266,7 +274,7 @@ fn evaluate_scope(
         for test_type in test_types {
             let entries = &contract.tests[&test_type];
             for entry in entries {
-                let planned = match runner::compose_command(cfg, &test_type, entry) {
+                let planned = match adapters::compose_command(repo_root, cfg, &test_type, entry) {
                     Ok(planned) => planned,
                     Err(error) => {
                         findings.push(structural_report(
@@ -299,6 +307,11 @@ fn evaluate_scope(
         .filter(|finding| finding.category == "execution")
         .count();
 
+    let mut counts_by_kind = BTreeMap::new();
+    for finding in &findings {
+        *counts_by_kind.entry(finding.kind.clone()).or_insert(0) += 1;
+    }
+
     Ok(CheckOutput {
         scope: Scope {
             deployed: true,
@@ -308,6 +321,7 @@ fn evaluate_scope(
             structural,
             execution,
             passed,
+            counts_by_kind,
         },
         findings,
     })
@@ -444,22 +458,22 @@ fn orphan_reports(
         if scenarios.contains_key(&(spec.clone(), id.clone())) {
             continue;
         }
-        findings.push(ReportFinding {
-            kind: "orphan-toml".to_string(),
-            category: "structural".to_string(),
-            spec: spec.clone(),
-            spec_path: path
-                .parent()
+        findings.push(report_finding(
+            "orphan-toml",
+            "structural",
+            spec.clone(),
+            path.parent()
                 .map(|_| format!("openspec/specs/{spec}/spec.md"))
                 .unwrap_or_else(|| format!("openspec/specs/{spec}/spec.md")),
-            scenario: ScenarioContext {
+            ScenarioContext {
                 id: id.clone(),
                 title: String::new(),
                 body_markdown: String::new(),
             },
-            test: None,
-            message: None,
-        });
+            None,
+            None,
+            None,
+        ));
     }
     findings
 }
@@ -525,34 +539,77 @@ fn structural_report(
     kind: &str,
     message: Option<String>,
 ) -> ReportFinding {
-    ReportFinding {
-        kind: kind.to_string(),
-        category: "structural".to_string(),
-        spec: scenario.spec_path.clone(),
-        spec_path: spec_markdown_path(specs_root, &scenario.spec_path),
-        scenario: ScenarioContext {
+    report_finding(
+        kind,
+        "structural",
+        scenario.spec_path.clone(),
+        spec_markdown_path(specs_root, &scenario.spec_path),
+        ScenarioContext {
             id: scenario.id.clone(),
             title: scenario.heading.clone(),
             body_markdown: scenario.body.clone(),
         },
-        test: None,
+        Some(scenario.body.clone()),
+        None,
+        message,
+    )
+}
+
+fn execution_report(scenario: &Scenario, specs_root: &Path, test: TestResult) -> ReportFinding {
+    report_finding(
+        "test-failing",
+        "execution",
+        scenario.spec_path.clone(),
+        spec_markdown_path(specs_root, &scenario.spec_path),
+        ScenarioContext {
+            id: scenario.id.clone(),
+            title: scenario.heading.clone(),
+            body_markdown: scenario.body.clone(),
+        },
+        Some(scenario.body.clone()),
+        Some(test),
+        None,
+    )
+}
+
+fn report_finding(
+    kind: &str,
+    category: &str,
+    spec: String,
+    spec_path: String,
+    scenario: ScenarioContext,
+    scenario_prose: Option<String>,
+    test: Option<TestResult>,
+    message: Option<String>,
+) -> ReportFinding {
+    let suggested_action = suggested_action_for(kind).to_string();
+    ReportFinding {
+        kind: kind.to_string(),
+        category: category.to_string(),
+        spec,
+        spec_path,
+        scenario,
+        suggested_action: suggested_action.clone(),
+        playbook_command: format!("ah explain {suggested_action}"),
+        scenario_prose,
+        test,
         message,
     }
 }
 
-fn execution_report(scenario: &Scenario, specs_root: &Path, test: TestResult) -> ReportFinding {
-    ReportFinding {
-        kind: "test-failing".to_string(),
-        category: "execution".to_string(),
-        spec: scenario.spec_path.clone(),
-        spec_path: spec_markdown_path(specs_root, &scenario.spec_path),
-        scenario: ScenarioContext {
-            id: scenario.id.clone(),
-            title: scenario.heading.clone(),
-            body_markdown: scenario.body.clone(),
-        },
-        test: Some(test),
-        message: None,
+fn suggested_action_for(kind: &str) -> &'static str {
+    match kind {
+        "no-toml"
+        | "orphan-toml"
+        | "slug-collision"
+        | "id-mismatch"
+        | "invalid-status"
+        | "no-tests-declared"
+        | "malformed-contract"
+        | "missing-replacement"
+        | "overlay-conflict" => "review_and_apply",
+        "missing-runner" | "test-failing" => "edit_code_not_scenario",
+        _ => "human_review_required",
     }
 }
 
@@ -695,6 +752,7 @@ mod tests {
         let output = run_check(dir.path(), &[]).unwrap();
         assert!(output.findings.is_empty());
         assert_eq!(output.summary.passed, 1);
+        assert!(output.summary.counts_by_kind.is_empty());
     }
 
     #[test]
@@ -743,6 +801,33 @@ mod tests {
         let output = run_check(dir.path(), &["zeta".to_string(), "alpha".to_string()]).unwrap();
         assert_eq!(output.scope.changes, vec!["alpha", "zeta"]);
         assert!(output.findings.iter().any(|f| f.kind == "overlay-conflict"));
+        assert_eq!(
+            output.summary.counts_by_kind.get("overlay-conflict"),
+            Some(&1)
+        );
+    }
+
+    #[test]
+    fn findings_carry_action_fields_and_scenario_prose() {
+        let dir = success_repo();
+        write_executable(&dir.path().join("runner.sh"), "printf 'boom' >&2\nexit 7");
+
+        let output = run_check(dir.path(), &[]).unwrap();
+        let finding = output
+            .findings
+            .iter()
+            .find(|f| f.kind == "test-failing")
+            .unwrap();
+
+        assert_eq!(finding.suggested_action, "edit_code_not_scenario");
+        assert_eq!(
+            finding.playbook_command,
+            "ah explain edit_code_not_scenario"
+        );
+        assert_eq!(
+            finding.scenario_prose.as_deref(),
+            Some("- **WHEN** it runs\n- **THEN** it passes")
+        );
     }
 
     #[test]

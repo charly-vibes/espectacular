@@ -4,21 +4,21 @@
 
 ## 0. Custom runner envelope schema (gates sections 3–6)
 
-- [ ] 0.1 Red: add failing test asserting `schemas/custom-runner.schema.json` exists and is valid JSON Schema
-- [ ] 0.2 Green: author `schemas/custom-runner.schema.json` — define envelope fields: `exit_code` (integer, required), `passed` (boolean, required), `findings` (array of full finding objects, required); document the schema inline
-- [ ] 0.3 Red: add failing test asserting an empty `findings` array with `exit_code: 0` is a valid envelope (pass case)
-- [ ] 0.4 Green: confirm schema accepts the empty-findings pass case
+- [x] 0.1 Red: add failing test asserting `schemas/custom-runner.schema.json` exists and is valid JSON Schema
+- [x] 0.2 Green: author `schemas/custom-runner.schema.json` — define envelope fields: `exit_code` (integer, required), `passed` (boolean, required), `findings` (array of full finding objects, required); document the schema inline
+- [x] 0.3 Red: add failing test asserting an empty `findings` array with `exit_code: 0` is a valid envelope (pass case)
+- [x] 0.4 Green: confirm schema accepts the empty-findings pass case
 - [ ] 0.5 Refactor: cross-reference the envelope schema from `schemas/check-output.schema.json` so both schemas share the finding object definition
 
 ## 1. Finding schema extension
 
-- [ ] 1.1 Red: add failing tests asserting every finding carries `suggested_action`, `playbook_command`, and (when applicable) `scenario_prose`
-- [ ] 1.2 Green: extend finding schema types to include agent-action fields; update `schemas/check-output.schema.json`
-- [ ] 1.3 Red: add failing snapshot tests for deterministic `(spec_path, scenario_id, kind)` sort order
-- [ ] 1.4 Green: sort findings in the JSON emitter
-- [ ] 1.5 Red: add failing test for `summary.counts_by_kind` presence and accuracy
-- [ ] 1.6 Green: compute and emit counts-by-kind in the envelope summary
-- [ ] 1.7 Refactor: centralize finding construction so agent-action fields cannot be omitted
+- [x] 1.1 Red: add failing tests asserting every finding carries `suggested_action`, `playbook_command`, and (when applicable) `scenario_prose`
+- [x] 1.2 Green: extend finding schema types to include agent-action fields; update `schemas/check-output.schema.json`
+- [x] 1.3 Red: add failing snapshot tests for deterministic `(spec_path, scenario_id, kind)` sort order
+- [x] 1.4 Green: sort findings in the JSON emitter
+- [x] 1.5 Red: add failing test for `summary.counts_by_kind` presence and accuracy
+- [x] 1.6 Green: compute and emit counts-by-kind in the envelope summary
+- [x] 1.7 Refactor: centralize finding construction so agent-action fields cannot be omitted
 
 ## 2. Adapter trait and dispatch
 
@@ -30,11 +30,11 @@
 
 ## 3. Python pytest adapter
 
-- [ ] 3.1 Red: add failing tests for pytest detection via `pyproject.toml`, environment, and source import
-- [ ] 3.2 Green: implement detection in `src/adapters/python.rs`
-- [ ] 3.3 Red: add failing tests for pytest invocation, exit-code normalization, and bounded tail capture
-- [ ] 3.4 Green: implement invocation and normalization
-- [ ] 3.5 Refactor: share tail-capture logic across adapters
+- [x] 3.1 Red: add failing tests for pytest detection via `pyproject.toml`, environment, and source import
+- [x] 3.2 Green: implement detection in `src/adapters/python.rs`
+- [x] 3.3 Red: add failing tests for pytest invocation, exit-code normalization, and bounded tail capture
+- [x] 3.4 Green: implement invocation and normalization
+- [x] 3.5 Refactor: share tail-capture logic across adapters
 
 ## 4. Rust cargo test adapter
 

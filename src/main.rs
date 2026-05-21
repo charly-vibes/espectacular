@@ -1,3 +1,4 @@
+mod adapters;
 mod archetypes;
 mod archive;
 mod check;
