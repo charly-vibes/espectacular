@@ -2,7 +2,7 @@ pub mod python;
 
 use crate::config::Config;
 use crate::contracts::TestEntry;
-use crate::runner::{self, PlannedCommand};
+use crate::runner::{self, PlannedCommand, TestResult};
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -20,6 +20,21 @@ pub trait Adapter {
         config: &Config,
         entry: &TestEntry,
     ) -> anyhow::Result<PlannedCommand>;
+    fn normalize(result: TestResult) -> TestResult {
+        result
+    }
+    fn invoke(repo_root: &Path, config: &Config, entry: &TestEntry) -> anyhow::Result<TestResult> {
+        let planned = Self::compose_command(repo_root, config, entry)?;
+        let result = runner::execute_command(repo_root, &planned)?;
+        Ok(Self::normalize(result))
+    }
+}
+
+pub fn detect(repo_root: &Path, config: &Config, test_type: &str) -> Option<DetectionSource> {
+    match test_type {
+        "pytest" => python::PytestAdapter::detect(repo_root, config),
+        _ => None,
+    }
 }
 
 pub fn compose_command(
@@ -34,12 +49,29 @@ pub fn compose_command(
     }
 }
 
+pub fn invoke(
+    repo_root: &Path,
+    config: &Config,
+    test_type: &str,
+    entry: &TestEntry,
+) -> anyhow::Result<TestResult> {
+    match test_type {
+        "pytest" => python::PytestAdapter::invoke(repo_root, config, entry),
+        _ => {
+            let planned = runner::compose_command(config, test_type, entry)?;
+            runner::execute_command(repo_root, &planned)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::Paths;
     use std::collections::HashMap;
     use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::path::Path;
 
     fn config_with_runner(name: &str, argv: Vec<&str>) -> Config {
         let mut runners = HashMap::new();
@@ -77,6 +109,68 @@ mod tests {
             planned.argv,
             vec!["custom-pytest", "tests/test_demo.py::test_ok"]
         );
+    }
+
+    fn write_executable(path: &Path, body: &str) {
+        fs::write(path, format!("#!/bin/sh\nset -eu\n{body}\n")).unwrap();
+        let mut perms = fs::metadata(path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(path, perms).unwrap();
+    }
+
+    #[test]
+    fn detect_dispatch_reports_pytest_precedence() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        fs::create_dir_all(repo.join("tests")).unwrap();
+        fs::write(repo.join("pyproject.toml"), "[tool.pytest.ini_options]\n").unwrap();
+        fs::write(
+            repo.join("tests/test_demo.py"),
+            "import pytest\n\ndef test_ok():\n    assert True\n",
+        )
+        .unwrap();
+
+        let env_dir = repo.join("bin");
+        fs::create_dir_all(&env_dir).unwrap();
+        write_executable(&env_dir.join("pytest"), "exit 0");
+        let path = std::env::join_paths([env_dir]).unwrap();
+        let original_path = std::env::var_os("PATH");
+        std::env::set_var("PATH", path);
+
+        let empty = Config {
+            tool_version: "0.1.0".to_string(),
+            paths: Paths {
+                specs: "openspec/specs".to_string(),
+                changes: "openspec/changes".to_string(),
+            },
+            runners: HashMap::new(),
+        };
+        let configured = config_with_runner("pytest", vec!["pytest"]);
+
+        assert_eq!(
+            detect(repo, &configured, "pytest"),
+            Some(DetectionSource::Configured)
+        );
+        assert_eq!(
+            detect(repo, &empty, "pytest"),
+            Some(DetectionSource::Manifest)
+        );
+
+        fs::remove_file(repo.join("pyproject.toml")).unwrap();
+        assert_eq!(
+            detect(repo, &empty, "pytest"),
+            Some(DetectionSource::Environment)
+        );
+
+        std::env::remove_var("PATH");
+        assert_eq!(
+            detect(repo, &empty, "pytest"),
+            Some(DetectionSource::SourceImport)
+        );
+
+        if let Some(path) = original_path {
+            std::env::set_var("PATH", path);
+        }
     }
 
     #[test]

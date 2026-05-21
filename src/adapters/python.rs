@@ -1,7 +1,7 @@
 use super::DetectionSource;
 use crate::config::Config;
 use crate::contracts::TestEntry;
-use crate::runner::PlannedCommand;
+use crate::runner::{PlannedCommand, TestResult};
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -22,6 +22,10 @@ impl super::Adapter for PytestAdapter {
         entry: &TestEntry,
     ) -> anyhow::Result<PlannedCommand> {
         compose_command(repo_root, config, entry)
+    }
+
+    fn normalize(result: TestResult) -> TestResult {
+        normalize(result)
     }
 }
 
@@ -65,8 +69,11 @@ pub fn compose_command(
 
     let mut argv = if let Some(runner) = config.runners.get("pytest") {
         runner.clone()
-    } else if detect(repo_root, config).is_some() {
-        vec!["pytest".to_string()]
+    } else if let Some(source) = detect(repo_root, config) {
+        anyhow::bail!(
+            "pytest detected via {} but is not configured",
+            detection_source_label(source)
+        );
     } else {
         anyhow::bail!("missing adapter for pytest");
     };
@@ -78,6 +85,66 @@ pub fn compose_command(
         argv,
         timeout_seconds,
     })
+}
+
+pub fn normalize(mut result: TestResult) -> TestResult {
+    if result.timed_out || result.exit_code != Some(0) {
+        result.test_type = classify_failure(&result.stdout_tail, &result.stderr_tail).to_string();
+    }
+    result
+}
+
+fn classify_failure(stdout: &str, stderr: &str) -> &'static str {
+    if let Some(json_kind) = classify_failure_from_json(stdout) {
+        return json_kind;
+    }
+
+    let combined = format!("{stdout}\n{stderr}");
+    if combined.contains("ImportError") {
+        "pytest-import-error"
+    } else if combined.contains("fixture") && combined.contains("not found") {
+        "pytest-fixture-error"
+    } else if combined.contains("ERROR collecting")
+        || combined.contains("collected 0 items / 1 error")
+    {
+        "pytest-collection-error"
+    } else {
+        "pytest"
+    }
+}
+
+fn classify_failure_from_json(stdout: &str) -> Option<&'static str> {
+    let value: serde_json::Value = serde_json::from_str(stdout.trim()).ok()?;
+    if json_contains(&value, "ImportError") {
+        return Some("pytest-import-error");
+    }
+    if json_contains(&value, "fixture") && json_contains(&value, "not found") {
+        return Some("pytest-fixture-error");
+    }
+    if json_contains(&value, "ERROR collecting")
+        || json_contains(&value, "collected 0 items / 1 error")
+    {
+        return Some("pytest-collection-error");
+    }
+    None
+}
+
+fn json_contains(value: &serde_json::Value, needle: &str) -> bool {
+    match value {
+        serde_json::Value::String(text) => text.contains(needle),
+        serde_json::Value::Array(items) => items.iter().any(|item| json_contains(item, needle)),
+        serde_json::Value::Object(map) => map.values().any(|item| json_contains(item, needle)),
+        _ => false,
+    }
+}
+
+fn detection_source_label(source: DetectionSource) -> &'static str {
+    match source {
+        DetectionSource::Configured => "configured",
+        DetectionSource::Manifest => "manifest",
+        DetectionSource::Environment => "environment",
+        DetectionSource::SourceImport => "source_import",
+    }
 }
 
 fn has_manifest_signal(repo_root: &Path) -> bool {
@@ -238,7 +305,18 @@ mod tests {
     }
 
     #[test]
-    fn compose_uses_default_pytest_when_detected() {
+    fn detects_pytest_via_setup_cfg() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("setup.cfg"), "[tool:pytest]\n").unwrap();
+
+        assert_eq!(
+            detect_with_path(dir.path(), &empty_config(), None),
+            Some(DetectionSource::Manifest)
+        );
+    }
+
+    #[test]
+    fn compose_requires_configured_pytest_runner() {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("pytest.ini"), "[pytest]\n").unwrap();
         let entry = TestEntry {
@@ -247,8 +325,55 @@ mod tests {
             timeout_seconds: Some(5),
         };
 
-        let planned = compose_command(dir.path(), &empty_config(), &entry).unwrap();
-        assert_eq!(planned.argv, vec!["pytest", "tests/test_demo.py::test_ok"]);
-        assert_eq!(planned.timeout_seconds, 5);
+        let error = compose_command(dir.path(), &empty_config(), &entry).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("pytest detected via manifest but is not configured"));
+    }
+
+    #[test]
+    fn normalize_classifies_import_errors_from_json_report() {
+        let result = normalize(TestResult {
+            test_type: "pytest".to_string(),
+            command: "pytest tests/test_demo.py::test_import".to_string(),
+            exit_code: Some(2),
+            timed_out: false,
+            stdout_tail:
+                r#"{"collectors":[{"longrepr":"ImportError: cannot import name 'boom'"}]}"#
+                    .to_string(),
+            stderr_tail: String::new(),
+        });
+
+        assert_eq!(result.test_type, "pytest-import-error");
+    }
+
+    #[test]
+    fn normalize_classifies_fixture_errors_from_json_report() {
+        let result = normalize(TestResult {
+            test_type: "pytest".to_string(),
+            command: "pytest tests/test_demo.py::test_fixture".to_string(),
+            exit_code: Some(1),
+            timed_out: false,
+            stdout_tail: r#"{"tests":[{"setup":{"crash":{"message":"fixture 'db' not found"}}}]}"#
+                .to_string(),
+            stderr_tail: String::new(),
+        });
+
+        assert_eq!(result.test_type, "pytest-fixture-error");
+    }
+
+    #[test]
+    fn normalize_classifies_collection_errors_from_json_report() {
+        let result = normalize(TestResult {
+            test_type: "pytest".to_string(),
+            command: "pytest tests/test_demo.py::test_collect".to_string(),
+            exit_code: Some(2),
+            timed_out: false,
+            stdout_tail: r#"{"collectors":[{"longrepr":"ERROR collecting tests/test_demo.py"}]}"#
+                .to_string(),
+            stderr_tail: String::new(),
+        });
+
+        assert_eq!(result.test_type, "pytest-collection-error");
     }
 }

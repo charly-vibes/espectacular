@@ -302,6 +302,117 @@ fn ah_check_pytest_failure_emits_execution_details() {
     assert_eq!(failing["test"]["stderr_tail"], "import boom");
 }
 
+fn write_pytest_repo(
+    repo: &Path,
+    scenario_id: &str,
+    title: &str,
+    expectation: &str,
+    script_body: &str,
+) {
+    fs::create_dir_all(repo.join("openspec/specs/python")).unwrap();
+    fs::create_dir_all(repo.join(".espectacular/python")).unwrap();
+    fs::write(
+        repo.join("openspec/specs/python/spec.md"),
+        format!(
+            "# Capability: python\n\n#### Scenario: {title}\n- **WHEN** pytest runs\n- **THEN** {expectation}\n",
+        ),
+    )
+    .unwrap();
+    fs::write(repo.join("pytest.ini"), "[pytest]\n").unwrap();
+    fs::write(
+        repo.join(".espectacular/config.toml"),
+        "tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\npytest = [\"/bin/sh\", \"pytest.sh\"]\n",
+    )
+    .unwrap();
+    fs::write(
+        repo.join(format!(".espectacular/python/{scenario_id}.toml")),
+        format!(
+            "id = \"{scenario_id}\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.pytest]]\nflags = \"tests/test_demo.py::{scenario_id}\"\n",
+        ),
+    )
+    .unwrap();
+    write_executable(&repo.join("pytest.sh"), script_body);
+}
+
+#[test]
+fn ah_check_pytest_json_failure_is_classified_by_adapter() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = dir.path();
+    write_pytest_repo(
+        repo,
+        "pytest-import-error",
+        "Pytest import error",
+        "it reports an import error",
+        "printf '%s' '{\"collectors\":[{\"longrepr\":\"ImportError: cannot import name \\\"boom\\\"\"}]}'\nexit 2",
+    );
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo)
+        .arg("check")
+        .assert()
+        .failure();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_schema_valid(&output);
+    let failing = output["findings"].as_array().unwrap()[0].clone();
+    assert_eq!(failing["kind"], "test-failing");
+    assert_eq!(failing["test"]["type"], "pytest-import-error");
+    assert_eq!(failing["test"]["exit_code"], 2);
+}
+
+#[test]
+fn ah_check_pytest_fixture_failure_is_classified_by_adapter() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = dir.path();
+    write_pytest_repo(
+        repo,
+        "pytest-fixture-error",
+        "Pytest fixture error",
+        "it reports a fixture failure",
+        "printf '%s' '{\"tests\":[{\"setup\":{\"crash\":{\"message\":\"fixture \'db\' not found\"}}}]}'\nexit 1",
+    );
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo)
+        .arg("check")
+        .assert()
+        .failure();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_schema_valid(&output);
+    let failing = output["findings"].as_array().unwrap()[0].clone();
+    assert_eq!(failing["test"]["type"], "pytest-fixture-error");
+    assert_eq!(failing["test"]["exit_code"], 1);
+}
+
+#[test]
+fn ah_check_pytest_collection_failure_is_classified_by_adapter() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = dir.path();
+    write_pytest_repo(
+        repo,
+        "pytest-collection-error",
+        "Pytest collection error",
+        "it reports a collection failure",
+        "printf '%s' '{\"collectors\":[{\"longrepr\":\"ERROR collecting tests/test_demo.py\"}]}'\nexit 2",
+    );
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo)
+        .arg("check")
+        .assert()
+        .failure();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_schema_valid(&output);
+    let failing = output["findings"].as_array().unwrap()[0].clone();
+    assert_eq!(failing["test"]["type"], "pytest-collection-error");
+    assert_eq!(failing["test"]["exit_code"], 2);
+}
+
 #[test]
 fn ah_check_missing_change_has_clear_diagnostic() {
     let repo = base_repo();

@@ -60,6 +60,24 @@ The system SHALL provide a bundled pytest adapter that detects pytest, runs the 
 - **WHEN** the adapter runs the command and pytest exits non-zero
 - **THEN** the adapter emits a `test-failing` finding with bounded stdout/stderr tails
 
+#### Scenario: Pytest adapter classifies import errors
+- **GIVEN** pytest emits JSON output containing an `ImportError`
+- **WHEN** the adapter normalizes the failing result
+- **THEN** the finding remains `test-failing`
+- **AND** the execution context reports `test.type = pytest-import-error`
+
+#### Scenario: Pytest adapter classifies fixture failures
+- **GIVEN** pytest emits JSON output containing a missing fixture failure
+- **WHEN** the adapter normalizes the failing result
+- **THEN** the finding remains `test-failing`
+- **AND** the execution context reports `test.type = pytest-fixture-error`
+
+#### Scenario: Pytest adapter classifies collection failures
+- **GIVEN** pytest emits JSON output containing a collection error
+- **WHEN** the adapter normalizes the failing result
+- **THEN** the finding remains `test-failing`
+- **AND** the execution context reports `test.type = pytest-collection-error`
+
 ### Requirement: Rust cargo test adapter
 The system SHALL provide a bundled cargo test adapter that detects cargo, runs the declared test command, and normalizes output into the finding schema.
 

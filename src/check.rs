@@ -2,7 +2,7 @@ use crate::adapters;
 use crate::config;
 use crate::contracts;
 use crate::openspec::{self, Scenario};
-use crate::runner::{self, TestResult};
+use crate::runner::TestResult;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
@@ -274,8 +274,8 @@ fn evaluate_scope(
         for test_type in test_types {
             let entries = &contract.tests[&test_type];
             for entry in entries {
-                let planned = match adapters::compose_command(repo_root, cfg, &test_type, entry) {
-                    Ok(planned) => planned,
+                let result = match adapters::invoke(repo_root, cfg, &test_type, entry) {
+                    Ok(result) => result,
                     Err(error) => {
                         findings.push(structural_report(
                             scenario,
@@ -286,8 +286,6 @@ fn evaluate_scope(
                         continue;
                     }
                 };
-
-                let result = runner::execute_command(repo_root, &planned)?;
                 if result.timed_out || result.exit_code != Some(0) {
                     findings.push(execution_report(scenario, specs_root, result));
                 } else {
