@@ -11,6 +11,7 @@ mod init;
 mod openspec;
 mod runner;
 mod scenario;
+mod signals;
 mod upgrade;
 
 use clap::{Parser, Subcommand};
@@ -48,6 +49,8 @@ enum Command {
         #[command(subcommand)]
         command: ScenarioCommand,
     },
+    /// Read dont rejection events and emit drift signals as JSON.
+    Signals,
 }
 
 #[derive(Subcommand)]
@@ -151,6 +154,12 @@ fn run() -> anyhow::Result<()> {
         }
         Command::Explain { topic, list, json } => {
             explain::run_explain(topic.as_deref(), list, json)
+        }
+        Command::Signals => {
+            let project_root = std::env::current_dir()?;
+            let drift = signals::collect_drift_signals(&project_root);
+            println!("{}", serde_json::to_string_pretty(&drift)?);
+            Ok(())
         }
         Command::Upgrade => {
             let report = upgrade::run_upgrade(&std::env::current_dir()?)?;
