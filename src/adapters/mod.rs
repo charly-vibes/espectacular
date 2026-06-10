@@ -1,4 +1,6 @@
 pub mod python;
+pub mod rust;
+pub mod typescript;
 
 use crate::config::Config;
 use crate::contracts::TestEntry;
@@ -33,6 +35,8 @@ pub trait Adapter {
 pub fn detect(repo_root: &Path, config: &Config, test_type: &str) -> Option<DetectionSource> {
     match test_type {
         "pytest" => python::PytestAdapter::detect(repo_root, config),
+        "cargo" => rust::CargoAdapter::detect(repo_root, config),
+        "vitest" => typescript::VitestAdapter::detect(repo_root, config),
         _ => None,
     }
 }
@@ -45,6 +49,8 @@ pub fn compose_command(
 ) -> anyhow::Result<PlannedCommand> {
     match test_type {
         "pytest" => python::PytestAdapter::compose_command(repo_root, config, entry),
+        "cargo" => rust::CargoAdapter::compose_command(repo_root, config, entry),
+        "vitest" => typescript::VitestAdapter::compose_command(repo_root, config, entry),
         _ => runner::compose_command(config, test_type, entry),
     }
 }
@@ -57,6 +63,8 @@ pub fn invoke(
 ) -> anyhow::Result<TestResult> {
     match test_type {
         "pytest" => python::PytestAdapter::invoke(repo_root, config, entry),
+        "cargo" => rust::CargoAdapter::invoke(repo_root, config, entry),
+        "vitest" => typescript::VitestAdapter::invoke(repo_root, config, entry),
         _ => {
             let planned = runner::compose_command(config, test_type, entry)?;
             runner::execute_command(repo_root, &planned)

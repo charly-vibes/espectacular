@@ -22,11 +22,11 @@
 
 ## 2. Adapter trait and dispatch
 
-- [ ] 2.1 Red: add failing tests for the `Adapter` trait interface (detect, invoke, normalize)
-- [ ] 2.2 Green: define `Adapter` trait in `src/adapters/mod.rs` with detection precedence chain and `detection_source` reporting
-- [ ] 2.3 Red: add failing tests for adapter dispatch selecting the correct adapter from explicit config, reporting non-configured detections as recommendations only, and ignoring manifests/imports outside the repository root
-- [ ] 2.4 Green: implement adapter dispatch in the gate runner with repository-bounded detection
-- [ ] 2.5 Refactor: isolate detection from invocation in the trait
+- [x] 2.1 Red: add failing tests for the `Adapter` trait interface (detect, invoke, normalize)
+- [x] 2.2 Green: define `Adapter` trait in `src/adapters/mod.rs` with detection precedence chain and `detection_source` reporting
+- [x] 2.3 Red: add failing tests for adapter dispatch selecting the correct adapter from explicit config, reporting non-configured detections as recommendations only, and ignoring manifests/imports outside the repository root
+- [x] 2.4 Green: implement adapter dispatch in the gate runner with repository-bounded detection
+- [x] 2.5 Refactor: isolate detection from invocation in the trait
 
 ## 3. Python pytest adapter
 
@@ -38,19 +38,19 @@
 
 ## 4. Rust cargo test adapter
 
-- [ ] 4.1 Red: add failing tests for cargo detection via `Cargo.toml`
-- [ ] 4.2 Green: implement detection in `src/adapters/rust.rs`
-- [ ] 4.3 Red: add failing tests for cargo invocation and exit-code normalization
-- [ ] 4.4 Green: implement invocation and normalization
-- [ ] 4.5 Refactor: align normalization path with pytest adapter
+- [x] 4.1 Red: add failing tests for cargo detection via `Cargo.toml`
+- [x] 4.2 Green: implement detection in `src/adapters/rust.rs`
+- [x] 4.3 Red: add failing tests for cargo invocation and exit-code normalization
+- [x] 4.4 Green: implement invocation and normalization
+- [x] 4.5 Refactor: align normalization path with pytest adapter
 
 ## 5. TypeScript vitest adapter
 
-- [ ] 5.1 Red: add failing tests for vitest detection via `package.json`
-- [ ] 5.2 Green: implement detection in `src/adapters/typescript.rs`
-- [ ] 5.3 Red: add failing tests for vitest invocation and exit-code normalization
-- [ ] 5.4 Green: implement invocation and normalization
-- [ ] 5.5 Refactor: confirm tail-capture reuse from step 3.5
+- [x] 5.1 Red: add failing tests for vitest detection via `package.json`
+- [x] 5.2 Green: implement detection in `src/adapters/typescript.rs`
+- [x] 5.3 Red: add failing tests for vitest invocation and exit-code normalization
+- [x] 5.4 Green: implement invocation and normalization
+- [x] 5.5 Refactor: confirm tail-capture reuse from step 3.5
 
 ## 6. Custom runner plugin protocol
 
