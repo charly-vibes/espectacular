@@ -91,19 +91,19 @@
 
 ## 9. `ah explain` subcommand
 
-- [ ] 9.1 Red: add failing build tests proving missing variant body and duplicate topic registration each cause compile failure
-- [ ] 9.2 Green: implement compile-time enforcement via proc macro, build.rs assertion, or generated registry
-- [ ] 9.3 Red: add failing tests for markdown output for each `FindingKind` variant (including `quality-mutation`, `quality-property`, `quality-snapshot`) and each `SuggestedAction` variant
-- [ ] 9.4 Green: implement topic bodies in `src/explain.rs` — quality finding kinds must have bodies that explain the score, how to enable the capability, and when the finding appears
-- [ ] 9.5 Red: add failing tests for general topics (workflow, supersession, archetypes, progressive-enablement)
-- [ ] 9.6 Green: implement general topic bodies
-- [ ] 9.7 Red: add failing tests for `--json` output shape, including `hints[].kind` and `hints[].message`
-- [ ] 9.8 Green: implement `--json` serialization
-- [ ] 9.9 Red: add failing tests for `--list` stable output and unknown topic error
-- [ ] 9.10 Green: implement listing and error path
-- [ ] 9.11 Red: add failing test for each adapter contributing its own topic
-- [ ] 9.12 Green: wire adapter topics into the explain registry
-- [ ] 9.13 Refactor: ensure explain registry is the single source of topic truth
+- [x] 9.1 Red: add failing build tests proving missing variant body and duplicate topic registration each cause compile failure
+- [x] 9.2 Green: implement compile-time enforcement via proc macro, build.rs assertion, or generated registry
+- [x] 9.3 Red: add failing tests for markdown output for each `FindingKind` variant (including `quality-mutation`, `quality-property`, `quality-snapshot`) and each `SuggestedAction` variant
+- [x] 9.4 Green: implement topic bodies in `src/explain.rs` — quality finding kinds must have bodies that explain the score, how to enable the capability, and when the finding appears
+- [x] 9.5 Red: add failing tests for general topics (workflow, supersession, archetypes, progressive-enablement)
+- [x] 9.6 Green: implement general topic bodies
+- [x] 9.7 Red: add failing tests for `--json` output shape, including `hints[].kind` and `hints[].message`
+- [x] 9.8 Green: implement `--json` serialization
+- [x] 9.9 Red: add failing tests for `--list` stable output and unknown topic error
+- [x] 9.10 Green: implement listing and error path
+- [x] 9.11 Red: add failing test for each adapter contributing its own topic
+- [x] 9.12 Green: wire adapter topics into the explain registry
+- [x] 9.13 Refactor: ensure explain registry is the single source of topic truth
 
 ## 10. AGENTS.md update
 

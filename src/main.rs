@@ -5,6 +5,7 @@ mod check;
 mod config;
 mod contracts;
 mod doctor;
+mod explain;
 mod fsutil;
 mod init;
 mod openspec;
@@ -34,6 +35,13 @@ enum Command {
     },
     Type {
         name: Option<String>,
+    },
+    Explain {
+        topic: Option<String>,
+        #[arg(long)]
+        list: bool,
+        #[arg(long)]
+        json: bool,
     },
     Upgrade,
     Scenario {
@@ -140,6 +148,9 @@ fn run() -> anyhow::Result<()> {
                 }
             }
             Ok(())
+        }
+        Command::Explain { topic, list, json } => {
+            explain::run_explain(topic.as_deref(), list, json)
         }
         Command::Upgrade => {
             let report = upgrade::run_upgrade(&std::env::current_dir()?)?;
