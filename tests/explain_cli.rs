@@ -165,3 +165,20 @@ fn ah_explain_adapter_topics() {
             .stdout(contains("##"));
     }
 }
+
+// 11.4 — ah explain no-toml exits zero with non-empty output
+#[test]
+fn ah_explain_no_toml_exits_zero_with_content() {
+    let output = Command::cargo_bin("ah")
+        .unwrap()
+        .args(["explain", "no-toml"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    assert!(
+        !output.is_empty(),
+        "ah explain no-toml produced empty stdout"
+    );
+}
