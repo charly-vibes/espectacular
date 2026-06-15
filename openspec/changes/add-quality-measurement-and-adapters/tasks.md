@@ -107,9 +107,9 @@
 
 ## 10. AGENTS.md update
 
-- [ ] 10.0 Red: add failing test asserting that `ah init --refresh` produces a `.espectacular/AGENTS.md` containing exactly the single meta-instruction paragraph (no other content)
-- [ ] 10.1 Shrink `.espectacular/AGENTS.md` to a single meta-instruction: run `playbook_command` on every finding before acting
-- [ ] 10.2 Green: update `ah init` managed-block refresh to write the new AGENTS.md content; confirm test 10.0 passes
+- [x] 10.0 Red: add failing test asserting that `ah init --refresh` produces a `.espectacular/AGENTS.md` containing exactly the single meta-instruction paragraph (no other content)
+- [x] 10.1 Shrink `.espectacular/AGENTS.md` to a single meta-instruction: run `playbook_command` on every finding before acting
+- [x] 10.2 Green: update `ah init` managed-block refresh to write the new AGENTS.md content; confirm test 10.0 passes
 
 ## 11. Integration and validation
 

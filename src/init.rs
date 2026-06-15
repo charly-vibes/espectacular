@@ -26,21 +26,10 @@ Run `ah check` to verify spec-test correspondence before committing.
 - `ah doctor` — diagnose setup issues
 <!-- ah:managed:end -->"#;
 
-const ESPECTACULAR_AGENTS_CONTENT: &str = r#"# espectacular
-
-This directory contains espectacular configuration and scenario contracts.
-
-## Layout
-
-- `config.toml` — project configuration (tool version, paths, runners)
-- `<spec>/<scenario>.toml` — per-scenario test contracts
-- `changes/<change>/` — staged contracts for in-flight OpenSpec changes
-
-## Workflow
-
-Run `ah check` from the repo root to validate all spec-test correspondence.
-Run `ah check --changes <name>` to validate a change overlay before merging.
-"#;
+const ESPECTACULAR_AGENTS_CONTENT: &str =
+    "Before acting on any `ah check` finding, run its `playbook_command` to get the \
+canonical remediation steps. Use `ah explain <topic>` to look up the playbook for any \
+finding kind.\n";
 
 const DEFAULT_CONFIG_TOML: &str = r#"tool_version = "0.1.0"
 
@@ -525,6 +514,30 @@ mod tests {
                 .iter()
                 .any(|s| s.contains("empty-input-rejected")),
             "must not report existing contract as stubbed"
+        );
+    }
+
+    // 10.0 RED: espectacular AGENTS.md contains single meta-instruction only
+    #[test]
+    fn init_writes_single_meta_instruction_to_espectacular_agents_md() {
+        let repo = make_repo(true);
+        run_init(repo.path()).unwrap();
+        let content = fs::read_to_string(repo.path().join(".espectacular/AGENTS.md")).unwrap();
+        assert!(
+            content.contains("playbook_command"),
+            ".espectacular/AGENTS.md must contain meta-instruction referencing playbook_command"
+        );
+        assert!(
+            content.contains("ah explain"),
+            ".espectacular/AGENTS.md must reference ah explain"
+        );
+        assert!(
+            !content.contains("## Layout"),
+            ".espectacular/AGENTS.md must not contain layout documentation"
+        );
+        assert!(
+            !content.contains("## Workflow"),
+            ".espectacular/AGENTS.md must not contain workflow documentation"
         );
     }
 
