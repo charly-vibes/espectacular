@@ -122,6 +122,7 @@ mod tests {
                 changes: "openspec/changes".to_string(),
             },
             runners: HashMap::new(),
+            quality: Default::default(),
         }
     }
 
@@ -138,6 +139,7 @@ mod tests {
                 changes: "openspec/changes".to_string(),
             },
             runners,
+            quality: Default::default(),
         }
     }
 

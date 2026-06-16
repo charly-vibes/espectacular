@@ -156,6 +156,7 @@ mod tests {
                 changes: "openspec/changes".to_string(),
             },
             runners,
+            quality: Default::default(),
         }
     }
 
@@ -292,6 +293,7 @@ mod tests {
                     vec!["/bin/sh".to_string(), helper.to_str().unwrap().to_string()],
                 ),
             ]),
+            quality: Default::default(),
         };
         let tests = HashMap::from([
             (

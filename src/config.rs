@@ -8,6 +8,25 @@ pub struct Config {
     pub tool_version: String,
     pub paths: Paths,
     pub runners: HashMap<String, Vec<String>>,
+    #[serde(default)]
+    pub quality: QualityConfig,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct QualityConfig {
+    pub mutation: Option<MutationConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MutationConfig {
+    pub enabled: bool,
+    #[serde(default = "default_threshold")]
+    pub threshold: f64,
+    pub command: Vec<String>,
+}
+
+fn default_threshold() -> f64 {
+    0.80
 }
 
 #[derive(Debug, Deserialize)]

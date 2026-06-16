@@ -94,6 +94,7 @@ mod tests {
                 changes: "openspec/changes".to_string(),
             },
             runners,
+            quality: Default::default(),
         }
     }
 
@@ -152,6 +153,7 @@ mod tests {
                 changes: "openspec/changes".to_string(),
             },
             runners: HashMap::new(),
+            quality: Default::default(),
         };
         let configured = config_with_runner("pytest", vec!["pytest"]);
 

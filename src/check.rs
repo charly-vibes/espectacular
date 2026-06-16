@@ -2,6 +2,7 @@ use crate::adapters;
 use crate::config;
 use crate::contracts;
 use crate::openspec::{self, Scenario};
+use crate::quality;
 use crate::runner::TestResult;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -34,6 +35,8 @@ pub struct CheckOutput {
     pub scope: Scope,
     pub summary: Summary,
     pub findings: Vec<ReportFinding>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub quality_findings: Vec<quality::QualityFinding>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -94,9 +97,10 @@ pub fn run_check(repo_root: &Path, selected_changes: &[String]) -> anyhow::Resul
     let specs_dir = repo_root.join(&cfg.paths.specs);
     let contracts_dir = repo_root.join(".espectacular");
     let changes_dir = repo_root.join(&cfg.paths.changes);
+    let ah_scope = std::env::var("AH_SCOPE").unwrap_or_default();
 
     let scope = resolve_scope(&specs_dir, &contracts_dir, &changes_dir, selected_changes)?;
-    evaluate_scope(repo_root, &cfg, &specs_dir, scope)
+    evaluate_scope(repo_root, &cfg, &specs_dir, scope, &ah_scope)
 }
 
 pub fn structural_findings(specs_dir: &str, contracts_dir: &str) -> anyhow::Result<Vec<Finding>> {
@@ -244,6 +248,7 @@ fn evaluate_scope(
     cfg: &config::Config,
     specs_root: &Path,
     scope: ResolvedScope,
+    ah_scope: &str,
 ) -> anyhow::Result<CheckOutput> {
     let mut findings = scope.findings;
     findings.extend(collect_structural_findings(
@@ -310,6 +315,8 @@ fn evaluate_scope(
         *counts_by_kind.entry(finding.kind.clone()).or_insert(0) += 1;
     }
 
+    let quality_findings = quality::collect_quality_findings(repo_root, &cfg.quality, ah_scope);
+
     Ok(CheckOutput {
         scope: Scope {
             deployed: true,
@@ -322,6 +329,7 @@ fn evaluate_scope(
             counts_by_kind,
         },
         findings,
+        quality_findings,
     })
 }
 

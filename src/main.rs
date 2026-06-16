@@ -9,6 +9,7 @@ mod explain;
 mod fsutil;
 mod init;
 mod openspec;
+mod quality;
 mod runner;
 mod scenario;
 mod signals;
@@ -85,8 +86,11 @@ fn run() -> anyhow::Result<()> {
         Command::Check { changes } => {
             let report = check::run_check(&std::env::current_dir()?, &changes)?;
             println!("{}", serde_json::to_string_pretty(&report)?);
-            let exit_code = if report.findings.is_empty() { 0 } else { 1 };
-            std::process::exit(exit_code);
+            let has_blocking = report
+                .findings
+                .iter()
+                .any(|f| f.category == "structural" || f.category == "execution");
+            std::process::exit(if has_blocking { 1 } else { 0 });
         }
         Command::Doctor => {
             let report = doctor::run_doctor(&std::env::current_dir()?)?;
