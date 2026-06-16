@@ -258,6 +258,7 @@ fn evaluate_scope(
 
     let blocked = blocked_scenarios(&findings);
     let mut passed = 0usize;
+    let mut extra_quality_findings: Vec<quality::QualityFinding> = Vec::new();
 
     for resolved in sorted_resolved_scenarios(&scope.scenarios) {
         let scenario = &resolved.scenario;
@@ -311,6 +312,35 @@ fn evaluate_scope(
                     continue;
                 }
 
+                if test_type == "property" || test_type == "snapshot" {
+                    let result = match adapters::invoke(repo_root, cfg, &test_type, entry) {
+                        Ok(result) => result,
+                        Err(error) => {
+                            findings.push(structural_report(
+                                scenario,
+                                specs_root,
+                                "missing-runner",
+                                Some(error.to_string()),
+                            ));
+                            continue;
+                        }
+                    };
+                    if result.timed_out || result.exit_code != Some(0) {
+                        findings.push(execution_report(scenario, specs_root, result));
+                    } else {
+                        extra_quality_findings.push(quality::QualityFinding {
+                            kind: format!("quality-{test_type}"),
+                            category: "quality".to_string(),
+                            kill_rate: None,
+                            threshold: None,
+                            suggested_action: "enable_capability".to_string(),
+                            playbook_command: format!("ah explain quality-{test_type}"),
+                            message: format!("{test_type} tests ran successfully"),
+                        });
+                    }
+                    continue;
+                }
+
                 let result = match adapters::invoke(repo_root, cfg, &test_type, entry) {
                     Ok(result) => result,
                     Err(error) => {
@@ -347,7 +377,8 @@ fn evaluate_scope(
         *counts_by_kind.entry(finding.kind.clone()).or_insert(0) += 1;
     }
 
-    let quality_findings = quality::collect_quality_findings(repo_root, &cfg.quality, ah_scope);
+    let mut quality_findings = quality::collect_quality_findings(repo_root, &cfg.quality, ah_scope);
+    quality_findings.extend(extra_quality_findings);
 
     Ok(CheckOutput {
         scope: Scope {
@@ -980,6 +1011,96 @@ mod tests {
         assert_eq!(output.findings.len(), 1);
         assert_eq!(output.findings[0].kind, "test-failing");
         assert_eq!(output.summary.passed, 0);
+    }
+
+    fn quality_test_repo(test_type: &str, runner_body: &str) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        fs::create_dir_all(repo.join("openspec/specs/suite")).unwrap();
+        fs::create_dir_all(repo.join(".espectacular/suite")).unwrap();
+        fs::write(
+            repo.join("openspec/specs/suite/spec.md"),
+            "# Capability: suite\n\n#### Scenario: Quality check\n- **WHEN** it runs\n- **THEN** it reports quality\n",
+        )
+        .unwrap();
+        let runner_path = repo.join(format!("{test_type}-runner.sh"));
+        write_executable(&runner_path, runner_body);
+        fs::write(
+            repo.join(".espectacular/config.toml"),
+            format!(
+                "tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\n{test_type} = [\"{runner}\"]\n",
+                runner = runner_path.display()
+            ),
+        )
+        .unwrap();
+        fs::write(
+            repo.join(format!(".espectacular/suite/quality-check.toml")),
+            format!(
+                "id = \"quality-check\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.{test_type}]]\nflags = \"all\"\n"
+            ),
+        )
+        .unwrap();
+        dir
+    }
+
+    // 8.5 Red: property/snapshot test entries emit quality findings
+
+    #[test]
+    fn property_passing_emits_quality_property_finding() {
+        let dir = quality_test_repo("property", "exit 0");
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(
+            output
+                .quality_findings
+                .iter()
+                .any(|f| f.kind == "quality-property"),
+            "expected quality-property finding; got: {:?}",
+            output.quality_findings
+        );
+        assert!(output.findings.is_empty(), "expected no regular findings");
+    }
+
+    #[test]
+    fn snapshot_passing_emits_quality_snapshot_finding() {
+        let dir = quality_test_repo("snapshot", "exit 0");
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(
+            output
+                .quality_findings
+                .iter()
+                .any(|f| f.kind == "quality-snapshot"),
+            "expected quality-snapshot finding; got: {:?}",
+            output.quality_findings
+        );
+        assert!(output.findings.is_empty(), "expected no regular findings");
+    }
+
+    #[test]
+    fn property_failing_emits_test_failing() {
+        let dir = quality_test_repo("property", "exit 1");
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(
+            output.findings.iter().any(|f| f.kind == "test-failing"),
+            "expected test-failing finding"
+        );
+        assert!(
+            output.quality_findings.is_empty(),
+            "expected no quality findings on failure"
+        );
+    }
+
+    #[test]
+    fn snapshot_failing_emits_test_failing() {
+        let dir = quality_test_repo("snapshot", "exit 1");
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(
+            output.findings.iter().any(|f| f.kind == "test-failing"),
+            "expected test-failing finding"
+        );
+        assert!(
+            output.quality_findings.is_empty(),
+            "expected no quality findings on failure"
+        );
     }
 
     #[test]

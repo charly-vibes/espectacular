@@ -81,8 +81,8 @@
 - [x] 8.2 Green: implement mutation dispatch in `src/quality.rs`
 - [x] 8.3 Red: add failing tests proving mutation is skipped in pre-commit scope without explicit flag
 - [x] 8.4 Green: implement pre-commit scope guard
-- [ ] 8.5 Red: add failing tests for `tests.property` and `tests.snapshot` finding emission
-- [ ] 8.6 Green: implement property and snapshot capability dispatch
+- [x] 8.5 Red: add failing tests for `tests.property` and `tests.snapshot` finding emission
+- [x] 8.6 Green: implement property and snapshot capability dispatch
 - [x] 8.7 Red: add failing test proving completed quality measurements below threshold do not cause non-zero exit
 - [x] 8.8 Green: ensure gate exit code is unaffected by quality finding severity
 - [ ] 8.9 Red: add failing tests proving property/snapshot command failures and mutation tool execution failures emit `test-failing` and exit non-zero
