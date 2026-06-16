@@ -93,19 +93,15 @@ mod tests {
     use super::*;
     use crate::config::{MutationConfig, QualityConfig};
     use std::fs;
-    use std::os::unix::fs::PermissionsExt;
 
-    fn write_mutation_runner(dir: &std::path::Path, kill_rate: f64) -> std::path::PathBuf {
+    fn mutation_command(dir: &std::path::Path, kill_rate: f64) -> Vec<String> {
         let script = dir.join("mutation-runner.sh");
         fs::write(
             &script,
-            format!("#!/bin/sh\nprintf '{{\"kill_rate\": {}}}'", kill_rate),
+            format!("printf '{{\"kill_rate\": {}}}'", kill_rate),
         )
         .unwrap();
-        let mut perms = fs::metadata(&script).unwrap().permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&script, perms).unwrap();
-        script
+        vec!["/bin/sh".to_string(), script.to_string_lossy().to_string()]
     }
 
     // 8.1 RED: mutation finding emitted when enabled and below threshold
@@ -113,12 +109,11 @@ mod tests {
     #[test]
     fn mutation_finding_emitted_when_below_threshold() {
         let dir = tempfile::tempdir().unwrap();
-        let script = write_mutation_runner(dir.path(), 0.60);
         let config = QualityConfig {
             mutation: Some(MutationConfig {
                 enabled: true,
                 threshold: 0.80,
-                command: vec![script.to_string_lossy().to_string()],
+                command: mutation_command(dir.path(), 0.60),
             }),
         };
         let findings = collect_quality_findings(dir.path(), &config, "full");
@@ -136,12 +131,11 @@ mod tests {
     #[test]
     fn mutation_finding_carries_kill_rate_and_threshold() {
         let dir = tempfile::tempdir().unwrap();
-        let script = write_mutation_runner(dir.path(), 0.60);
         let config = QualityConfig {
             mutation: Some(MutationConfig {
                 enabled: true,
                 threshold: 0.80,
-                command: vec![script.to_string_lossy().to_string()],
+                command: mutation_command(dir.path(), 0.60),
             }),
         };
         let findings = collect_quality_findings(dir.path(), &config, "full");
@@ -153,12 +147,11 @@ mod tests {
     #[test]
     fn mutation_finding_carries_suggested_action_and_playbook_command() {
         let dir = tempfile::tempdir().unwrap();
-        let script = write_mutation_runner(dir.path(), 0.50);
         let config = QualityConfig {
             mutation: Some(MutationConfig {
                 enabled: true,
                 threshold: 0.80,
-                command: vec![script.to_string_lossy().to_string()],
+                command: mutation_command(dir.path(), 0.50),
             }),
         };
         let findings = collect_quality_findings(dir.path(), &config, "full");
@@ -170,12 +163,11 @@ mod tests {
     #[test]
     fn no_mutation_finding_when_above_threshold() {
         let dir = tempfile::tempdir().unwrap();
-        let script = write_mutation_runner(dir.path(), 0.90);
         let config = QualityConfig {
             mutation: Some(MutationConfig {
                 enabled: true,
                 threshold: 0.80,
-                command: vec![script.to_string_lossy().to_string()],
+                command: mutation_command(dir.path(), 0.90),
             }),
         };
         let findings = collect_quality_findings(dir.path(), &config, "full");
@@ -188,12 +180,11 @@ mod tests {
     #[test]
     fn no_mutation_finding_when_disabled() {
         let dir = tempfile::tempdir().unwrap();
-        let script = write_mutation_runner(dir.path(), 0.50);
         let config = QualityConfig {
             mutation: Some(MutationConfig {
                 enabled: false,
                 threshold: 0.80,
-                command: vec![script.to_string_lossy().to_string()],
+                command: mutation_command(dir.path(), 0.50),
             }),
         };
         let findings = collect_quality_findings(dir.path(), &config, "full");
@@ -208,12 +199,11 @@ mod tests {
     #[test]
     fn mutation_skipped_in_precommit_scope() {
         let dir = tempfile::tempdir().unwrap();
-        let script = write_mutation_runner(dir.path(), 0.10);
         let config = QualityConfig {
             mutation: Some(MutationConfig {
                 enabled: true,
                 threshold: 0.80,
-                command: vec![script.to_string_lossy().to_string()],
+                command: mutation_command(dir.path(), 0.10),
             }),
         };
         let findings = collect_quality_findings(dir.path(), &config, "pre-commit");
@@ -226,12 +216,11 @@ mod tests {
     #[test]
     fn mutation_findings_deterministically_ordered() {
         let dir = tempfile::tempdir().unwrap();
-        let script = write_mutation_runner(dir.path(), 0.60);
         let config = QualityConfig {
             mutation: Some(MutationConfig {
                 enabled: true,
                 threshold: 0.80,
-                command: vec![script.to_string_lossy().to_string()],
+                command: mutation_command(dir.path(), 0.60),
             }),
         };
         let a = collect_quality_findings(dir.path(), &config, "full");
