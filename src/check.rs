@@ -4,7 +4,7 @@ use crate::contracts;
 use crate::openspec::{self, Scenario};
 use crate::quality;
 use crate::runner::TestResult;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -53,7 +53,7 @@ pub struct Summary {
     pub counts_by_kind: BTreeMap<String, usize>,
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct ReportFinding {
     pub kind: String,
     pub category: String,
@@ -70,7 +70,7 @@ pub struct ReportFinding {
     pub message: Option<String>,
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct ScenarioContext {
     pub id: String,
     pub title: String,
@@ -279,6 +279,38 @@ fn evaluate_scope(
         for test_type in test_types {
             let entries = &contract.tests[&test_type];
             for entry in entries {
+                if test_type == "custom" {
+                    match adapters::custom::invoke(repo_root, cfg, entry) {
+                        Ok(adapters::custom::CustomRunnerResult::Passed) => {
+                            passed += 1;
+                        }
+                        Ok(adapters::custom::CustomRunnerResult::TestFailing(result)) => {
+                            findings.push(execution_report(scenario, specs_root, result));
+                        }
+                        Ok(adapters::custom::CustomRunnerResult::EnvelopeFindings(raw)) => {
+                            for value in raw {
+                                match serde_json::from_value::<ReportFinding>(value) {
+                                    Ok(finding) => findings.push(finding),
+                                    Err(_) => findings.push(execution_report_message(
+                                        scenario,
+                                        specs_root,
+                                        "custom runner emitted a finding that does not match the finding schema",
+                                    )),
+                                }
+                            }
+                        }
+                        Err(error) => {
+                            findings.push(structural_report(
+                                scenario,
+                                specs_root,
+                                "missing-runner",
+                                Some(error.to_string()),
+                            ));
+                        }
+                    }
+                    continue;
+                }
+
                 let result = match adapters::invoke(repo_root, cfg, &test_type, entry) {
                     Ok(result) => result,
                     Err(error) => {
@@ -561,6 +593,27 @@ fn structural_report(
     )
 }
 
+fn execution_report_message(
+    scenario: &Scenario,
+    specs_root: &Path,
+    message: &str,
+) -> ReportFinding {
+    report_finding(
+        "test-failing",
+        "execution",
+        scenario.spec_path.clone(),
+        spec_markdown_path(specs_root, &scenario.spec_path),
+        ScenarioContext {
+            id: scenario.id.clone(),
+            title: scenario.heading.clone(),
+            body_markdown: scenario.body.clone(),
+        },
+        Some(scenario.body.clone()),
+        None,
+        Some(message.to_string()),
+    )
+}
+
 fn execution_report(scenario: &Scenario, specs_root: &Path, test: TestResult) -> ReportFinding {
     report_finding(
         "test-failing",
@@ -834,6 +887,99 @@ mod tests {
             finding.scenario_prose.as_deref(),
             Some("- **WHEN** it runs\n- **THEN** it passes")
         );
+    }
+
+    fn custom_repo(runner_body: &str) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        fs::create_dir_all(repo.join("openspec/specs/compiler")).unwrap();
+        fs::create_dir_all(repo.join(".espectacular/compiler")).unwrap();
+        fs::write(
+            repo.join("openspec/specs/compiler/spec.md"),
+            "# Capability: compiler\n\n#### Scenario: Custom check\n- **WHEN** custom runner invoked\n- **THEN** it reports results\n",
+        )
+        .unwrap();
+        let runner_path = repo.join("custom-runner.sh");
+        write_executable(&runner_path, runner_body);
+        fs::write(
+            repo.join(".espectacular/config.toml"),
+            format!(
+                "tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\ncustom = [\"{runner}\"]\n",
+                runner = runner_path.display()
+            ),
+        )
+        .unwrap();
+        fs::write(
+            repo.join(".espectacular/compiler/custom-check.toml"),
+            "id = \"custom-check\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.custom]]\nflags = \"custom-check\"\n",
+        )
+        .unwrap();
+        dir
+    }
+
+    #[test]
+    fn custom_runner_passed_envelope_counts_as_passed() {
+        let dir = custom_repo("printf '{\"exit_code\":0,\"passed\":true,\"findings\":[]}'");
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(output.findings.is_empty());
+        assert_eq!(output.summary.passed, 1);
+    }
+
+    #[test]
+    fn custom_runner_non_zero_exit_emits_test_failing() {
+        let dir = custom_repo("printf 'error' >&2; exit 1");
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(output.findings.iter().any(|f| f.kind == "test-failing"));
+        assert_eq!(output.summary.passed, 0);
+    }
+
+    #[test]
+    fn custom_runner_envelope_findings_flow_into_check_output() {
+        let finding = serde_json::json!({
+            "kind": "test-failing",
+            "category": "execution",
+            "spec": "compiler",
+            "spec_path": "openspec/specs/compiler/spec.md",
+            "scenario": {"id": "custom-check", "title": "Custom check", "body_markdown": "B"},
+            "suggested_action": "edit_code_not_scenario",
+            "playbook_command": "ah explain edit_code_not_scenario"
+        });
+        let envelope = serde_json::json!({
+            "exit_code": 0,
+            "passed": false,
+            "findings": [finding]
+        });
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        fs::create_dir_all(repo.join("openspec/specs/compiler")).unwrap();
+        fs::create_dir_all(repo.join(".espectacular/compiler")).unwrap();
+        fs::write(
+            repo.join("openspec/specs/compiler/spec.md"),
+            "# Capability: compiler\n\n#### Scenario: Custom check\n- **WHEN** custom runner invoked\n- **THEN** it reports results\n",
+        )
+        .unwrap();
+        let data = repo.join("envelope.json");
+        fs::write(&data, envelope.to_string()).unwrap();
+        let runner_path = repo.join("custom-runner.sh");
+        write_executable(&runner_path, &format!("cat {}", data.display()));
+        fs::write(
+            repo.join(".espectacular/config.toml"),
+            format!(
+                "tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\ncustom = [\"{runner}\"]\n",
+                runner = runner_path.display()
+            ),
+        )
+        .unwrap();
+        fs::write(
+            repo.join(".espectacular/compiler/custom-check.toml"),
+            "id = \"custom-check\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.custom]]\nflags = \"custom-check\"\n",
+        )
+        .unwrap();
+
+        let output = run_check(repo, &[]).unwrap();
+        assert_eq!(output.findings.len(), 1);
+        assert_eq!(output.findings[0].kind, "test-failing");
+        assert_eq!(output.summary.passed, 0);
     }
 
     #[test]

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://charly.dev/espectacular/custom-runner.schema.json",
   "title": "ah custom runner envelope",
-  "description": "Envelope emitted by a configured custom runner. findings[] reuses the ah finding shape.",
+  "description": "Envelope emitted by a configured custom runner. findings[] reuses the ah finding shape from check-output.schema.json.",
   "type": "object",
   "required": ["exit_code", "passed", "findings"],
   "additionalProperties": false,
@@ -15,7 +15,7 @@
     },
     "findings": {
       "type": "array",
-      "items": { "$ref": "#/$defs/finding" }
+      "items": { "$ref": "https://charly.dev/espectacular/check-output.schema.json#/$defs/finding" }
     }
   },
   "allOf": [
@@ -31,60 +31,5 @@
         "properties": { "findings": { "minItems": 1 } }
       }
     }
-  ],
-  "$defs": {
-    "finding": {
-      "type": "object",
-      "required": [
-        "kind",
-        "category",
-        "spec",
-        "spec_path",
-        "scenario",
-        "suggested_action",
-        "playbook_command"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "enum": ["no-toml", "orphan-toml", "slug-collision", "id-mismatch", "invalid-status", "no-tests-declared", "missing-runner", "malformed-contract", "missing-replacement", "overlay-conflict", "test-failing"]
-        },
-        "category": { "enum": ["structural", "execution"] },
-        "spec": { "type": "string" },
-        "spec_path": { "type": "string" },
-        "scenario": {
-          "type": "object",
-          "required": ["id", "title", "body_markdown"],
-          "additionalProperties": false,
-          "properties": {
-            "id": { "type": "string" },
-            "title": { "type": "string" },
-            "body_markdown": { "type": "string" }
-          }
-        },
-        "scenario_prose": { "type": "string" },
-        "suggested_action": {
-          "enum": ["run_ah_init", "run_ah_scenario_new", "run_ah_scenario_supersede", "edit_code_not_scenario", "enable_capability", "review_and_apply", "human_review_required"]
-        },
-        "playbook_command": {
-          "type": "string",
-          "pattern": "^ah explain [A-Za-z0-9_-]+$"
-        },
-        "test": {
-          "type": "object",
-          "required": ["type", "command", "exit_code", "timed_out", "stdout_tail", "stderr_tail"],
-          "additionalProperties": false,
-          "properties": {
-            "type": { "type": "string" },
-            "command": { "type": "string" },
-            "exit_code": { "type": ["integer", "null"] },
-            "timed_out": { "type": "boolean" },
-            "stdout_tail": { "type": "string" },
-            "stderr_tail": { "type": "string" }
-          }
-        },
-        "message": { "type": "string" }
-      }
-    }
-  }
+  ]
 }

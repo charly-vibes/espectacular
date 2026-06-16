@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::contracts::TestEntry;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::thread;
@@ -17,7 +17,7 @@ pub struct PlannedCommand {
     pub timeout_seconds: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TestResult {
     #[serde(rename = "type")]
     pub test_type: String,
