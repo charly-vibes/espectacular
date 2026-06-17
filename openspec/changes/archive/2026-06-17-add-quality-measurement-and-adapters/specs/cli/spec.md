@@ -2,7 +2,7 @@
 
 The standalone command-line interface for espectacular is exposed as `ah` and provides deterministic spec-test correspondence workflows for AI coding harnesses.
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Doctor capability detection
 When `ah doctor` detects an available framework or quality tool that is not configured, the system SHALL emit a `recommendation` finding with `kind`, `suggested_action`, `apply_command`, `playbook_command`, and `detection_source`.

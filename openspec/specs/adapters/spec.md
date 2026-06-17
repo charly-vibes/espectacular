@@ -1,0 +1,168 @@
+# adapters Specification
+
+## Purpose
+TBD - created by archiving change add-quality-measurement-and-adapters. Update Purpose after archive.
+## Requirements
+### Requirement: Adapter detection precedence
+The system SHALL detect framework availability through a defined precedence chain before invoking any adapter, SHALL dispatch adapters per declared contract test type rather than selecting one global adapter for the whole repository, and SHALL record the selected detection source in doctor and check output.
+
+#### Scenario: Explicit config takes precedence
+- **GIVEN** `.espectacular/config.toml` selects an adapter for a declared contract test type
+- **WHEN** adapter detection runs
+- **THEN** the configured adapter is treated as the strongest signal
+- **AND** the command reports `detection_source = configured`
+
+#### Scenario: Manifest declaration is second
+- **GIVEN** no explicit adapter config exists
+- **AND** a project declares a test framework in its language manifest (e.g., `pyproject.toml`, `Cargo.toml`, `package.json`)
+- **WHEN** adapter detection runs
+- **THEN** the manifest declaration overrides environment and source signals
+
+#### Scenario: Environment detection is third
+- **GIVEN** a framework is not declared in a manifest but is installed in the environment
+- **WHEN** adapter detection runs
+- **THEN** the environment presence is used to confirm availability
+
+#### Scenario: Source import is weakest signal
+- **GIVEN** a framework is not configured, not in the manifest, and not in the environment, but is imported in a test file
+- **WHEN** adapter detection runs
+- **THEN** the source import is recognized as the weakest positive signal
+
+#### Scenario: Manifest signal wins for the matching adapter
+- **GIVEN** a project manifest declares pytest as the Python test framework
+- **AND** the environment also has vitest installed
+- **WHEN** adapter detection runs for a Python contract test type
+- **THEN** pytest is selected for that Python test invocation because manifest takes precedence over environment
+- **AND** the vitest environment presence remains available for TypeScript test invocations and is not treated as a conflict
+
+#### Scenario: Detection source is reported
+- **GIVEN** adapter detection selects a framework through manifest, environment, or source-import evidence
+- **WHEN** `ah doctor --json` or `ah check --json` reports the selected adapter
+- **THEN** the report includes `adapter`, `test_type`, and `detection_source`
+- **AND** `detection_source` is one of `manifest`, `environment`, `source_import`, or `configured`
+
+### Requirement: Python pytest adapter
+The system SHALL provide a bundled pytest adapter that detects pytest, runs the declared test command, and normalizes output into the finding schema.
+
+#### Scenario: Pytest adapter detects via pyproject.toml
+- **GIVEN** a project contains `pyproject.toml` with pytest in `[tool.pytest.ini_options]` or as a dependency
+- **WHEN** the pytest adapter runs detection
+- **THEN** it reports pytest as available with the detected version
+
+#### Scenario: Pytest adapter normalizes zero exit to pass
+- **GIVEN** a contract declares a pytest test command
+- **WHEN** the adapter runs the command and pytest exits zero
+- **THEN** the adapter emits no `test-failing` finding for that contract
+
+#### Scenario: Pytest adapter normalizes non-zero exit to test-failing
+- **GIVEN** a contract declares a pytest test command
+- **WHEN** the adapter runs the command and pytest exits non-zero
+- **THEN** the adapter emits a `test-failing` finding with bounded stdout/stderr tails
+
+#### Scenario: Pytest adapter classifies import errors
+- **GIVEN** pytest emits JSON output containing an `ImportError`
+- **WHEN** the adapter normalizes the failing result
+- **THEN** the finding remains `test-failing`
+- **AND** the execution context reports `test.type = pytest-import-error`
+
+#### Scenario: Pytest adapter classifies fixture failures
+- **GIVEN** pytest emits JSON output containing a missing fixture failure
+- **WHEN** the adapter normalizes the failing result
+- **THEN** the finding remains `test-failing`
+- **AND** the execution context reports `test.type = pytest-fixture-error`
+
+#### Scenario: Pytest adapter classifies collection failures
+- **GIVEN** pytest emits JSON output containing a collection error
+- **WHEN** the adapter normalizes the failing result
+- **THEN** the finding remains `test-failing`
+- **AND** the execution context reports `test.type = pytest-collection-error`
+
+### Requirement: Rust cargo test adapter
+The system SHALL provide a bundled cargo test adapter that detects cargo, runs the declared test command, and normalizes output into the finding schema.
+
+#### Scenario: Cargo adapter detects via Cargo.toml
+- **GIVEN** a project contains `Cargo.toml`
+- **WHEN** the cargo adapter runs detection
+- **THEN** it reports cargo test as available
+
+#### Scenario: Cargo adapter normalizes zero exit to pass
+- **GIVEN** a contract declares a cargo test command
+- **WHEN** the adapter runs the command and cargo exits zero
+- **THEN** the adapter emits no `test-failing` finding for that contract
+
+#### Scenario: Cargo adapter normalizes non-zero exit to test-failing
+- **GIVEN** a contract declares a cargo test command
+- **WHEN** the adapter runs the command and cargo exits non-zero
+- **THEN** the adapter emits a `test-failing` finding with bounded stdout/stderr tails
+
+### Requirement: TypeScript vitest adapter
+The system SHALL provide a bundled vitest adapter that detects vitest, runs the declared test command, and normalizes output into the finding schema.
+
+#### Scenario: Vitest adapter detects via package.json
+- **GIVEN** a project contains `package.json` with vitest in `dependencies` or `devDependencies`
+- **WHEN** the vitest adapter runs detection
+- **THEN** it reports vitest as available with the detected version
+
+#### Scenario: Vitest adapter normalizes zero exit to pass
+- **GIVEN** a contract declares a vitest test command
+- **WHEN** the adapter runs the command and vitest exits zero
+- **THEN** the adapter emits no `test-failing` finding for that contract
+
+#### Scenario: Vitest adapter normalizes non-zero exit to test-failing
+- **GIVEN** a contract declares a vitest test command
+- **WHEN** the adapter runs the command and vitest exits non-zero
+- **THEN** the adapter emits a `test-failing` finding with bounded stdout/stderr tails
+
+### Requirement: No-adapter-configured path
+When a contract declares a test command but no adapter is configured or detected for the declared test type, the system SHALL emit a `missing-adapter` finding with `kind`, `message`, `suggested_action`, and `playbook_command` fields.
+
+#### Scenario: Missing adapter emits missing-adapter finding
+- **GIVEN** a contract declares a test command
+- **AND** no adapter is configured in `.espectacular/config.toml` for the declared test type
+- **AND** adapter detection finds no matching framework
+- **WHEN** `ah check` runs
+- **THEN** a `missing-adapter` finding is emitted with a message directing the user to run `ah doctor`
+- **AND** the finding is distinct from `no-tests-declared` because the contract did declare a test
+
+### Requirement: Custom runner plugin protocol
+The system SHALL support `[runners.custom.<name>]` config blocks that wire arbitrary shell commands into the adapter layer via a documented JSON envelope defined in `schemas/custom-runner.schema.json`.
+
+Note: The envelope schema (`schemas/custom-runner.schema.json`) specifies the top-level structure the shell command must emit. Individual findings within the `findings` array conform to the full finding schema (`schemas/check-output.schema.json`), not to the envelope schema.
+
+#### Scenario: Custom runner emits required envelope fields
+- **GIVEN** a custom runner is configured and invoked
+- **WHEN** the runner's stdout is parsed
+- **THEN** the envelope contains at minimum: `exit_code` (integer), `passed` (boolean), `findings` (array)
+- **AND** each finding in the array conforms to the full finding schema
+
+#### Scenario: Empty findings array with zero exit is a pass
+- **GIVEN** a custom runner exits zero
+- **AND** the envelope `findings` array is empty
+- **WHEN** the adapter processes the result
+- **THEN** no `test-failing` finding is emitted for that contract
+
+#### Scenario: Envelope failure overrides process success
+- **GIVEN** a custom runner exits zero
+- **AND** stdout contains a valid envelope with `passed = false` or non-empty `findings`
+- **WHEN** the adapter processes the result
+- **THEN** the adapter emits the envelope findings
+- **AND** treats the contract as not passing
+
+#### Scenario: Process failure overrides envelope success
+- **GIVEN** a custom runner exits non-zero
+- **AND** stdout contains a valid envelope with `passed = true` and an empty `findings` array
+- **WHEN** the adapter processes the result
+- **THEN** a `test-failing` finding is emitted with the raw stdout/stderr tails
+- **AND** the process exit code is preserved in the finding
+
+#### Scenario: Custom runner non-zero exit without valid envelope is an error finding
+- **GIVEN** a custom runner exits non-zero
+- **AND** stdout is not a valid envelope
+- **WHEN** the adapter processes the result
+- **THEN** a `test-failing` finding is emitted with the raw stdout/stderr tails
+
+#### Scenario: Custom runner is not invoked without explicit config
+- **GIVEN** no `[runners.custom.<name>]` block exists in config
+- **WHEN** `ah check` runs
+- **THEN** no custom runner is invoked
+

@@ -2,7 +2,7 @@
 
 The correspondence gate validates the alignment between OpenSpec scenarios and the test contracts that cover them, emitting stable JSON findings.
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: JSON finding schema includes agent-action fields
 The system SHALL include agent-action fields on every finding in the JSON output.
@@ -31,8 +31,6 @@ The system SHALL include agent-action fields on every finding in the JSON output
 - **GIVEN** `ah check` produces findings of multiple kinds
 - **WHEN** the JSON output is inspected
 - **THEN** the envelope `summary.counts_by_kind` object contains the count of each finding kind present
-
-## ADDED Requirements
 
 ### Requirement: Quality measurement capabilities
 The system SHALL support opt-in quality measurement capabilities that run during `ah check` and emit measurement findings without failing the gate.

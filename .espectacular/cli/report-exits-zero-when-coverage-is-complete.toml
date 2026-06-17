@@ -1,0 +1,6 @@
+id = "report-exits-zero-when-coverage-is-complete"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
