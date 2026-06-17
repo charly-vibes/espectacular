@@ -90,14 +90,10 @@ mod tests {
     use crate::contracts::TestEntry;
     use std::collections::HashMap;
     use std::fs;
-    use std::os::unix::fs::PermissionsExt;
 
-    fn config_with_custom(argv: Vec<&str>) -> Config {
+    fn config_with_custom(argv: Vec<String>) -> Config {
         let mut runners = HashMap::new();
-        runners.insert(
-            "custom".to_string(),
-            argv.into_iter().map(str::to_string).collect(),
-        );
+        runners.insert("custom".to_string(), argv);
         Config {
             tool_version: "0.1.0".to_string(),
             paths: Paths {
@@ -131,30 +127,28 @@ mod tests {
         }
     }
 
-    fn write_runner(dir: &Path, body: &str) -> std::path::PathBuf {
+    // Returns ["/bin/sh", "/path/to/script.sh"] — no chmod needed, avoids ETXTBSY
+    fn write_runner(dir: &Path, body: &str) -> Vec<String> {
         use std::sync::atomic::{AtomicUsize, Ordering};
         static CTR: AtomicUsize = AtomicUsize::new(0);
         let n = CTR.fetch_add(1, Ordering::Relaxed);
         let path = dir.join(format!("runner{n}.sh"));
         fs::write(&path, format!("#!/bin/sh\nset -eu\n{body}\n")).unwrap();
-        let mut perms = fs::metadata(&path).unwrap().permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&path, perms).unwrap();
-        path
+        vec!["/bin/sh".to_string(), path.to_str().unwrap().to_string()]
     }
 
-    fn write_envelope(dir: &Path, json: &str) -> std::path::PathBuf {
+    // Returns ["/bin/sh", "-c", "cat /path/to/envelope.json"] — no executable file needed
+    fn write_envelope(dir: &Path, json: &str) -> Vec<String> {
         use std::sync::atomic::{AtomicUsize, Ordering};
         static CTR: AtomicUsize = AtomicUsize::new(0);
         let n = CTR.fetch_add(1, Ordering::Relaxed);
         let data = dir.join(format!("envelope{n}.json"));
         fs::write(&data, json).unwrap();
-        let script = dir.join(format!("runner{n}.sh"));
-        fs::write(&script, format!("#!/bin/sh\ncat {}\n", data.display())).unwrap();
-        let mut perms = fs::metadata(&script).unwrap().permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&script, perms).unwrap();
-        script
+        vec![
+            "/bin/sh".to_string(),
+            "-c".to_string(),
+            format!("cat {}", data.display()),
+        ]
     }
 
     // 6.1 RED: envelope parsing — passed=true, empty findings, exit 0 → Passed
@@ -162,8 +156,10 @@ mod tests {
     #[test]
     fn valid_passed_envelope_is_passed() {
         let dir = tempfile::tempdir().unwrap();
-        let runner = write_envelope(dir.path(), r#"{"exit_code":0,"passed":true,"findings":[]}"#);
-        let config = config_with_custom(vec![runner.to_str().unwrap()]);
+        let config = config_with_custom(write_envelope(
+            dir.path(),
+            r#"{"exit_code":0,"passed":true,"findings":[]}"#,
+        ));
 
         let result = invoke(dir.path(), &config, &flags_entry("s")).unwrap();
         assert!(matches!(result, CustomRunnerResult::Passed));
@@ -186,8 +182,7 @@ mod tests {
             "passed": false,
             "findings": [finding]
         });
-        let runner = write_envelope(dir.path(), &envelope.to_string());
-        let config = config_with_custom(vec![runner.to_str().unwrap()]);
+        let config = config_with_custom(write_envelope(dir.path(), &envelope.to_string()));
 
         let result = invoke(dir.path(), &config, &flags_entry("s")).unwrap();
         assert!(matches!(result, CustomRunnerResult::EnvelopeFindings(ref v) if v.len() == 1));
@@ -198,8 +193,7 @@ mod tests {
     #[test]
     fn non_zero_exit_produces_test_failing() {
         let dir = tempfile::tempdir().unwrap();
-        let runner = write_runner(dir.path(), "printf 'boom' >&2; exit 1");
-        let config = config_with_custom(vec![runner.to_str().unwrap()]);
+        let config = config_with_custom(write_runner(dir.path(), "printf 'boom' >&2; exit 1"));
 
         let result = invoke(dir.path(), &config, &flags_entry("s")).unwrap();
         assert!(matches!(result, CustomRunnerResult::TestFailing(_)));
@@ -208,8 +202,10 @@ mod tests {
     #[test]
     fn non_zero_exit_stderr_captured_in_test_failing() {
         let dir = tempfile::tempdir().unwrap();
-        let runner = write_runner(dir.path(), "printf 'error details' >&2; exit 2");
-        let config = config_with_custom(vec![runner.to_str().unwrap()]);
+        let config = config_with_custom(write_runner(
+            dir.path(),
+            "printf 'error details' >&2; exit 2",
+        ));
 
         let result = invoke(dir.path(), &config, &flags_entry("s")).unwrap();
         if let CustomRunnerResult::TestFailing(r) = result {
@@ -222,8 +218,7 @@ mod tests {
     #[test]
     fn invalid_envelope_json_on_zero_exit_produces_test_failing() {
         let dir = tempfile::tempdir().unwrap();
-        let runner = write_runner(dir.path(), "printf 'not json at all'");
-        let config = config_with_custom(vec![runner.to_str().unwrap()]);
+        let config = config_with_custom(write_runner(dir.path(), "printf 'not json at all'"));
 
         let result = invoke(dir.path(), &config, &flags_entry("s")).unwrap();
         assert!(matches!(result, CustomRunnerResult::TestFailing(_)));
@@ -237,8 +232,10 @@ mod tests {
         // Runner exits non-zero even though stdout looks like a valid passed envelope
         let data = dir.path().join("envelope.json");
         fs::write(&data, r#"{"exit_code":0,"passed":true,"findings":[]}"#).unwrap();
-        let runner = write_runner(dir.path(), &format!("cat {}; exit 1", data.display()));
-        let config = config_with_custom(vec![runner.to_str().unwrap()]);
+        let config = config_with_custom(write_runner(
+            dir.path(),
+            &format!("cat {}; exit 1", data.display()),
+        ));
 
         let result = invoke(dir.path(), &config, &flags_entry("s")).unwrap();
         assert!(
@@ -264,8 +261,7 @@ mod tests {
             "passed": false,
             "findings": [finding]
         });
-        let runner = write_envelope(dir.path(), &envelope.to_string());
-        let config = config_with_custom(vec![runner.to_str().unwrap()]);
+        let config = config_with_custom(write_envelope(dir.path(), &envelope.to_string()));
 
         let result = invoke(dir.path(), &config, &flags_entry("s")).unwrap();
         assert!(
