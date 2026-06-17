@@ -328,15 +328,8 @@ fn evaluate_scope(
                     if result.timed_out || result.exit_code != Some(0) {
                         findings.push(execution_report(scenario, specs_root, result));
                     } else {
-                        extra_quality_findings.push(quality::QualityFinding {
-                            kind: format!("quality-{test_type}"),
-                            category: "quality".to_string(),
-                            kill_rate: None,
-                            threshold: None,
-                            suggested_action: "enable_capability".to_string(),
-                            playbook_command: format!("ah explain quality-{test_type}"),
-                            message: format!("{test_type} tests ran successfully"),
-                        });
+                        extra_quality_findings
+                            .push(quality::QualityFinding::for_test_type(&test_type));
                     }
                     continue;
                 }
@@ -377,8 +370,27 @@ fn evaluate_scope(
         *counts_by_kind.entry(finding.kind.clone()).or_insert(0) += 1;
     }
 
-    let mut quality_findings = quality::collect_quality_findings(repo_root, &cfg.quality, ah_scope);
+    let (mut quality_findings, tool_errors) =
+        quality::collect_quality_findings(repo_root, &cfg.quality, ah_scope);
     quality_findings.extend(extra_quality_findings);
+    for msg in tool_errors {
+        findings.push(ReportFinding {
+            kind: "test-failing".to_string(),
+            category: "execution".to_string(),
+            spec: "quality".to_string(),
+            spec_path: "(quality/mutation)".to_string(),
+            scenario: ScenarioContext {
+                id: "mutation-tool".to_string(),
+                title: "Mutation testing tool".to_string(),
+                body_markdown: String::new(),
+            },
+            suggested_action: "fix_tool_invocation".to_string(),
+            playbook_command: "ah explain fix_tool_invocation".to_string(),
+            scenario_prose: None,
+            test: None,
+            message: Some(msg),
+        });
+    }
 
     Ok(CheckOutput {
         scope: Scope {
@@ -1100,6 +1112,47 @@ mod tests {
         assert!(
             output.quality_findings.is_empty(),
             "expected no quality findings on failure"
+        );
+    }
+
+    // 8.9 RED: mutation tool execution failure → test-failing finding, gate non-zero
+
+    fn mutation_failure_repo() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        fs::create_dir_all(repo.join("openspec/specs")).unwrap();
+        fs::create_dir_all(repo.join(".espectacular")).unwrap();
+        let script = repo.join("mutation-tool.sh");
+        write_executable(&script, "exit 1");
+        fs::write(
+            repo.join(".espectacular/config.toml"),
+            format!(
+                "tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\n\n[quality.mutation]\nenabled = true\nthreshold = 0.80\ncommand = [\"/bin/sh\", \"{}\"]\n",
+                script.display()
+            ),
+        )
+        .unwrap();
+        dir
+    }
+
+    #[test]
+    fn mutation_tool_failure_emits_test_failing() {
+        let dir = mutation_failure_repo();
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(
+            output.findings.iter().any(|f| f.kind == "test-failing"),
+            "mutation tool execution failure must emit test-failing finding; got findings: {:?}",
+            output.findings
+        );
+    }
+
+    #[test]
+    fn mutation_tool_failure_is_not_swallowed_to_quality_findings() {
+        let dir = mutation_failure_repo();
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(
+            output.quality_findings.is_empty(),
+            "tool execution failure must not appear as advisory quality finding"
         );
     }
 

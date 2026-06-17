@@ -13,6 +13,20 @@ pub struct QualityFinding {
     pub message: String,
 }
 
+impl QualityFinding {
+    pub fn for_test_type(test_type: &str) -> Self {
+        Self {
+            kind: format!("quality-{test_type}"),
+            category: "quality".to_string(),
+            kill_rate: None,
+            threshold: None,
+            suggested_action: "enable_capability".to_string(),
+            playbook_command: format!("ah explain quality-{test_type}"),
+            message: format!("{test_type} tests ran successfully"),
+        }
+    }
+}
+
 impl PartialEq for QualityFinding {
     fn eq(&self, other: &Self) -> bool {
         self.kind == other.kind
@@ -31,61 +45,82 @@ pub fn collect_quality_findings(
     repo_root: &Path,
     config: &QualityConfig,
     scope: &str,
-) -> Vec<QualityFinding> {
+) -> (Vec<QualityFinding>, Vec<String>) {
     let mut findings = Vec::new();
+    let mut tool_errors = Vec::new();
     if let Some(mutation) = &config.mutation {
         if mutation.enabled {
-            if let Some(finding) = mutation_finding(repo_root, mutation, scope) {
-                findings.push(finding);
+            match mutation_finding(repo_root, mutation, scope) {
+                Ok(Some(finding)) => findings.push(finding),
+                Ok(None) => {}
+                Err(msg) => tool_errors.push(msg),
             }
         }
     }
-    findings
+    (findings, tool_errors)
 }
 
 fn mutation_finding(
     repo_root: &Path,
     mutation: &crate::config::MutationConfig,
     scope: &str,
-) -> Option<QualityFinding> {
+) -> Result<Option<QualityFinding>, String> {
     if scope == "pre-commit" {
-        return None;
+        return Ok(None);
     }
-    let kill_rate = run_mutation_tool(repo_root, mutation)?;
-    if kill_rate >= mutation.threshold {
-        return None;
+    match run_mutation_tool(repo_root, mutation) {
+        Ok(None) => Ok(None),
+        Ok(Some(kill_rate)) => {
+            if kill_rate >= mutation.threshold {
+                return Ok(None);
+            }
+            Ok(Some(QualityFinding {
+                kind: "quality-mutation".to_string(),
+                category: "quality".to_string(),
+                kill_rate: Some(kill_rate),
+                threshold: Some(mutation.threshold),
+                suggested_action: "enable_capability".to_string(),
+                playbook_command: "ah explain enable_capability".to_string(),
+                message: format!(
+                    "mutation kill rate {:.0}% is below threshold {:.0}%",
+                    kill_rate * 100.0,
+                    mutation.threshold * 100.0
+                ),
+            }))
+        }
+        Err(msg) => Err(msg),
     }
-    Some(QualityFinding {
-        kind: "quality-mutation".to_string(),
-        category: "quality".to_string(),
-        kill_rate: Some(kill_rate),
-        threshold: Some(mutation.threshold),
-        suggested_action: "enable_capability".to_string(),
-        playbook_command: "ah explain enable_capability".to_string(),
-        message: format!(
-            "mutation kill rate {:.0}% is below threshold {:.0}%",
-            kill_rate * 100.0,
-            mutation.threshold * 100.0
-        ),
-    })
 }
 
-fn run_mutation_tool(repo_root: &Path, mutation: &crate::config::MutationConfig) -> Option<f64> {
+fn run_mutation_tool(
+    repo_root: &Path,
+    mutation: &crate::config::MutationConfig,
+) -> Result<Option<f64>, String> {
     if mutation.command.is_empty() {
-        return None;
+        return Ok(None);
     }
-    let (prog, args) = mutation.command.split_first()?;
+    let (prog, args) = mutation
+        .command
+        .split_first()
+        .ok_or_else(|| "mutation command is empty".to_string())?;
     let output = std::process::Command::new(prog)
         .args(args)
         .current_dir(repo_root)
         .output()
-        .ok()?;
+        .map_err(|e| format!("failed to spawn mutation tool: {e}"))?;
     if !output.status.success() {
-        return None;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "mutation tool exited non-zero ({}): {}",
+            output.status.code().unwrap_or(-1),
+            stderr.trim()
+        ));
     }
-    let stdout = std::str::from_utf8(&output.stdout).ok()?;
-    let parsed: serde_json::Value = serde_json::from_str(stdout.trim()).ok()?;
-    parsed["kill_rate"].as_f64()
+    let stdout = std::str::from_utf8(&output.stdout)
+        .map_err(|_| "mutation tool output is not UTF-8".to_string())?;
+    let parsed: serde_json::Value = serde_json::from_str(stdout.trim())
+        .map_err(|e| format!("mutation tool output is not valid JSON: {e}"))?;
+    Ok(parsed["kill_rate"].as_f64())
 }
 
 #[cfg(test)]
@@ -116,7 +151,7 @@ mod tests {
                 command: mutation_command(dir.path(), 0.60),
             }),
         };
-        let findings = collect_quality_findings(dir.path(), &config, "full");
+        let (findings, _) = collect_quality_findings(dir.path(), &config, "full");
         assert_eq!(
             findings.len(),
             1,
@@ -138,7 +173,7 @@ mod tests {
                 command: mutation_command(dir.path(), 0.60),
             }),
         };
-        let findings = collect_quality_findings(dir.path(), &config, "full");
+        let (findings, _) = collect_quality_findings(dir.path(), &config, "full");
         let f = &findings[0];
         assert!((f.kill_rate.unwrap() - 0.60).abs() < 1e-9);
         assert!((f.threshold.unwrap() - 0.80).abs() < 1e-9);
@@ -154,7 +189,7 @@ mod tests {
                 command: mutation_command(dir.path(), 0.50),
             }),
         };
-        let findings = collect_quality_findings(dir.path(), &config, "full");
+        let (findings, _) = collect_quality_findings(dir.path(), &config, "full");
         let f = &findings[0];
         assert!(!f.suggested_action.is_empty());
         assert!(!f.playbook_command.is_empty());
@@ -170,7 +205,7 @@ mod tests {
                 command: mutation_command(dir.path(), 0.90),
             }),
         };
-        let findings = collect_quality_findings(dir.path(), &config, "full");
+        let (findings, _) = collect_quality_findings(dir.path(), &config, "full");
         assert!(
             findings.is_empty(),
             "no finding expected when kill rate meets threshold"
@@ -187,7 +222,7 @@ mod tests {
                 command: mutation_command(dir.path(), 0.50),
             }),
         };
-        let findings = collect_quality_findings(dir.path(), &config, "full");
+        let (findings, _) = collect_quality_findings(dir.path(), &config, "full");
         assert!(
             findings.is_empty(),
             "disabled mutation must not emit finding"
@@ -206,7 +241,7 @@ mod tests {
                 command: mutation_command(dir.path(), 0.10),
             }),
         };
-        let findings = collect_quality_findings(dir.path(), &config, "pre-commit");
+        let (findings, _) = collect_quality_findings(dir.path(), &config, "pre-commit");
         assert!(
             findings.is_empty(),
             "mutation must be skipped in pre-commit scope"
@@ -223,8 +258,8 @@ mod tests {
                 command: mutation_command(dir.path(), 0.60),
             }),
         };
-        let a = collect_quality_findings(dir.path(), &config, "full");
-        let b = collect_quality_findings(dir.path(), &config, "full");
+        let (a, _) = collect_quality_findings(dir.path(), &config, "full");
+        let (b, _) = collect_quality_findings(dir.path(), &config, "full");
         assert_eq!(a, b, "findings must be deterministic");
     }
 }

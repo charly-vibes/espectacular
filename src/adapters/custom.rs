@@ -132,7 +132,10 @@ mod tests {
     }
 
     fn write_runner(dir: &Path, body: &str) -> std::path::PathBuf {
-        let path = dir.join("runner.sh");
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static CTR: AtomicUsize = AtomicUsize::new(0);
+        let n = CTR.fetch_add(1, Ordering::Relaxed);
+        let path = dir.join(format!("runner{n}.sh"));
         fs::write(&path, format!("#!/bin/sh\nset -eu\n{body}\n")).unwrap();
         let mut perms = fs::metadata(&path).unwrap().permissions();
         perms.set_mode(0o755);
@@ -141,9 +144,12 @@ mod tests {
     }
 
     fn write_envelope(dir: &Path, json: &str) -> std::path::PathBuf {
-        let data = dir.join("envelope.json");
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static CTR: AtomicUsize = AtomicUsize::new(0);
+        let n = CTR.fetch_add(1, Ordering::Relaxed);
+        let data = dir.join(format!("envelope{n}.json"));
         fs::write(&data, json).unwrap();
-        let script = dir.join("runner.sh");
+        let script = dir.join(format!("runner{n}.sh"));
         fs::write(&script, format!("#!/bin/sh\ncat {}\n", data.display())).unwrap();
         let mut perms = fs::metadata(&script).unwrap().permissions();
         perms.set_mode(0o755);

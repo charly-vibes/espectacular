@@ -1,6 +1,6 @@
 ## Prerequisites
 
-- [ ] P.1 `add-spec-assertions` deployed and `ah check` baseline is green
+- [x] P.1 `add-spec-assertions` deployed and `ah check` baseline is green
 
 ## 0. Custom runner envelope schema (gates sections 3–6)
 
@@ -8,7 +8,7 @@
 - [x] 0.2 Green: author `schemas/custom-runner.schema.json` — define envelope fields: `exit_code` (integer, required), `passed` (boolean, required), `findings` (array of full finding objects, required); document the schema inline
 - [x] 0.3 Red: add failing test asserting an empty `findings` array with `exit_code: 0` is a valid envelope (pass case)
 - [x] 0.4 Green: confirm schema accepts the empty-findings pass case
-- [ ] 0.5 Refactor: cross-reference the envelope schema from `schemas/check-output.schema.json` so both schemas share the finding object definition
+- [x] 0.5 Refactor: cross-reference the envelope schema from `schemas/check-output.schema.json` so both schemas share the finding object definition
 
 ## 1. Finding schema extension
 
@@ -54,14 +54,14 @@
 
 ## 6. Custom runner plugin protocol
 
-- [ ] 6.1 Red: add failing tests for custom runner envelope parsing against `schemas/custom-runner.schema.json`
-- [ ] 6.2 Green: implement envelope parsing and normalization in `src/adapters/custom.rs`
-- [ ] 6.3 Red: add failing tests for non-zero exit without valid envelope producing `test-failing`
-- [ ] 6.4 Green: implement error path
-- [ ] 6.5 Red: add failing tests for conflict precedence: envelope failure over process success, and process failure over envelope success
-- [ ] 6.6 Green: implement conflict precedence rules
-- [ ] 6.7 Red: add failing test proving no custom runner runs without explicit config
-- [ ] 6.8 Green: guard invocation behind config presence check
+- [x] 6.1 Red: add failing tests for custom runner envelope parsing against `schemas/custom-runner.schema.json`
+- [x] 6.2 Green: implement envelope parsing and normalization in `src/adapters/custom.rs`
+- [x] 6.3 Red: add failing tests for non-zero exit without valid envelope producing `test-failing`
+- [x] 6.4 Green: implement error path
+- [x] 6.5 Red: add failing tests for conflict precedence: envelope failure over process success, and process failure over envelope success
+- [x] 6.6 Green: implement conflict precedence rules
+- [x] 6.7 Red: add failing test proving no custom runner runs without explicit config
+- [x] 6.8 Green: guard invocation behind config presence check
 
 ## 7. `ah doctor` detection and `--enable`
 
@@ -85,9 +85,9 @@
 - [x] 8.6 Green: implement property and snapshot capability dispatch
 - [x] 8.7 Red: add failing test proving completed quality measurements below threshold do not cause non-zero exit
 - [x] 8.8 Green: ensure gate exit code is unaffected by quality finding severity
-- [ ] 8.9 Red: add failing tests proving property/snapshot command failures and mutation tool execution failures emit `test-failing` and exit non-zero
-- [ ] 8.10 Green: implement quality command failure exit semantics
-- [ ] 8.11 Refactor: unify quality finding construction
+- [x] 8.9 Red: add failing tests proving property/snapshot command failures and mutation tool execution failures emit `test-failing` and exit non-zero
+- [x] 8.10 Green: implement quality command failure exit semantics
+- [x] 8.11 Refactor: unify quality finding construction
 
 ## 9. `ah explain` subcommand
 
