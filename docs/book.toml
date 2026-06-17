@@ -1,0 +1,9 @@
+[book]
+authors = ["charly vibes"]
+language = "en"
+src = "src"
+title = "espectacular"
+
+[output.html]
+default-theme = "navy"
+git-repository-url = "https://github.com/charly-vibes/espectacular"
