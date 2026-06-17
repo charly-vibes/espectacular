@@ -1,5 +1,9 @@
 # Concepts
 
+**In brief:** A **spec** declares what your tool should do. A **contract** says which tests verify one scenario in that spec. `ah check` is the gate that ensures every scenario has a contract and every contract's tests pass. See the [worked example in Installation](installation.md#worked-example) to see these pieces together.
+
+---
+
 ## The mental model
 
 espectacular enforces a contract between *what you said your tool does* (specs) and *whether it actually does it* (tests). Each behavioral claim lives in a spec file; each claim has a sidecar TOML contract that says how to verify it. `ah check` validates that every claim has a contract and that every contract's tests pass.
@@ -18,7 +22,7 @@ When the parser runs,
 Then it exits non-zero with a descriptive error message.
 ```
 
-Specs are authored by humans (or AI agents) and checked into version control. They are append-only: you never rewrite a deployed scenario's intent — instead you add new scenarios or supersede old ones.
+Specs are checked into version control. They are append-only: you never rewrite a deployed scenario's intent — instead you add new scenarios or supersede old ones. This preserves an auditable history of behavioral decisions.
 
 ---
 
@@ -26,10 +30,10 @@ Specs are authored by humans (or AI agents) and checked into version control. Th
 
 A **scenario** is one `### Requirement:` heading in a spec file. It has:
 
-- A **slug** derived from the heading (lowercased, non-alphanumeric → hyphens, e.g. `empty-input-is-rejected`)
+- A **slug** — the id you supply via `--requirement` when creating the contract (by convention, lowercased with hyphens, e.g. `empty-input-is-rejected`). This slug must match the contract filename and the `id` field inside it.
 - A **body** in Given/When/Then form describing the behavior
 
-`ah check` discovers scenarios by parsing headings from spec files. Each scenario must have a corresponding contract file, or `ah check` emits a `no-toml` finding.
+`ah check` discovers scenarios by parsing headings from spec files. Each scenario must have a corresponding contract file, or `ah check` emits a `no-toml` finding. Run `ah explain no-toml` for the fix.
 
 ---
 
@@ -52,20 +56,22 @@ timeout_seconds = 60
 
 Required fields: `id`, `description`, `archetype`, `status`, `superseded_by`, `authored_with`, `tests`.
 
-The filename must match the `id` field and the scenario slug — `ah check` emits `id-mismatch` if they disagree.
+The filename, the `id` field, and the scenario slug must all agree — `ah check` emits `id-mismatch` if they disagree.
 
 ### Test entry types
 
-- `[[tests.shell]]` — runs `command` directly via `/bin/sh -c`
-- `[[tests.pytest]]` — prepends the configured pytest runner to `flags`
-- `[[tests.cargo]]` — prepends the configured cargo runner to `flags`
-- `[[tests.vitest]]` — prepends the configured vitest runner to `flags`
-- `[[tests.custom]]` — invokes a custom runner and parses its JSON envelope
-- `[[tests.<type>]]` — any other type, looked up in `[runners.<type>]` in config
+| Entry | How it runs |
+|-------|-------------|
+| `[[tests.shell]]` | Runs `command` directly via `/bin/sh -c` |
+| `[[tests.pytest]]` | Prepends the configured pytest runner to `flags` |
+| `[[tests.cargo]]` | Prepends the configured cargo runner to `flags` |
+| `[[tests.vitest]]` | Prepends the configured vitest runner to `flags` |
+| `[[tests.custom]]` | Invokes a custom runner and parses its JSON envelope |
+| `[[tests.<type>]]` | Any other type, looked up in `[runners.<type>]` in config |
 
 ### Staged contracts
 
-During a change in progress, contracts live under `.espectacular/changes/<change>/<spec>/`. After the change merges, `ah archive <change>` moves them into `.espectacular/<spec>/`.
+During a change in progress, contracts live under `.espectacular/changes/<change>/<spec>/`. After the change merges, `ah archive <change>` moves them into `.espectacular/<spec>/`. See [Installation — Step 5](installation.md#step-5--archive-when-merged).
 
 ---
 
@@ -95,21 +101,23 @@ Run `ah type <code>` for full documentation on any archetype, or `ah type` to li
 4. Emits a JSON envelope and exits 0 if clean, 1 if any structural or execution finding exists
 
 **Local pre-commit** (`ah init` installs this): convenience layer, catches issues early.
-**CI** (`ah check` in a workflow step): enforcement gate, the source of truth.
+**CI** (`ah check` in a workflow step): the enforcement gate, source of truth.
 
-Quality findings (`quality-mutation`, `quality-property`, `quality-snapshot`) are informational — they appear in the output but never cause a non-zero exit.
+Quality findings (`quality-mutation`, `quality-property`, `quality-snapshot`) are informational — they appear in the output but never cause a non-zero exit. See [Command Reference — ah check](commands.md#ah-check) for the full finding kind table.
 
 ---
 
 ## Adapters
 
-An **adapter** maps a test type name to the right runner invocation and normalizes failure output. espectacular ships adapters for:
+An **adapter** maps a test type name to the right runner invocation and normalizes failure output into a common shape. espectacular ships built-in adapters for pytest, cargo, and vitest.
 
-- **pytest** — detected via `runners.pytest` config, `pyproject.toml`, `pytest` on PATH, or `.py` files with `import pytest`
-- **cargo** — detected via `runners.cargo` config or `Cargo.toml`
-- **vitest** — detected via `runners.vitest` config or `package.json` devDependency
+**Detection signals** (highest-priority source wins):
 
-Detection precedence (highest to lowest): explicit config → project manifest → binary on PATH.
+| Adapter | Explicit config | Manifest detection | Binary detection |
+|---------|----------------|-------------------|-----------------|
+| `pytest` | `runners.pytest` in config | `pyproject.toml [tool.pytest]`, `pytest.ini` | `pytest` on PATH or `.py` with `import pytest` |
+| `cargo` | `runners.cargo` in config | `Cargo.toml` present | — |
+| `vitest` | `runners.vitest` in config | `package.json` devDependency | — |
 
 `ah doctor` shows which frameworks are detected and their source. Use `ah doctor --enable <framework>` to write the config entry for a detected-but-unconfigured adapter.
 
@@ -129,11 +137,13 @@ Non-zero `exit_code` or `passed: false` maps to a `test-failing` finding. The `f
 
 Quality signals are optional capabilities that surface test health metadata as findings:
 
-- **`quality-mutation`** — runs a mutation testing tool; emits a finding with kill rate and threshold
-- **`quality-property`** — marks that property-based testing is active
-- **`quality-snapshot`** — marks that snapshot testing is active
+| Signal | What it tracks |
+|--------|---------------|
+| `quality-mutation` | Mutation testing kill rate vs. threshold |
+| `quality-property` | Property-based testing is active and passing |
+| `quality-snapshot` | Snapshot testing is active and passing |
 
-Enable them in `.espectacular/config.toml` or via `ah doctor --enable mutation` (etc.).
+Enable them in `.espectacular/config.toml` or via `ah doctor --enable mutation` (etc.). Quality findings are informational and never cause `ah check` to exit non-zero.
 
 ---
 
@@ -141,21 +151,21 @@ Enable them in `.espectacular/config.toml` or via `ah doctor --enable mutation` 
 
 ```text
 openspec/
-└── specs/<spec>/spec.md          # deployed spec source
+└── specs/<spec>/spec.md            # deployed spec source
 
 .espectacular/
-├── config.toml                   # runner and capability config
-├── AGENTS.md                     # AI agent guidance
+├── config.toml                     # runner and capability config
+├── AGENTS.md                       # AI agent guidance
 ├── <spec>/
-│   └── <scenario-id>.toml        # deployed contracts
+│   └── <scenario-id>.toml          # deployed contracts
 └── changes/
     └── <change>/
         └── <spec>/
             └── <scenario-id>.toml  # staged change contracts
-```
 
-Schemas live in `schemas/`:
-- `check-output.schema.json` — `ah check` JSON envelope
-- `config.schema.json` — `.espectacular/config.toml`
-- `scenario-contract.schema.json` — contract TOML files
-- `custom-runner.schema.json` — custom runner JSON envelope
+schemas/
+├── check-output.schema.json        # ah check JSON envelope
+├── config.schema.json              # .espectacular/config.toml
+├── scenario-contract.schema.json   # contract TOML files
+└── custom-runner.schema.json       # custom runner JSON envelope
+```

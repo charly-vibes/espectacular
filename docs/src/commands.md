@@ -1,5 +1,9 @@
 # Command Reference
 
+**In brief:** `ah` is the espectacular CLI. The primary commands are `ah check` (run in CI to enforce specs) and `ah init` (run once per repo to set up). Use `ah explain <topic>` to get guidance on any finding or error.
+
+---
+
 ## `ah init`
 
 Create or refresh `.espectacular/` files and hook integration.
@@ -30,7 +34,7 @@ ah check [--changes <id>]
 
 **Exit codes:** 0 when `findings` contains no structural or execution findings; 1 otherwise. Quality findings (`quality-*`) never cause a non-zero exit.
 
-**Example — deployed specs only:**
+**Example — clean run:**
 
 ```bash
 ah check
@@ -58,6 +62,32 @@ ah check --changes add-parser-validation
 }
 ```
 
+**Example — with a finding:**
+
+```json
+{
+  "scope": { "deployed": true, "changes": [] },
+  "summary": { "structural": 1, "execution": 0, "passed": 0, "counts_by_kind": { "no-toml": 1 } },
+  "findings": [
+    {
+      "kind": "no-toml",
+      "category": "structural",
+      "spec": "parser",
+      "spec_path": "openspec/specs/parser/spec.md",
+      "scenario": { "id": "empty-input-is-rejected", "title": "Empty input is rejected" },
+      "suggested_action": "run_ah_scenario_new",
+      "playbook_command": "ah explain run_ah_scenario_new"
+    }
+  ]
+}
+```
+
+Run the `playbook_command` from any finding to get step-by-step guidance:
+
+```bash
+ah explain run_ah_scenario_new
+```
+
 **Finding kinds:**
 
 | Kind | Category | Meaning |
@@ -75,8 +105,6 @@ ah check --changes add-parser-validation
 | `quality-mutation` | quality | mutation score meets threshold (informational) |
 | `quality-property` | quality | property-based tests passing (informational) |
 | `quality-snapshot` | quality | snapshot tests passing (informational) |
-
-Use `ah explain <kind>` for guidance on any finding kind.
 
 ---
 
@@ -109,9 +137,9 @@ recommendation: vitest detected via manifest — run: ah doctor --enable vitest
 ah doctor --enable vitest
 ```
 
-Writes the `[runners.vitest]` entry to `.espectacular/config.toml`. If the capability is already configured, exits 0 with an "already enabled" message.
+Writes the `[runners.vitest]` entry to `.espectacular/config.toml`. If already configured, exits 0 with an "already enabled" message.
 
-**Exit codes:** 0 when no problems are found (framework recommendations do not affect exit code); 1 when structural problems exist. `--enable` exits 0 on success, non-zero for unknown capabilities.
+**Exit codes:** 0 when no problems are found (recommendations do not affect exit code); 1 when structural problems exist. `--enable` exits 0 on success, non-zero for unknown capabilities.
 
 ---
 
@@ -166,15 +194,15 @@ ah explain --list
 
 ## `ah signals`
 
-Read `dont` rejection events and emit drift signals as JSON.
+Read [dont](https://github.com/charly-vibes/dont) rejection events and emit drift signals as JSON.
 
 ```
 ah signals
 ```
 
-Reads `.dont/events/*.json`, filters for ungrounded claim rejections, and emits a JSON array of `DriftSignal` objects. Used by `wai` to surface spec-behavior gaps.
+`dont` is a companion tool that tracks epistemic claims made by AI agents. When an agent makes a claim that is later rejected, `dont` records it as an event. `ah signals` reads those events from `.dont/events/*.json` and re-emits them as structured `DriftSignal` JSON that CI or the [wai](https://github.com/charly-vibes/wai) project-context tool can consume to surface spec-behavior gaps.
 
-**Exit codes:** always 0; returns an empty array if no events are found.
+**Exit codes:** always 0; returns an empty JSON array if no events are found.
 
 ---
 
@@ -206,6 +234,24 @@ NR — Non-Regression: Behavior asserting existing guarantees remain true while 
 ah type PF
 ```
 
+```
+## PF — Pure Functional
+
+Deterministic behavior where outputs are a function of explicit inputs.
+
+Use for:
+- parsers
+- formatters
+- validators
+- pure transformations
+- deterministic calculations
+
+Typical test shapes:
+- unit examples for representative inputs
+- property-based tests for invariants
+- boundary input examples
+```
+
 **Exit codes:** 0 on success; 1 for unknown archetype codes (includes "did you mean" suggestions).
 
 ---
@@ -222,10 +268,10 @@ ah scenario new <change> <spec> --requirement "<scenario-id>" "<heading>"
 
 | Argument | Description |
 |----------|-------------|
-| `<change>` | Change id (must exist under `openspec/changes/`) |
+| `<change>` | Change id (the change directory must exist under `openspec/changes/`) |
 | `<spec>` | Spec name (e.g. `parser`) |
-| `--requirement` | Scenario id slug (must match a `### Requirement:` block in the spec) |
-| `<heading>` | Human-readable scenario heading |
+| `--requirement` | Scenario id slug — must match a `### Requirement:` block already in the spec |
+| `<heading>` | Human-readable scenario heading to append |
 
 Appends the scenario under the named requirement block and creates the contract stub at `.espectacular/changes/<change>/<spec>/<scenario-id>.toml`.
 
@@ -241,7 +287,7 @@ Stage a supersession update for an existing contract.
 ah scenario supersede <spec> <old-id> --with=<new-id> --in-change=<change>
 ```
 
-Marks the old contract `status = "superseded"` and sets `superseded_by` to the new scenario id. The replacement scenario must exist in the named change overlay.
+Marks the old contract `status = "superseded"` and sets `superseded_by` to the new scenario id. The replacement scenario must already exist in the named change overlay.
 
 **Exit codes:** 0 on success; 1 if the deployed contract or replacement is missing.
 
@@ -255,7 +301,7 @@ Move staged change contracts into deployed `.espectacular/` locations.
 ah archive <change>
 ```
 
-Runs after a change is merged. Moves TOML files from `.espectacular/changes/<change>/` into `.espectacular/<spec>/`, failing if any collision would overwrite an active contract without a supersession.
+Run after a change merges. Moves TOML files from `.espectacular/changes/<change>/` into `.espectacular/<spec>/`, failing if any collision would overwrite an active contract without a supersession in place.
 
 **Exit codes:** 0 on success; 1 on collision or missing staged change.
 
