@@ -157,6 +157,7 @@ mod tests {
             },
             runners,
             quality: Default::default(),
+            capabilities: Default::default(),
         }
     }
 
@@ -294,6 +295,7 @@ mod tests {
                 ),
             ]),
             quality: Default::default(),
+            capabilities: Default::default(),
         };
         let tests = HashMap::from([
             (

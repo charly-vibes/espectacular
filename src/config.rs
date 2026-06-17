@@ -10,11 +10,25 @@ pub struct Config {
     pub runners: HashMap<String, Vec<String>>,
     #[serde(default)]
     pub quality: QualityConfig,
+    #[serde(default)]
+    pub capabilities: CapabilitiesConfig,
 }
 
 #[derive(Debug, Default, Deserialize)]
 pub struct QualityConfig {
     pub mutation: Option<MutationConfig>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct CapabilitiesConfig {
+    pub mutation: Option<CapabilityFlag>,
+    pub property: Option<CapabilityFlag>,
+    pub snapshot: Option<CapabilityFlag>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CapabilityFlag {
+    pub enabled: bool,
 }
 
 #[derive(Debug, Deserialize)]

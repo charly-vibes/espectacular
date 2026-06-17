@@ -40,6 +40,38 @@ changes = "openspec/changes"
 [runners]
 "#;
 
+// ── config text helpers (shared with doctor --enable) ────────────────────────
+
+pub fn insert_runner_entry(config_text: &str, key: &str, value_toml: &str) -> String {
+    let new_line = format!("{key} = {value_toml}\n");
+    if let Some(section_pos) = find_section_start(config_text, "[runners]") {
+        let after_header = section_pos + "[runners]".len();
+        let rest = &config_text[after_header..];
+        let section_content_len = rest.find("\n[").map(|p| p + 1).unwrap_or(rest.len());
+        let insert_at = after_header + section_content_len;
+        let base = &config_text[..insert_at];
+        let tail = &config_text[insert_at..];
+        let separator = if base.ends_with('\n') { "" } else { "\n" };
+        format!("{base}{separator}{new_line}{tail}")
+    } else {
+        let trimmed = config_text.trim_end();
+        format!("{trimmed}\n\n[runners]\n{new_line}")
+    }
+}
+
+pub fn append_capability_block(config_text: &str, capability: &str) -> String {
+    let trimmed = config_text.trim_end();
+    format!("{trimmed}\n\n[capabilities.{capability}]\nenabled = true\n")
+}
+
+fn find_section_start(text: &str, header: &str) -> Option<usize> {
+    if text.starts_with(header) {
+        return Some(0);
+    }
+    let needle = format!("\n{header}");
+    text.find(&needle).map(|pos| pos + 1)
+}
+
 #[derive(Debug, PartialEq)]
 pub enum HookFramework {
     Lefthook,

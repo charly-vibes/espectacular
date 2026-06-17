@@ -106,6 +106,7 @@ mod tests {
             },
             runners,
             quality: QualityConfig::default(),
+            capabilities: Default::default(),
         }
     }
 
@@ -118,6 +119,7 @@ mod tests {
             },
             runners: HashMap::new(),
             quality: QualityConfig::default(),
+            capabilities: Default::default(),
         }
     }
 

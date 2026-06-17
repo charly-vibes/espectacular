@@ -30,7 +30,10 @@ enum Command {
         #[arg(long = "changes")]
         changes: Vec<String>,
     },
-    Doctor,
+    Doctor {
+        #[arg(long)]
+        enable: Option<String>,
+    },
     Init,
     Archive {
         change: String,
@@ -92,8 +95,32 @@ fn run() -> anyhow::Result<()> {
                 .any(|f| f.category == "structural" || f.category == "execution");
             std::process::exit(if has_blocking { 1 } else { 0 });
         }
-        Command::Doctor => {
+        Command::Doctor { enable } => {
+            if let Some(capability) = enable {
+                match doctor::run_doctor_enable(&std::env::current_dir()?, &capability)? {
+                    doctor::DoctorEnableResult::Written { path, table_name } => {
+                        println!("enabled: {table_name} in {path}");
+                    }
+                    doctor::DoctorEnableResult::AlreadyEnabled => {
+                        println!("already-enabled: {capability}");
+                    }
+                }
+                return Ok(());
+            }
             let report = doctor::run_doctor(&std::env::current_dir()?)?;
+            for det in &report.detections {
+                println!(
+                    "framework: {} ({})",
+                    det.name,
+                    crate::adapters::detection_source_label(det.detection_source)
+                );
+            }
+            for rec in &report.recommendations {
+                println!(
+                    "recommendation: {} — run: {}",
+                    rec.detail, rec.apply_command
+                );
+            }
             if report.healthy {
                 println!("healthy: all checks passed");
             } else {

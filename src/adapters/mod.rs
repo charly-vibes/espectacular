@@ -33,6 +33,15 @@ pub trait Adapter {
     }
 }
 
+pub fn detection_source_label(source: DetectionSource) -> &'static str {
+    match source {
+        DetectionSource::Configured => "configured",
+        DetectionSource::Manifest => "manifest",
+        DetectionSource::Environment => "environment",
+        DetectionSource::SourceImport => "source_import",
+    }
+}
+
 pub fn detect(repo_root: &Path, config: &Config, test_type: &str) -> Option<DetectionSource> {
     match test_type {
         "pytest" => python::PytestAdapter::detect(repo_root, config),
@@ -96,6 +105,7 @@ mod tests {
             },
             runners,
             quality: Default::default(),
+            capabilities: Default::default(),
         }
     }
 
@@ -155,6 +165,7 @@ mod tests {
             },
             runners: HashMap::new(),
             quality: Default::default(),
+            capabilities: Default::default(),
         };
         let configured = config_with_runner("pytest", vec!["pytest"]);
 

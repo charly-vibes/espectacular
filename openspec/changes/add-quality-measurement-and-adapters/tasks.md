@@ -65,15 +65,15 @@
 
 ## 7. `ah doctor` detection and `--enable`
 
-- [ ] 7.1 Red: add failing tests for framework detection reporting in `ah doctor` output (pytest, cargo, vitest, PBT tools), including `detection_source = configured` precedence
-- [ ] 7.2 Green: implement detection reporting in `src/doctor.rs`
-- [ ] 7.3 Red: add failing tests for `recommendation` finding emitted when available framework is not configured
-- [ ] 7.4 Green: emit recommendation findings with `apply_command` set to the `--enable` invocation
-- [ ] 7.5 Red: add golden-file failing tests for `ah doctor --enable <capability>` writing the exact v1 config table for pytest, cargo, vitest, mutation, property, and snapshot
-- [ ] 7.6 Green: implement `--enable` flag writing the exact config table to `.espectacular/config.toml`
-- [ ] 7.7 Red: add failing tests for unknown capability error and already-enabled no-op
-- [ ] 7.8 Green: implement error and no-op paths
-- [ ] 7.9 Refactor: share config-write path between `ah init` and `ah doctor --enable`
+- [x] 7.1 Red: add failing tests for framework detection reporting in `ah doctor` output (pytest, cargo, vitest, PBT tools), including `detection_source = configured` precedence
+- [x] 7.2 Green: implement detection reporting in `src/doctor.rs`
+- [x] 7.3 Red: add failing tests for `recommendation` finding emitted when available framework is not configured
+- [x] 7.4 Green: emit recommendation findings with `apply_command` set to the `--enable` invocation
+- [x] 7.5 Red: add golden-file failing tests for `ah doctor --enable <capability>` writing the exact v1 config table for pytest, cargo, vitest, mutation, property, and snapshot
+- [x] 7.6 Green: implement `--enable` flag writing the exact config table to `.espectacular/config.toml`
+- [x] 7.7 Red: add failing tests for unknown capability error and already-enabled no-op
+- [x] 7.8 Green: implement error and no-op paths
+- [x] 7.9 Refactor: share config-write path between `ah init` and `ah doctor --enable`
 
 ## 8. Quality measurement capabilities
 
