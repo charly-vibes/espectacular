@@ -1,6 +1,6 @@
 # Implementation Status
 
-This page maps the deployed behavioral specs to the commands and capabilities that implement them. Each row is a scenario in a spec — if `ah check` passes, that behavior is verified in CI.
+This page maps the deployed behavioral specs to the commands and capabilities that implement them. Each row is a scenario in a spec; if `ah check` passes, that behavior is verified in CI.
 
 ## Deployed specs
 

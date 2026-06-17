@@ -12,7 +12,7 @@ Create or refresh `.espectacular/` files and hook integration.
 ah init
 ```
 
-Idempotent — safe to re-run after updating specs or changing hook frameworks. Stubs contract files for any scenarios that have no existing contract. Installs `ah check` into `lefthook` or `prek` if detected.
+Idempotent: safe to re-run after updating specs or changing hook frameworks. Stubs contract files for any scenarios that have no existing contract. Installs `ah check` into `lefthook` or `prek` if detected.
 
 **Exit codes:** 0 on success, non-zero if the OpenSpec directory is missing.
 

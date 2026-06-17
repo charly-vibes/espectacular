@@ -1,6 +1,6 @@
 # Concepts
 
-**In brief:** A **spec** declares what your tool should do. A **contract** says which tests verify one scenario in that spec. `ah check` is the gate that ensures every scenario has a contract and every contract's tests pass. See the [worked example in Installation](installation.md#worked-example) to see these pieces together.
+**In brief:** A **spec** declares what your tool should do. A **contract** says which tests verify one scenario in that spec. `ah check` is the gate — it exits non-zero when a contract is missing or a test fails. See the [worked example in Installation](installation.md#worked-example) to see these pieces together.
 
 ---
 
@@ -22,7 +22,7 @@ When the parser runs,
 Then it exits non-zero with a descriptive error message.
 ```
 
-Specs are checked into version control. They are append-only: you never rewrite a deployed scenario's intent — instead you add new scenarios or supersede old ones. This preserves an auditable history of behavioral decisions.
+Specs are checked into version control. They are append-only: you never rewrite a deployed scenario's intent — instead you add new scenarios or supersede old ones. The git log becomes a traceable record of when each behavior was declared, extended, or superseded.
 
 ---
 
@@ -77,7 +77,7 @@ During a change in progress, contracts live under `.espectacular/changes/<change
 
 ## Archetypes
 
-Every contract declares an **archetype** — a short code that classifies the kind of behavior being verified. Archetypes guide test design: a `PF` scenario should have deterministic unit tests; an `SA` scenario needs to cover state transitions.
+Every contract declares an **archetype**, a short code that classifies the kind of behavior being verified. Archetypes guide test design: a `PF` scenario should have deterministic unit tests; an `SA` scenario needs to cover state transitions.
 
 | Code | Name | Description |
 |------|------|-------------|
@@ -100,7 +100,7 @@ Run `ah type <code>` for full documentation on any archetype, or `ah type` to li
 3. Runs every declared test
 4. Emits a JSON envelope and exits 0 if clean, 1 if any structural or execution finding exists
 
-**Local pre-commit** (`ah init` installs this): convenience layer, catches issues early.
+**Local pre-commit** (`ah init` installs this): catches structural findings before `git push` instead of in CI.
 **CI** (`ah check` in a workflow step): the enforcement gate, source of truth.
 
 Quality findings (`quality-mutation`, `quality-property`, `quality-snapshot`) are informational — they appear in the output but never cause a non-zero exit. See [Command Reference — ah check](commands.md#ah-check) for the full finding kind table.
