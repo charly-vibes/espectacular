@@ -1,0 +1,123 @@
+# espectacular
+
+> Behavioral verification layer for Rust CLI projects.
+
+## What it is
+
+espectacular enforces a contract between behavioral specs and the tests that verify them. You write specs in Markdown (Given/When/Then scenarios), attach a TOML contract to each scenario listing the tests that cover it, then run `ah check` in CI. If a test is missing, unconfigured, or failing, `ah check` exits non-zero.
+
+The CLI binary is `ah`.
+
+## Core concepts
+
+- **Spec** — a Markdown file under `openspec/specs/<name>/spec.md` with `### Requirement:` headings
+- **Scenario** — one `### Requirement:` heading; has a slug (the id), a body, and a sidecar contract
+- **Contract** — a TOML file at `.espectacular/<spec>/<scenario-id>.toml` declaring which tests verify the scenario
+- **Gate** — `ah check` validates all contracts and runs all tests; exits 0 if clean, 1 if any structural or execution finding exists
+- **Archetype** — a code classifying what kind of behavior the scenario tests: PF (pure functional), SA (stateful API), BP (boundary protocol), CE (contract/event), NR (non-regression)
+- **Change** — staged work-in-progress under `openspec/changes/<name>/`; included in `ah check --changes <name>`
+
+## Key commands
+
+| Command | Purpose |
+|---------|---------|
+| `ah init` | Set up `.espectacular/` and hook integration |
+| `ah check` | Validate deployed specs and run declared tests |
+| `ah check --changes <id>` | Include a staged change overlay |
+| `ah doctor` | Diagnose config, path, hook, and archetype issues |
+| `ah doctor --enable <cap>` | Write config for a detected-but-unconfigured capability |
+| `ah explain <topic>` | Print guidance for a finding kind or suggested action |
+| `ah explain --list` | List all explainable topics |
+| `ah signals` | Emit drift signals from dont rejection events |
+| `ah type` | List archetypes |
+| `ah type <code>` | Full docs for one archetype |
+| `ah scenario new <change> <spec> --requirement <id> <heading>` | Create a scenario and contract stub |
+| `ah scenario supersede <spec> <old-id> --with=<new-id> --in-change=<change>` | Stage a supersession |
+| `ah archive <change>` | Promote staged contracts to deployed |
+| `ah upgrade` | Report and fix tool-version drift |
+
+## Output format
+
+`ah check` always emits JSON to stdout:
+
+```json
+{
+  "scope": { "deployed": true, "changes": [] },
+  "summary": { "structural": 0, "execution": 0, "passed": 3, "counts_by_kind": {} },
+  "findings": []
+}
+```
+
+Each finding has `kind`, `category`, `spec`, `spec_path`, `scenario`, `suggested_action`, `playbook_command`. Run `ah explain <suggested_action>` for step-by-step guidance.
+
+## Finding kinds
+
+structural: `no-toml`, `orphan-toml`, `slug-collision`, `id-mismatch`, `no-tests-declared`, `missing-runner`, `malformed-contract`, `missing-replacement`, `overlay-conflict`
+execution: `test-failing`
+quality (informational, never exit-1): `quality-mutation`, `quality-property`, `quality-snapshot`
+
+## Contract format
+
+```toml
+id = "empty-input-is-rejected"
+description = "Empty input is rejected before parsing."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.pytest]]
+flags = "tests/test_parser.py::test_empty_input_rejected"
+timeout_seconds = 60
+```
+
+Test entry types: `shell` (uses `command`), `pytest`/`cargo`/`vitest`/`custom`/any-configured-type (use `flags`).
+
+## Config format
+
+```toml
+tool_version = "0.1.0"
+
+[paths]
+specs = "openspec/specs"
+changes = "openspec/changes"
+
+[runners]
+pytest = ["pytest"]
+cargo = ["cargo", "test"]
+vitest = ["vitest", "run"]
+
+[quality.mutation]
+enabled = true
+threshold = 0.80
+command = ["/bin/sh", "{}"]
+
+[capabilities.property]
+enabled = true
+
+[capabilities.snapshot]
+enabled = true
+```
+
+## File layout
+
+```
+openspec/specs/<spec>/spec.md       deployed spec source
+openspec/changes/<change>/specs/    staged change specs
+
+.espectacular/config.toml           runner and capability config
+.espectacular/<spec>/<id>.toml      deployed contracts
+.espectacular/changes/<change>/     staged contracts
+
+schemas/check-output.schema.json    ah check JSON envelope schema
+schemas/config.schema.json          config schema
+schemas/scenario-contract.schema.json  contract schema
+schemas/custom-runner.schema.json   custom runner envelope schema
+```
+
+## Docs
+
+- Installation & Quick Start: docs/src/installation.md
+- Command Reference: docs/src/commands.md
+- Concepts: docs/src/concepts.md
+- Implementation Status: docs/src/status.md

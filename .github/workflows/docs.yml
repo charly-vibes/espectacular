@@ -25,6 +25,9 @@ jobs:
         with:
           mdbook-version: latest
 
+      - name: Copy specs into docs source
+        run: cp -r openspec/specs docs/src/specs
+
       - name: Build docs
         run: mdbook build docs
 

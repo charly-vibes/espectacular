@@ -1,5 +1,6 @@
 
 docs/book/
+docs/src/specs/
 
 # Beads / Dolt files (added by bd init)
 .dolt/
