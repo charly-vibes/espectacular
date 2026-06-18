@@ -1,6 +1,10 @@
 default:
     @just --list
 
+# Install ah binary to ~/.cargo/bin
+install:
+    cargo install --path . --locked
+
 prime:
     wai prime || wai status
     bd prime
