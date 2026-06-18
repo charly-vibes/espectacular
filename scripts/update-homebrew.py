@@ -56,6 +56,7 @@ class Ah < Formula
 
   def install
     bin.install "ah"
+    bin.install "espectacular"
   end
 
   test do

@@ -1,6 +1,6 @@
 # Installation & Quick Start
 
-**In brief:** install `ah`, run `ah init` in your repo, then `ah check` to validate. The worked example below walks through writing a spec scenario, creating its contract, and seeing a passing check.
+**In brief:** install `ah`, run `ah init` in your repo, then `ah check` to validate. The worked example below walks through writing a spec scenario, creating its contract, and seeing a passing check. Both `ah` and `espectacular` are installed — they are the same binary under two names.
 
 ## Install
 
@@ -24,6 +24,8 @@ Verify:
 ```bash
 ah --version
 # ah 0.1.0
+espectacular --version
+# espectacular 0.1.0
 ```
 
 ## Prerequisites

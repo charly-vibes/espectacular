@@ -1,6 +1,6 @@
 # Command Reference
 
-**In brief:** `ah` is the espectacular CLI. The primary commands are `ah check` (run in CI to enforce specs) and `ah init` (run once per repo to set up). Use `ah explain <topic>` to get guidance on any finding or error.
+**In brief:** `ah` is the espectacular CLI — `espectacular` is an alias for the same binary. The primary commands are `ah check` (run in CI to enforce specs) and `ah init` (run once per repo to set up). Use `ah explain <topic>` to get guidance on any finding or error.
 
 ---
 

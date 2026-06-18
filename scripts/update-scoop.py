@@ -30,7 +30,7 @@ manifest = {
     "license": "MIT",
     "url": url,
     "hash": f"sha256:{sha_win}",
-    "bin": "ah.exe",
+    "bin": ["ah.exe", "espectacular.exe"],
     "checkver": {
         "github": "https://github.com/charly-vibes/espectacular"
     },

@@ -53,7 +53,9 @@ jobs:
         run: |
           mkdir -p bins/linux_amd64 bins/linux_arm64
           cp target/x86_64-unknown-linux-gnu/release/ah bins/linux_amd64/ah
+          cp target/x86_64-unknown-linux-gnu/release/espectacular bins/linux_amd64/espectacular
           cp target/aarch64-unknown-linux-gnu/release/ah bins/linux_arm64/ah
+          cp target/aarch64-unknown-linux-gnu/release/espectacular bins/linux_arm64/espectacular
 
       - uses: actions/upload-artifact@v4
         with:
@@ -85,7 +87,9 @@ jobs:
         run: |
           mkdir -p bins/darwin_amd64 bins/darwin_arm64
           cp target/x86_64-apple-darwin/release/ah bins/darwin_amd64/ah
+          cp target/x86_64-apple-darwin/release/espectacular bins/darwin_amd64/espectacular
           cp target/aarch64-apple-darwin/release/ah bins/darwin_arm64/ah
+          cp target/aarch64-apple-darwin/release/espectacular bins/darwin_arm64/espectacular
 
       - uses: actions/upload-artifact@v4
         with:
@@ -115,6 +119,7 @@ jobs:
         run: |
           mkdir -p bins/windows_amd64
           cp target/x86_64-pc-windows-msvc/release/ah.exe bins/windows_amd64/ah.exe
+          cp target/x86_64-pc-windows-msvc/release/espectacular.exe bins/windows_amd64/espectacular.exe
 
       - uses: actions/upload-artifact@v4
         with:
@@ -144,11 +149,11 @@ jobs:
           VERSION="${TAG#v}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           mkdir -p dist
-          tar -czf "dist/ah_${VERSION}_linux_amd64.tar.gz"  -C bins/linux_amd64  ah
-          tar -czf "dist/ah_${VERSION}_linux_arm64.tar.gz"  -C bins/linux_arm64  ah
-          tar -czf "dist/ah_${VERSION}_darwin_amd64.tar.gz" -C bins/darwin_amd64 ah
-          tar -czf "dist/ah_${VERSION}_darwin_arm64.tar.gz" -C bins/darwin_arm64 ah
-          (cd bins/windows_amd64 && zip "../../dist/ah_${VERSION}_windows_amd64.zip" ah.exe)
+          tar -czf "dist/ah_${VERSION}_linux_amd64.tar.gz"  -C bins/linux_amd64  ah espectacular
+          tar -czf "dist/ah_${VERSION}_linux_arm64.tar.gz"  -C bins/linux_arm64  ah espectacular
+          tar -czf "dist/ah_${VERSION}_darwin_amd64.tar.gz" -C bins/darwin_amd64 ah espectacular
+          tar -czf "dist/ah_${VERSION}_darwin_arm64.tar.gz" -C bins/darwin_arm64 ah espectacular
+          (cd bins/windows_amd64 && zip "../../dist/ah_${VERSION}_windows_amd64.zip" ah.exe espectacular.exe)
           cd dist && sha256sum *.tar.gz *.zip > checksums.txt
 
       - name: Create GitHub release
