@@ -12,6 +12,9 @@ pre-commit:
       run: cargo check
 
 pre-push:
+  parallel: true
   commands:
+    lint:
+      run: cargo clippy -- -D warnings
     test:
       run: cargo test
