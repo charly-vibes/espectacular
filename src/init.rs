@@ -225,7 +225,7 @@ fn stub_contract_if_missing(
         return Ok(());
     }
 
-    let contract_dir = repo_root.join(".espectacular").join(&spec_name);
+    let contract_dir = repo_root.join(".espectacular").join(spec_name);
     let contract_path = contract_dir.join(format!("{}.toml", scenario.id));
 
     if contract_path.exists() {

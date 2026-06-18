@@ -106,6 +106,7 @@ pub fn execute_command(repo_root: &Path, planned: &PlannedCommand) -> anyhow::Re
     })
 }
 
+#[allow(dead_code)]
 pub fn run_declared_tests(
     repo_root: &Path,
     config: &Config,

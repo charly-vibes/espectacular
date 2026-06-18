@@ -2,7 +2,6 @@ use super::DetectionSource;
 use crate::config::Config;
 use crate::contracts::TestEntry;
 use crate::runner::{PlannedCommand, TestResult};
-use std::fs;
 use std::path::Path;
 
 const DEFAULT_TIMEOUT_SECONDS: u64 = 120;

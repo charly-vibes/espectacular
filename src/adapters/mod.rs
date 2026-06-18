@@ -51,6 +51,7 @@ pub fn detect(repo_root: &Path, config: &Config, test_type: &str) -> Option<Dete
     }
 }
 
+#[allow(dead_code)]
 pub fn compose_command(
     repo_root: &Path,
     config: &Config,

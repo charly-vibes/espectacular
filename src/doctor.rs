@@ -248,14 +248,11 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
     }
 
     // Hook detection
-    match detect_hook_framework(repo_root) {
-        HookFramework::None => {
-            diagnostics.push(DoctorDiagnostic {
-                kind: "hook-absent".into(),
-                detail: "no supported pre-commit hook framework detected (lefthook or prek)".into(),
-            });
-        }
-        _ => {}
+    if let HookFramework::None = detect_hook_framework(repo_root) {
+        diagnostics.push(DoctorDiagnostic {
+            kind: "hook-absent".into(),
+            detail: "no supported pre-commit hook framework detected (lefthook or prek)".into(),
+        });
     }
 
     let healthy = diagnostics.is_empty();

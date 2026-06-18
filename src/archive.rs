@@ -45,7 +45,7 @@ pub fn run_archive(repo_root: &Path, change: &str) -> anyhow::Result<ArchiveResu
         let deployed_spec = repo_root.join("openspec/specs").join(spec).join("spec.md");
         let has_counterpart = if deployed_spec.exists() {
             let content = std::fs::read_to_string(&deployed_spec)?;
-            content.contains(&format!("#### Scenario:")) && scenario_slug_in_spec(&content, slug)
+            content.contains("#### Scenario:") && scenario_slug_in_spec(&content, slug)
         } else {
             false
         };

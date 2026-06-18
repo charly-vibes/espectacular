@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Finding {
     pub spec_path: String,
@@ -19,6 +20,7 @@ pub struct Finding {
 }
 
 impl Finding {
+    #[allow(dead_code)]
     fn structural(spec_path: &str, scenario_id: &str, kind: &str) -> Self {
         Finding {
             spec_path: spec_path.to_string(),
@@ -103,6 +105,7 @@ pub fn run_check(repo_root: &Path, selected_changes: &[String]) -> anyhow::Resul
     evaluate_scope(repo_root, &cfg, &specs_dir, scope, &ah_scope)
 }
 
+#[allow(dead_code)]
 pub fn structural_findings(specs_dir: &str, contracts_dir: &str) -> anyhow::Result<Vec<Finding>> {
     let scenarios = openspec::discover_scenarios(specs_dir)?;
     let resolved: Vec<_> = scenarios
@@ -674,6 +677,7 @@ fn execution_report(scenario: &Scenario, specs_root: &Path, test: TestResult) ->
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn report_finding(
     kind: &str,
     category: &str,
