@@ -12,6 +12,7 @@ pub struct Contract {
     pub status: String,
     pub superseded_by: String,
     pub authored_with: String,
+    #[serde(default)]
     pub tests: HashMap<String, Vec<TestEntry>>,
 }
 
@@ -25,7 +26,7 @@ pub struct TestEntry {
 pub fn load_contract(toml_path: &str) -> anyhow::Result<Contract> {
     let text = fs::read_to_string(toml_path).with_context(|| format!("cannot read {toml_path}"))?;
     let contract: Contract =
-        toml::from_str(&text).with_context(|| format!("invalid TOML in {toml_path}"))?;
+        toml::from_str(&text).map_err(|e| anyhow::anyhow!("{e} (in {toml_path})"))?;
     validate_contract(&contract)?;
     Ok(contract)
 }

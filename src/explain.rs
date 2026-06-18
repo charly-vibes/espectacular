@@ -425,13 +425,16 @@ A contract `.toml` file could not be parsed or failed validation (missing
 required fields, invalid field types, constraint violations).
 
 **Why it appears**: the file was hand-edited and a required field was removed
-or given an invalid value.
+or given an invalid value. The `message` field in the finding contains the
+specific error (e.g. `missing field 'id'` or `unknown variant 'bad-status'`).
 
-**How to fix**: open the `.toml` and fix the reported validation error.
-Required fields are: `id`, `description`, `archetype`, `status`,
-`superseded_by` (empty string when active), `authored_with`, and `[tests]`.",
-    when: "A contract .toml is malformed or missing required fields.",
-    do_action: "Open the .toml and fix the validation error.",
+**How to fix**: read the `message` field to identify which field is wrong,
+then open the `.toml` and fix it. Required fields are: `id`, `description`,
+`archetype`, `status`, `superseded_by` (empty string when active), and
+`authored_with`. The `[tests]` section is optional — a missing tests section
+produces a `no-tests-declared` finding instead.",
+    when: "A contract .toml is malformed or a required field is missing/invalid.",
+    do_action: "Read the message field for the specific error, then fix the .toml.",
     human_approval: false,
     related_topics: &["id-mismatch", "invalid-status", "review_and_apply"],
     hints: &[],
@@ -777,7 +780,8 @@ that requires human review before applying a fix.
 - `orphan-toml`: delete the orphan or restore the scenario
 - `slug-collision`: rename one of the conflicting scenarios
 - `id-mismatch`: fix the `id` field in the `.toml`
-- `malformed-contract`: fix the invalid field in the `.toml`
+- `malformed-contract`: read the `message` field for the specific error, then fix the `.toml`
+- `no-tests-declared`: add a `[[tests.*]]` entry to the contract
 - `overlay-conflict`: resolve the conflicting changes
 
 Review the `kind` and `message` fields in the finding for the specific issue.",
