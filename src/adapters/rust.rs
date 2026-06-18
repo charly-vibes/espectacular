@@ -100,6 +100,7 @@ mod tests {
     use super::*;
     use crate::config::Paths;
     use std::collections::HashMap;
+    use std::fs;
 
     fn empty_config() -> Config {
         Config {
