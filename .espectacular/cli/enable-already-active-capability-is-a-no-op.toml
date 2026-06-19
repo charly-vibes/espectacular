@@ -8,3 +8,7 @@ authored_with = "0.1.0"
 [[tests.shell]]
 command = "cargo test -q doctor_enable_already_enabled"
 timeout_seconds = 60
+
+[[tests.shell]]
+command = "cargo test -q _is_noop"
+timeout_seconds = 60
