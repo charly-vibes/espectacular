@@ -270,7 +270,7 @@ ah scenario new <change> <spec> --requirement "<scenario-id>" "<heading>"
 |----------|-------------|
 | `<change>` | Change id (the change directory must exist under `openspec/changes/`) |
 | `<spec>` | Spec name (e.g. `parser`) |
-| `--requirement` | Scenario id slug — must match a `### Requirement:` block already in the spec |
+| `--requirement` | Requirement grouping name — must match a `### Requirement:` heading already in the spec; the new `#### Scenario:` is appended under it |
 | `<heading>` | Human-readable scenario heading to append |
 
 Appends the scenario under the named requirement block and creates the contract stub at `.espectacular/changes/<change>/<spec>/<scenario-id>.toml`.

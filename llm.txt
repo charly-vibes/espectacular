@@ -10,8 +10,8 @@ The CLI binary is `ah`.
 
 ## Core concepts
 
-- **Spec** — a Markdown file under `openspec/specs/<name>/spec.md` with `### Requirement:` headings
-- **Scenario** — one `### Requirement:` heading; has a slug (the id), a body, and a sidecar contract
+- **Spec** — a Markdown file under `openspec/specs/<name>/spec.md` with `### Requirement:` grouping headings and `#### Scenario:` testable units
+- **Scenario** — one `#### Scenario:` heading nested under a `### Requirement:` grouping; has a slug (the id), a body, and a sidecar contract
 - **Contract** — a TOML file at `.espectacular/<spec>/<scenario-id>.toml` declaring which tests verify the scenario
 - **Gate** — `ah check` validates all contracts and runs all tests; exits 0 if clean, 1 if any structural or execution finding exists
 - **Archetype** — a code classifying what kind of behavior the scenario tests: PF (pure functional), SA (stateful API), BP (boundary protocol), CE (contract/event), NR (non-regression)

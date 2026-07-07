@@ -85,11 +85,12 @@ This creates `openspec/changes/my-feature/specs/` where your staged spec lives.
 Edit (or create) the spec for the component you're working on, e.g. `openspec/changes/my-feature/specs/parser/spec.md`:
 
 ```markdown
-### Requirement: Empty input is rejected
+### Requirement: Input validation
 
-Given an empty string is passed to the parser,
-When the parser runs,
-Then it exits non-zero with a descriptive error message.
+#### Scenario: Empty input is rejected
+- **GIVEN** an empty string is passed to the parser
+- **WHEN** the parser runs
+- **THEN** it exits non-zero with a descriptive error message
 ```
 
 ### Step 3 — Create the contract

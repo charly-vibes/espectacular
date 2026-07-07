@@ -12,14 +12,15 @@ espectacular enforces a contract between *what you said your tool does* (specs) 
 
 ## Specs
 
-A **spec** is a Markdown file under `openspec/specs/<name>/spec.md`. It describes the intended behavior of one component using scenario headings.
+A **spec** is a Markdown file under `openspec/specs/<name>/spec.md`. It describes the intended behavior of one component using `### Requirement:` groupings and `#### Scenario:` headings nested under them.
 
 ```markdown
-### Requirement: Empty input is rejected
+### Requirement: Input validation
 
-Given an empty string is passed to the parser,
-When the parser runs,
-Then it exits non-zero with a descriptive error message.
+#### Scenario: Empty input is rejected
+- **GIVEN** an empty string is passed to the parser
+- **WHEN** the parser runs
+- **THEN** it exits non-zero with a descriptive error message
 ```
 
 Specs are checked into version control. They are append-only: you never rewrite a deployed scenario's intent — instead you add new scenarios or supersede old ones. The git log becomes a traceable record of when each behavior was declared, extended, or superseded.
@@ -28,12 +29,12 @@ Specs are checked into version control. They are append-only: you never rewrite 
 
 ## Scenarios
 
-A **scenario** is one `### Requirement:` heading in a spec file. It has:
+A **scenario** is one `#### Scenario:` heading nested under a `### Requirement:` grouping in a spec file. It has:
 
-- A **slug** — the id you supply via `--requirement` when creating the contract (by convention, lowercased with hyphens, e.g. `empty-input-is-rejected`). This slug must match the contract filename and the `id` field inside it.
+- A **slug** — derived from the scenario heading (by convention, lowercased with hyphens, e.g. `empty-input-is-rejected`). This slug must match the contract filename and the `id` field inside it.
 - A **body** in Given/When/Then form describing the behavior
 
-`ah check` discovers scenarios by parsing headings from spec files. Each scenario must have a corresponding contract file, or `ah check` emits a `no-toml` finding. Run `ah explain no-toml` for the fix.
+`ah check` discovers scenarios by parsing `#### Scenario:` headings from spec files. Each scenario must have a corresponding contract file, or `ah check` emits a `no-toml` finding. Run `ah explain no-toml` for the fix.
 
 ---
 
