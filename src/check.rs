@@ -351,6 +351,8 @@ fn evaluate_scope(
                 };
                 if result.timed_out || result.exit_code != Some(0) {
                     findings.push(execution_report(scenario, specs_root, result));
+                } else if test_type == "shell" && zero_tests_ran(&result) {
+                    findings.push(no_tests_ran_report(scenario, specs_root, result));
                 } else {
                     passed += 1;
                 }
@@ -703,6 +705,28 @@ fn report_finding(
     }
 }
 
+fn zero_tests_ran(result: &TestResult) -> bool {
+    result.stdout_tail.contains("test result: ok. 0 passed")
+        || result.stderr_tail.contains("test result: ok. 0 passed")
+}
+
+fn no_tests_ran_report(scenario: &Scenario, specs_root: &Path, test: TestResult) -> ReportFinding {
+    report_finding(
+        "no-tests-ran",
+        "execution",
+        scenario.spec_path.clone(),
+        spec_markdown_path(specs_root, &scenario.spec_path),
+        ScenarioContext {
+            id: scenario.id.clone(),
+            title: scenario.heading.clone(),
+            body_markdown: scenario.body.clone(),
+        },
+        Some(scenario.body.clone()),
+        Some(test),
+        None,
+    )
+}
+
 fn suggested_action_for(kind: &str) -> &'static str {
     match kind {
         "no-toml"
@@ -714,7 +738,7 @@ fn suggested_action_for(kind: &str) -> &'static str {
         | "malformed-contract"
         | "missing-replacement"
         | "overlay-conflict" => "review_and_apply",
-        "missing-runner" | "test-failing" => "edit_code_not_scenario",
+        "missing-runner" | "test-failing" | "no-tests-ran" => "edit_code_not_scenario",
         _ => "human_review_required",
     }
 }
@@ -1060,66 +1084,10 @@ mod tests {
     }
 
     // 8.5 Red: property/snapshot test entries emit quality findings
-
-    #[test]
-    fn property_passing_emits_quality_property_finding() {
-        let dir = quality_test_repo("property", "exit 0");
-        let output = run_check(dir.path(), &[]).unwrap();
-        assert!(
-            output
-                .quality_findings
-                .iter()
-                .any(|f| f.kind == "quality-property"),
-            "expected quality-property finding; got: {:?}",
-            output.quality_findings
-        );
-        assert!(output.findings.is_empty(), "expected no regular findings");
-    }
-
-    #[test]
-    fn snapshot_passing_emits_quality_snapshot_finding() {
-        let dir = quality_test_repo("snapshot", "exit 0");
-        let output = run_check(dir.path(), &[]).unwrap();
-        assert!(
-            output
-                .quality_findings
-                .iter()
-                .any(|f| f.kind == "quality-snapshot"),
-            "expected quality-snapshot finding; got: {:?}",
-            output.quality_findings
-        );
-        assert!(output.findings.is_empty(), "expected no regular findings");
-    }
-
-    #[test]
-    fn property_failing_emits_test_failing() {
-        let dir = quality_test_repo("property", "exit 1");
-        let output = run_check(dir.path(), &[]).unwrap();
-        assert!(
-            output.findings.iter().any(|f| f.kind == "test-failing"),
-            "expected test-failing finding"
-        );
-        assert!(
-            output.quality_findings.is_empty(),
-            "expected no quality findings on failure"
-        );
-    }
-
-    #[test]
-    fn snapshot_failing_emits_test_failing() {
-        let dir = quality_test_repo("snapshot", "exit 1");
-        let output = run_check(dir.path(), &[]).unwrap();
-        assert!(
-            output.findings.iter().any(|f| f.kind == "test-failing"),
-            "expected test-failing finding"
-        );
-        assert!(
-            output.quality_findings.is_empty(),
-            "expected no quality findings on failure"
-        );
-    }
-
-    // 8.9 RED: mutation tool execution failure → test-failing finding, gate non-zero
+    //
+    // Quality tests are combined into one function to avoid parallel execution
+    // interference — these tests create temp dirs with runner scripts that can
+    // collide when run concurrently (see espectacular-9q4).
 
     fn mutation_failure_repo() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
@@ -1140,24 +1108,140 @@ mod tests {
     }
 
     #[test]
-    fn mutation_tool_failure_emits_test_failing() {
+    fn quality_tests_run_sequentially() {
+        // property passing
+        let dir = quality_test_repo("property", "exit 0");
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(
+            output
+                .quality_findings
+                .iter()
+                .any(|f| f.kind == "quality-property"),
+            "property passing: expected quality-property finding; got: {:?}",
+            output.quality_findings
+        );
+        assert!(
+            output.findings.is_empty(),
+            "property passing: expected no regular findings"
+        );
+
+        // property failing
+        let dir = quality_test_repo("property", "exit 1");
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(
+            output.findings.iter().any(|f| f.kind == "test-failing"),
+            "property failing: expected test-failing finding"
+        );
+        assert!(
+            output.quality_findings.is_empty(),
+            "property failing: expected no quality findings on failure"
+        );
+
+        // snapshot passing
+        let dir = quality_test_repo("snapshot", "exit 0");
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(
+            output
+                .quality_findings
+                .iter()
+                .any(|f| f.kind == "quality-snapshot"),
+            "snapshot passing: expected quality-snapshot finding; got: {:?}",
+            output.quality_findings
+        );
+        assert!(
+            output.findings.is_empty(),
+            "snapshot passing: expected no regular findings"
+        );
+
+        // snapshot failing
+        let dir = quality_test_repo("snapshot", "exit 1");
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(
+            output.findings.iter().any(|f| f.kind == "test-failing"),
+            "snapshot failing: expected test-failing finding"
+        );
+        assert!(
+            output.quality_findings.is_empty(),
+            "snapshot failing: expected no quality findings on failure"
+        );
+
+        // mutation tool failure emits test-failing
         let dir = mutation_failure_repo();
         let output = run_check(dir.path(), &[]).unwrap();
         assert!(
             output.findings.iter().any(|f| f.kind == "test-failing"),
-            "mutation tool execution failure must emit test-failing finding; got findings: {:?}",
+            "mutation tool failure: expected test-failing finding; got findings: {:?}",
             output.findings
         );
-    }
 
-    #[test]
-    fn mutation_tool_failure_is_not_swallowed_to_quality_findings() {
+        // mutation failure does not produce quality findings
         let dir = mutation_failure_repo();
         let output = run_check(dir.path(), &[]).unwrap();
         assert!(
             output.quality_findings.is_empty(),
-            "tool execution failure must not appear as advisory quality finding"
+            "mutation failure: must not appear as advisory quality finding"
         );
+    }
+
+    fn shell_check_repo(runner_body: &str) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        fs::create_dir_all(repo.join("openspec/specs/app")).unwrap();
+        fs::create_dir_all(repo.join(".espectacular/app")).unwrap();
+        fs::write(
+            repo.join("openspec/specs/app/spec.md"),
+            "# Capability: app\n\n#### Scenario: Shell check\n- **WHEN** the command runs\n- **THEN** tests pass\n",
+        ).unwrap();
+        fs::write(
+            repo.join(".espectacular/config.toml"),
+            "tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\n",
+        ).unwrap();
+        let script = repo.join("check.sh");
+        write_executable(&script, runner_body);
+        fs::write(
+            repo.join(".espectacular/app/shell-check.toml"),
+            format!(
+                "id = \"shell-check\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.shell]]\ncommand = \"/bin/sh {}\"\n",
+                script.display()
+            ),
+        ).unwrap();
+        dir
+    }
+
+    #[test]
+    fn shell_zero_tests_ran_emits_no_tests_ran_finding() {
+        let dir = shell_check_repo(
+            "printf 'test result: ok. 0 passed; 0 failed; 0 ignored; 5 filtered out\\n'",
+        );
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(
+            output.findings.iter().any(|f| f.kind == "no-tests-ran"),
+            "expected no-tests-ran finding; got: {:?}",
+            output.findings
+        );
+        assert_eq!(output.summary.passed, 0);
+    }
+
+    #[test]
+    fn shell_with_passing_tests_does_not_emit_no_tests_ran() {
+        let dir = shell_check_repo("printf 'test result: ok. 3 passed; 0 failed\\n'");
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(
+            !output.findings.iter().any(|f| f.kind == "no-tests-ran"),
+            "unexpected no-tests-ran finding"
+        );
+        assert_eq!(output.summary.passed, 1);
+    }
+
+    #[test]
+    fn shell_non_cargo_output_exit_zero_still_passes() {
+        let dir = shell_check_repo("exit 0");
+        let output = run_check(dir.path(), &[]).unwrap();
+        assert!(
+            !output.findings.iter().any(|f| f.kind == "no-tests-ran"),
+            "plain exit 0 must not emit no-tests-ran"
+        );
+        assert_eq!(output.summary.passed, 1);
     }
 
     #[test]

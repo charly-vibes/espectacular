@@ -51,6 +51,7 @@ enum FindingKind {
     MissingReplacement,
     OverlayConflict,
     TestFailing,
+    NoTestsRan,
     Recommendation,
     UnknownAction,
     QualityMutation,
@@ -82,6 +83,7 @@ const ALL_FINDING_KINDS: &[FindingKind] = &[
     FindingKind::MissingReplacement,
     FindingKind::OverlayConflict,
     FindingKind::TestFailing,
+    FindingKind::NoTestsRan,
     FindingKind::Recommendation,
     FindingKind::UnknownAction,
     FindingKind::QualityMutation,
@@ -113,6 +115,7 @@ fn finding_kind_entry(kind: FindingKind) -> &'static TopicEntry {
         FindingKind::MissingReplacement => &MISSING_REPLACEMENT,
         FindingKind::OverlayConflict => &OVERLAY_CONFLICT,
         FindingKind::TestFailing => &TEST_FAILING,
+        FindingKind::NoTestsRan => &NO_TESTS_RAN,
         FindingKind::Recommendation => &RECOMMENDATION,
         FindingKind::UnknownAction => &UNKNOWN_ACTION,
         FindingKind::QualityMutation => &QUALITY_MUTATION,
@@ -506,6 +509,31 @@ scenario or contract — the test describes the contract, not the code.",
     hints: &[Hint {
         kind: "warning",
         message: "Read the scenario prose in the finding — it describes the required behavior.",
+    }],
+};
+
+static NO_TESTS_RAN: TopicEntry = TopicEntry {
+    slug: "no-tests-ran",
+    summary: "A shell test exited 0 but the test filter matched no tests.",
+    body: "## no-tests-ran — Test filter matched nothing
+
+A `[[tests.shell]]` command exited successfully (exit code 0) but the test
+runner output shows that zero tests were actually executed. The contract
+appears green but exercises nothing.
+
+**Why it appears**: the test function was renamed or deleted after the
+contract was wired, leaving the filter stale. `cargo test` exits 0 when a
+filter matches no tests.
+
+**How to fix**: update the test filter in the contract to match an existing
+test function, or add the missing test function to the codebase.",
+    when: "A shell test exits 0 and stdout contains `test result: ok. 0 passed`.",
+    do_action: "Update the test filter in the contract or add the missing test function.",
+    human_approval: false,
+    related_topics: &["test-failing", "edit_code_not_scenario"],
+    hints: &[Hint {
+        kind: "example",
+        message: "Run `cargo test -- --list` to see available test names and update the filter.",
     }],
 };
 
@@ -1233,11 +1261,11 @@ mod tests {
     #[test]
     fn topic_count_is_complete() {
         let topics = all_topics();
-        // 17 finding kinds + 7 suggested actions + 4 general + 3 adapter = 31
+        // 18 finding kinds + 7 suggested actions + 4 general + 3 adapter = 32
         assert_eq!(
             topics.len(),
-            31,
-            "expected 31 topics (17 finding + 7 action + 4 general + 3 adapter), got {}",
+            32,
+            "expected 32 topics (18 finding + 7 action + 4 general + 3 adapter), got {}",
             topics.len()
         );
     }
