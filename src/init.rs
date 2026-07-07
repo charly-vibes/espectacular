@@ -95,7 +95,7 @@ pub fn detect_hook_framework(repo_root: &Path) -> HookFramework {
 pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
     anyhow::ensure!(
         repo_root.join("openspec").exists(),
-        "no openspec/ directory found in {}; ah init requires an OpenSpec project",
+        "Error: openspec/ directory not found at {}.\n\nah requires an OpenSpec project. Create the minimal layout:\n\n  openspec/\n  └── specs/\n      └── <spec>/\n          └── spec.md      ← \"#### Scenario: ...\" headings go here\n\nOr install the openspec CLI and run: openspec init",
         repo_root.display()
     );
 
@@ -293,6 +293,25 @@ mod tests {
         assert!(
             msg.contains("openspec"),
             "error should mention openspec, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn init_without_openspec_prints_minimal_layout() {
+        let repo = make_repo(false);
+        let result = run_init(repo.path());
+        let msg = format!("{:#}", result.unwrap_err());
+        assert!(
+            msg.contains("openspec/") && msg.contains("specs/"),
+            "error should describe minimal directory layout, got: {msg}"
+        );
+        assert!(
+            msg.contains("#### Scenario:") || msg.contains("Scenario:"),
+            "error should mention #### Scenario: headings expected in specs, got: {msg}"
+        );
+        assert!(
+            msg.contains("Create") || msg.contains("create"),
+            "error should give an actionable next step, got: {msg}"
         );
     }
 
