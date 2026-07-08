@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn loads_valid_config() {
         let config = load_config(VALID_CONFIG).unwrap();
-        assert_eq!(config.tool_version, "0.1.0");
+        assert_eq!(config.tool_version, "0.2.0");
     }
 
     #[test]
@@ -120,7 +120,7 @@ mod tests {
     fn runner_argv_must_be_non_empty_strings() {
         // runners with empty argv entries should fail
         let toml = r#"
-tool_version = "0.1.0"
+tool_version = "0.2.0"
 [paths]
 specs = "openspec/specs"
 changes = "openspec/changes"
