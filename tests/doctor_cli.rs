@@ -46,10 +46,33 @@ fn doctor_enable_pytest_writes_runner_and_reports_table() {
         .success()
         .stdout(predicates::str::contains("runners.pytest"));
     let config = fs::read_to_string(repo.path().join(".espectacular/config.toml")).unwrap();
-    assert!(
-        config.contains("pytest = [\"pytest\"]"),
-        "pytest runner must be in config; got:\n{config}"
-    );
+    assert!(config.contains("pytest = [\"pytest\"]"),);
+}
+
+// ── 7.7: ah doctor --json emits recommendation findings ───────────────────────
+
+#[test]
+fn doctor_json_emits_recommendation_findings() {
+    let repo = make_minimal_repo();
+    fs::write(repo.path().join("pytest.ini"), "[pytest]\n").unwrap();
+    let output = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["doctor", "--json"])
+        .assert()
+        .success();
+    let stdout = std::str::from_utf8(&output.get_output().stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(stdout).unwrap();
+    let findings = json["findings"]
+        .as_array()
+        .expect("expected a findings array");
+    let rec = findings
+        .iter()
+        .find(|f| f["kind"] == "recommendation")
+        .expect("expected a recommendation finding");
+    assert_eq!(rec["playbook_command"], "ah explain enable_capability");
+    assert!(rec["suggested_action"].as_str().unwrap_or("").len() > 0);
+    assert_eq!(rec["apply_command"], "ah doctor --enable pytest");
 }
 
 #[test]

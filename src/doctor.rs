@@ -3,6 +3,7 @@ use crate::archetypes;
 use crate::init::{detect_hook_framework, HookFramework, AH_BLOCK_START};
 use crate::openspec;
 use crate::{config, contracts};
+use serde::Serialize;
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
@@ -269,6 +270,38 @@ use crate::init::{append_capability_block, insert_runner_entry};
 const KNOWN_CAPABILITIES: &[&str] = &[
     "pytest", "cargo", "vitest", "mutation", "property", "snapshot",
 ];
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct DoctorJsonOutput {
+    pub findings: Vec<DoctorFinding>,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct DoctorFinding {
+    pub kind: String,
+    pub suggested_action: String,
+    pub playbook_command: String,
+    pub apply_command: String,
+    pub detail: String,
+    pub capability: String,
+}
+
+/// Convert a DoctorReport into JSON output with recommendation findings.
+pub fn doctor_to_json(report: &DoctorReport) -> DoctorJsonOutput {
+    let findings: Vec<DoctorFinding> = report
+        .recommendations
+        .iter()
+        .map(|rec| DoctorFinding {
+            kind: "recommendation".to_string(),
+            suggested_action: "enable_capability".to_string(),
+            playbook_command: "ah explain enable_capability".to_string(),
+            apply_command: rec.apply_command.clone(),
+            detail: rec.detail.clone(),
+            capability: rec.capability.clone(),
+        })
+        .collect();
+    DoctorJsonOutput { findings }
+}
 
 pub fn run_doctor_enable(repo_root: &Path, capability: &str) -> anyhow::Result<DoctorEnableResult> {
     if !KNOWN_CAPABILITIES.contains(&capability) {

@@ -33,6 +33,8 @@ enum Command {
     Doctor {
         #[arg(long)]
         enable: Option<String>,
+        #[arg(long)]
+        json: bool,
     },
     Init,
     Archive {
@@ -95,7 +97,13 @@ fn run() -> anyhow::Result<()> {
                 .any(|f| f.category == "structural" || f.category == "execution");
             std::process::exit(if has_blocking { 1 } else { 0 });
         }
-        Command::Doctor { enable } => {
+        Command::Doctor { enable, json } => {
+            if json {
+                let report = doctor::run_doctor(&std::env::current_dir()?)?;
+                let output = doctor::doctor_to_json(&report);
+                println!("{}", serde_json::to_string_pretty(&output)?);
+                return Ok(());
+            }
             if let Some(capability) = enable {
                 match doctor::run_doctor_enable(&std::env::current_dir()?, &capability)? {
                     doctor::DoctorEnableResult::Written { path, table_name } => {
