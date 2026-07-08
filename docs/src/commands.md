@@ -141,6 +141,86 @@ Writes the `[runners.vitest]` entry to `.espectacular/config.toml`. If already c
 
 **Exit codes:** 0 when no problems are found (recommendations do not affect exit code); 1 when structural problems exist. `--enable` exits 0 on success, non-zero for unknown capabilities.
 
+### `ah doctor --json`
+
+Emit diagnostic output as JSON, with each recommendation appearing as a structured finding.
+
+```bash
+ah doctor --json
+```
+
+```json
+{
+  "findings": [
+    {
+      "kind": "recommendation",
+      "suggested_action": "enable_capability",
+      "playbook_command": "ah explain enable_capability",
+      "apply_command": "ah doctor --enable cargo",
+      "detail": "cargo detected via manifest",
+      "capability": "cargo"
+    }
+  ]
+}
+```
+
+Each `recommendation` finding carries `playbook_command` and `apply_command` for agent-consumable remediation.
+
+**Exit codes:** same as `ah doctor`.
+
+---
+
+## `ah report`
+
+Display a conformance coverage matrix across all deployed specs and archetypes.
+
+```
+ah report [--json]
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Emit the matrix as JSON |
+
+**Text output (default):**
+
+```text
+spec                 archetype     covered   missing   failing    total
+compiler                                      0         0         0         3
+adapters                                      0         0         0         1
+parser                                         0         1         0         1
+
+covered: 3 | missing: 1 | failing: 0 | total: 5
+```
+
+**JSON output (`--json`):**
+
+```json
+{
+  "matrix": [
+    {
+      "spec": "compiler",
+      "archetype": "",
+      "covered": 3,
+      "missing": 0,
+      "failing": 0,
+      "total": 3
+    }
+  ],
+  "summary": {
+    "total_scenarios": 5,
+    "total_contracts": 4,
+    "covered": 3,
+    "missing": 1,
+    "failing": 0
+  }
+}
+```
+
+**Exit codes:** 0 when all scenarios are covered by contracts; 1 when any scenarios are missing or failing.
+
 ---
 
 ## `ah explain`

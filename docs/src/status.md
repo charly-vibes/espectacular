@@ -24,9 +24,9 @@ Covers what `ah check` does: scenario discovery, contract correspondence, test e
 | Conformance coverage matrix | all finding kinds are covered by at least one contract |
 | apply_command is conditionally present | `apply_command` appears only when applicable |
 
-### `cli` — Command surface (12 scenarios)
+### `cli` — Command surface (15 scenarios)
 
-Covers the full `ah` command interface: init, check, doctor, explain, type, scenario, archive, upgrade.
+Covers the full `ah` command interface: init, check, doctor, report, explain, type, scenario, archive, upgrade.
 
 | Scenario | What it verifies |
 |----------|-----------------|
@@ -40,8 +40,11 @@ Covers the full `ah` command interface: init, check, doctor, explain, type, scen
 | Upgrade Command | `ah upgrade` detects and reports tool-version drift |
 | Doctor enable flag | `ah doctor --enable <capability>` writes config blocks |
 | Explain subcommand | `ah explain` prints guidance for finding kinds and actions |
-| Coverage report command | quality findings surface in check output |
+| Coverage report command | `ah report` displays a conformance coverage matrix |
 | Recommendation findings | `ah doctor` emits recommendations for detected-but-unconfigured adapters |
+| Recommendation findings as JSON | `ah doctor --json` emits structured recommendation findings |
+| Report JSON output | `ah report --json` emits a machine-readable conformance matrix |
+| Report exit codes | `ah report` exits 0 when coverage is complete, 1 when gaps exist |
 
 ### `adapters` — Language adapter dispatch (6 scenarios)
 

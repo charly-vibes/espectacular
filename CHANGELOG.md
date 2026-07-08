@@ -7,7 +7,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [Unreleased]
+## [0.2.0] — 2026-07-08
+
+### Added
+
+- `ah doctor --json` — emit structured recommendation findings (`kind=recommendation`, `playbook_command`, `apply_command`) instead of text lines.
+- `ah report` — display a conformance coverage matrix across all deployed specs and archetypes.
+- `ah report --json` — emit the coverage matrix as machine-readable JSON.
+
+### Changed
+
+- `ah check` now reports 0 structural findings on a clean project (all contracts wired).
+
+### Fixed
+
+- `diagnose-correspondence-wiring` contract test filter changed from `ah_doctor_` (matched 0 tests) to `doctor_` (matches all 11 doctor integration tests).
+- All 61 remaining stub contracts wired with test entries across adapters, gate, and explain specs.
 
 ---
 
@@ -72,5 +87,6 @@ Initial stable release. Covers two deployed change proposals:
 
 ---
 
-[Unreleased]: https://github.com/charly-vibes/espectacular/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/charly-vibes/espectacular/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/charly-vibes/espectacular/releases/tag/v0.2.0
 [0.1.0]: https://github.com/charly-vibes/espectacular/releases/tag/v0.1.0

@@ -25,7 +25,10 @@ The CLI binary is `ah`.
 | `ah check` | Validate deployed specs and run declared tests |
 | `ah check --changes <id>` | Include a staged change overlay |
 | `ah doctor` | Diagnose config, path, hook, and archetype issues |
+| `ah doctor --json` | Emit diagnostic output as JSON with recommendation findings |
 | `ah doctor --enable <cap>` | Write config for a detected-but-unconfigured capability |
+| `ah report` | Display a conformance coverage matrix |
+| `ah report --json` | Emit the coverage matrix as JSON |
 | `ah explain <topic>` | Print guidance for a finding kind or suggested action |
 | `ah explain --list` | List all explainable topics |
 | `ah signals` | Emit drift signals from dont rejection events |
