@@ -10,6 +10,7 @@ mod fsutil;
 mod init;
 mod openspec;
 mod quality;
+mod report;
 mod runner;
 mod scenario;
 mod signals;
@@ -37,6 +38,10 @@ enum Command {
         json: bool,
     },
     Init,
+    Report {
+        #[arg(long)]
+        json: bool,
+    },
     Archive {
         change: String,
     },
@@ -138,6 +143,33 @@ fn run() -> anyhow::Result<()> {
                 std::process::exit(1);
             }
             Ok(())
+        }
+        Command::Report { json } => {
+            let report = report::run_report(&std::env::current_dir()?)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            } else {
+                println!(
+                    "{:<20} {:<10} {:>8} {:>8} {:>8} {:>8}",
+                    "spec", "archetype", "covered", "missing", "failing", "total"
+                );
+                for row in &report.matrix {
+                    println!(
+                        "{:<20} {:<10} {:>8} {:>8} {:>8} {:>8}",
+                        row.spec, row.archetype, row.covered, row.missing, row.failing, row.total
+                    );
+                }
+                println!();
+                println!(
+                    "covered: {} | missing: {} | failing: {} | total: {}",
+                    report.summary.covered,
+                    report.summary.missing,
+                    report.summary.failing,
+                    report.summary.total_scenarios
+                );
+            }
+            let has_gaps = report.summary.missing > 0 || report.summary.failing > 0;
+            std::process::exit(if has_gaps { 1 } else { 0 });
         }
         Command::Init => {
             let result = init::run_init(&std::env::current_dir()?)?;

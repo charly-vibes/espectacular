@@ -564,7 +564,7 @@ fn orphan_reports(
     findings
 }
 
-fn collect_base_contract_files(contracts_root: &Path) -> Vec<(String, String, PathBuf)> {
+pub fn collect_base_contract_files(contracts_root: &Path) -> Vec<(String, String, PathBuf)> {
     collect_contract_files(contracts_root)
         .into_iter()
         .filter(|(spec, _, _)| spec != "changes")

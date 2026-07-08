@@ -622,3 +622,127 @@ fn ah_check_mutation_skipped_in_precommit_scope() {
         "quality findings must be empty in pre-commit scope"
     );
 }
+
+// ── ah report ──────────────────────────────────────────────────────────────────
+
+fn report_full_coverage_repo() -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = dir.path();
+    fs::create_dir_all(repo.join("openspec/specs/compiler")).unwrap();
+    fs::create_dir_all(repo.join(".espectacular/compiler")).unwrap();
+    fs::write(
+        repo.join("openspec/specs/compiler/spec.md"),
+        "# Capability: compiler\n\n#### Scenario: Green path\n- **WHEN** it runs\n- **THEN** it passes\n\n#### Scenario: Shell path\n- **WHEN** shell command runs\n- **THEN** it passes\n",
+    )
+    .unwrap();
+    fs::create_dir_all(repo.join("openspec/specs/adapters")).unwrap();
+    fs::create_dir_all(repo.join(".espectacular/adapters")).unwrap();
+    fs::write(
+        repo.join("openspec/specs/adapters/spec.md"),
+        "# Capability: adapters\n\n#### Scenario: Detects cargo\n- **WHEN** cargo exists\n- **THEN** it detects\n",
+    )
+    .unwrap();
+    fs::write(
+        repo.join(".espectacular/config.toml"),
+        "tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n",
+    )
+    .unwrap();
+    // Two specs, both with PF archetype, both covered
+    fs::write(
+        repo.join(".espectacular/compiler/green-path.toml"),
+        "id = \"green-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"ok\"\n",
+    )
+    .unwrap();
+    fs::write(
+        repo.join(".espectacular/compiler/shell-path.toml"),
+        "id = \"shell-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.shell]]\ncommand = \"printf shell\"\n",
+    )
+    .unwrap();
+    fs::write(
+        repo.join(".espectacular/adapters/detects-cargo.toml"),
+        "id = \"detects-cargo\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"ok\"\n",
+    )
+    .unwrap();
+    write_executable(&repo.join("runner.sh"), "printf '%s' \"$1\"");
+    dir
+}
+
+fn report_missing_contract_repo() -> tempfile::TempDir {
+    let dir = report_full_coverage_repo();
+    // Remove one contract to create a gap
+    fs::remove_file(dir.path().join(".espectacular/compiler/shell-path.toml")).unwrap();
+    dir
+}
+
+#[test]
+fn ah_report_json_emits_matrix_with_coverage_counts() {
+    let repo = report_full_coverage_repo();
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["report", "--json"])
+        .assert()
+        .success();
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let matrix = output["matrix"].as_array().expect("expected matrix array");
+    assert!(matrix.len() >= 2, "expected at least 2 specs");
+
+    // Each row: spec, archetype, covered, missing, failing, total
+    let compiler_row = matrix
+        .iter()
+        .find(|r| r["spec"] == "compiler")
+        .expect("expected compiler row");
+    assert_eq!(compiler_row["covered"], 2);
+    assert_eq!(compiler_row["missing"], 0);
+    assert_eq!(compiler_row["failing"], 0);
+    assert_eq!(compiler_row["total"], 2);
+
+    let adapters_row = matrix
+        .iter()
+        .find(|r| r["spec"] == "adapters")
+        .expect("expected adapters row");
+    assert_eq!(adapters_row["covered"], 1);
+    assert_eq!(adapters_row["total"], 1);
+
+    // Verify summary
+    assert!(output["summary"]["total_scenarios"].as_u64() >= Some(3));
+    assert!(output["summary"]["total_contracts"].as_u64() >= Some(3));
+}
+
+#[test]
+fn ah_report_exits_zero_when_coverage_complete() {
+    let repo = report_full_coverage_repo();
+    Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .arg("report")
+        .assert()
+        .success();
+}
+
+#[test]
+fn ah_report_exits_nonzero_when_missing_contracts() {
+    let repo = report_missing_contract_repo();
+    Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .arg("report")
+        .assert()
+        .code(1);
+}
+
+#[test]
+fn ah_report_table_output_has_header() {
+    let repo = report_full_coverage_repo();
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .arg("report")
+        .assert()
+        .success();
+    let stdout = std::str::from_utf8(&assert.get_output().stdout).unwrap();
+    assert!(
+        stdout.contains("spec") || stdout.contains("compiler"),
+        "table output should contain spec names"
+    );
+}
