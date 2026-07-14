@@ -7,6 +7,7 @@
 # Required secrets:
 #   GITHUB_TOKEN       - automatically provided by GitHub Actions
 #   TAP_GITHUB_TOKEN   - PAT with repo write access to homebrew-charly and scoop-charly
+#   CARGO_REGISTRY_TOKEN    - crates.io API token for publishing the crate
 
 name: Release
 
@@ -174,6 +175,11 @@ jobs:
             dist/checksums.txt
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to crates.io
+        run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Update Homebrew tap
         env:

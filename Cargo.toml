@@ -2,6 +2,11 @@
 name = "espectacular"
 version = "0.2.0"
 edition = "2021"
+description = "Behavioral verification layer enforcing spec-test correspondence in AI-assisted development"
+license = "Apache-2.0"
+repository = "https://github.com/charly-vibes/espectacular"
+keywords = ["specification", "verification", "testing", "cli"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "ah"
