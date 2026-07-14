@@ -4,6 +4,38 @@
 
 Behavioral verification layer for the charly AI development ecosystem.
 
+## Installation
+
+### Cargo (crates.io)
+
+```bash
+cargo install espectacular
+```
+
+Installs the `ah` and `espectacular` binaries.
+
+### Homebrew (macOS & Linux)
+
+```bash
+brew tap charly-vibes/charly
+brew install ah
+```
+
+### Scoop (Windows)
+
+```powershell
+scoop bucket add charly https://github.com/charly-vibes/scoop-charly.git
+scoop install ah
+```
+
+### From source
+
+```bash
+git clone https://github.com/charly-vibes/espectacular
+cd espectacular
+cargo build --release
+```
+
 ## Tooling
 
 This repo is configured to use:
