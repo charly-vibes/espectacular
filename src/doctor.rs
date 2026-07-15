@@ -389,7 +389,7 @@ mod tests {
         fs::create_dir_all(root.join(".espectacular")).unwrap();
         fs::write(
             root.join(".espectacular/config.toml"),
-            r#"tool_version = "0.2.0"
+            r#"tool_version = "0.2.1"
 [paths]
 specs = "openspec/specs"
 changes = "openspec/changes"

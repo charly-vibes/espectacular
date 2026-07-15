@@ -88,9 +88,21 @@ enum ScenarioCommand {
 fn main() {
     // Handle --version --json before clap processes it
     let args: Vec<String> = std::env::args().collect();
-    let has_version = args.iter().any(|a| a == "--version" || a == "-V" || (a.starts_with("-") && !a.starts_with("--") && a.contains('V') && !a.contains('h')));
-    if has_version && !args.iter().any(|a| a == "--help" || a == "-h" || a == "-jh") {
-        let has_json = args.iter().any(|a| a == "--json" || a == "-j" || (a.starts_with("-j") && !a.starts_with("--") && !a.contains('h')));
+    let has_version = args.iter().any(|a| {
+        a == "--version"
+            || a == "-V"
+            || (a.starts_with("-") && !a.starts_with("--") && a.contains('V') && !a.contains('h'))
+    });
+    if has_version
+        && !args
+            .iter()
+            .any(|a| a == "--help" || a == "-h" || a == "-jh")
+    {
+        let has_json = args.iter().any(|a| {
+            a == "--json"
+                || a == "-j"
+                || (a.starts_with("-j") && !a.starts_with("--") && !a.contains('h'))
+        });
         if has_json {
             let envelope = serde_json::json!({
                 "ok": true,
@@ -253,9 +265,7 @@ fn run() -> anyhow::Result<()> {
             }
             Ok(())
         }
-        Command::Explain { topic, list } => {
-            explain::run_explain(topic.as_deref(), list, cli.json)
-        }
+        Command::Explain { topic, list } => explain::run_explain(topic.as_deref(), list, cli.json),
         Command::Signals => {
             let project_root = std::env::current_dir()?;
             let drift = signals::collect_drift_signals(&project_root);

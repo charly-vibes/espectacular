@@ -211,7 +211,7 @@ mod tests {
         let contract_dir = root.join(".espectacular").join(spec);
         fs::create_dir_all(&contract_dir).unwrap();
         let contract = format!(
-            "id = \"{scenario_id}\"\ndescription = \"Test scenario.\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.2.0\"\n\n[[tests.unit]]\nflags = \"tests/test_foo.py\"\ntimeout_seconds = 60\n"
+            "id = \"{scenario_id}\"\ndescription = \"Test scenario.\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.2.1\"\n\n[[tests.unit]]\nflags = \"tests/test_foo.py\"\ntimeout_seconds = 60\n"
         );
         fs::write(contract_dir.join(format!("{scenario_id}.toml")), &contract).unwrap();
         dir
@@ -287,7 +287,7 @@ mod tests {
         assert!(text.contains("description = \"\""), "description wrong");
         assert!(text.contains("archetype = \"\""), "archetype wrong");
         assert!(
-            text.contains("authored_with = \"0.2.0\""),
+            text.contains("authored_with = \"0.2.1\""),
             "authored_with wrong"
         );
     }
