@@ -1,0 +1,17 @@
+[book]
+authors = ["charly vibes"]
+language = "en"
+src = "docs"
+title = "espectacular"
+description = "Behavioral-spec verifier for charly-vibes developer tools — Given/When/Then TOML test contracts."
+
+[build]
+build-dir = "docs/_book"
+
+[output.html]
+default-theme = "navy"
+git-repository-url = "https://github.com/charly-vibes/espectacular"
+edit-url-template = "https://github.com/charly-vibes/espectacular/edit/main/{path}"
+site-url = "/espectacular/"
+no-section-label = true
+additional-css = []

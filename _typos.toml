@@ -1,0 +1,23 @@
+[default]
+extend-ignore-re = [
+  "dont",
+  "wai",
+  "espectacular"
+]
+
+[default.extend-words]
+EDN = "EDN"
+LOV = "LOV"
+Asai = "Asai"
+Geometrie = "Geometrie"
+als = "als"
+
+[files]
+extend-exclude = [
+  ".git/",
+  ".wai/",
+  ".dont/",
+  ".espectacular/",
+  ".agents/",
+  "0-*.md"
+]

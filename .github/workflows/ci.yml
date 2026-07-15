@@ -45,3 +45,25 @@ jobs:
         with:
           name: espectacular-linux-amd64
           path: target/release/espectacular
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-tarpaulin
+        uses: taiki-e/install-action@cargo-tarpaulin
+
+      - name: Run coverage
+        run: cargo tarpaulin
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: target/coverage/cobertura.xml
+          fail_ci_if_error: false

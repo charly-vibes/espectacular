@@ -16,11 +16,15 @@ mod scenario;
 mod signals;
 mod upgrade;
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(name = "ah", version)]
 struct Cli {
+    /// Output machine-readable JSON
+    #[arg(short = 'j', long, global = true)]
+    json: bool,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -34,14 +38,9 @@ enum Command {
     Doctor {
         #[arg(long)]
         enable: Option<String>,
-        #[arg(long)]
-        json: bool,
     },
     Init,
-    Report {
-        #[arg(long)]
-        json: bool,
-    },
+    Report {},
     Archive {
         change: String,
     },
@@ -52,8 +51,6 @@ enum Command {
         topic: Option<String>,
         #[arg(long)]
         list: bool,
-        #[arg(long)]
-        json: bool,
     },
     Upgrade,
     Scenario {
@@ -62,6 +59,11 @@ enum Command {
     },
     /// Read dont rejection events and emit drift signals as JSON.
     Signals,
+    /// Generate shell completions
+    Completions {
+        /// Shell to generate completions for (bash, zsh, fish, powershell, elvish)
+        shell: clap_complete::Shell,
+    },
 }
 
 #[derive(Subcommand)]
@@ -84,6 +86,34 @@ enum ScenarioCommand {
 }
 
 fn main() {
+    // Handle --version --json before clap processes it
+    let args: Vec<String> = std::env::args().collect();
+    let has_version = args.iter().any(|a| a == "--version" || a == "-V" || (a.starts_with("-") && !a.starts_with("--") && a.contains('V') && !a.contains('h')));
+    if has_version && !args.iter().any(|a| a == "--help" || a == "-h" || a == "-jh") {
+        let has_json = args.iter().any(|a| a == "--json" || a == "-j" || (a.starts_with("-j") && !a.starts_with("--") && !a.contains('h')));
+        if has_json {
+            let envelope = serde_json::json!({
+                "ok": true,
+                "envelope_version": "0.2",
+                "cli_version": env!("CARGO_PKG_VERSION"),
+                "envelope_kind": "version",
+                "data": {
+                    "name": "ah",
+                    "version": env!("CARGO_PKG_VERSION")
+                },
+                "warnings": [],
+                "hints": [],
+                "meta": {
+                    "duration_ms": 0,
+                    "tx": serde_json::Value::Null,
+                    "request_id": serde_json::Value::Null
+                }
+            });
+            println!("{}", serde_json::to_string(&envelope).unwrap());
+            return;
+        }
+    }
+
     if let Err(error) = run() {
         eprintln!("{error:#}");
         std::process::exit(2);
@@ -95,18 +125,18 @@ fn run() -> anyhow::Result<()> {
     match cli.command {
         Command::Check { changes } => {
             let report = check::run_check(&std::env::current_dir()?, &changes)?;
-            println!("{}", serde_json::to_string_pretty(&report)?);
+            println!("{}", serde_json::to_string(&report)?);
             let has_blocking = report
                 .findings
                 .iter()
                 .any(|f| f.category == "structural" || f.category == "execution");
             std::process::exit(if has_blocking { 1 } else { 0 });
         }
-        Command::Doctor { enable, json } => {
-            if json {
+        Command::Doctor { enable } => {
+            if cli.json {
                 let report = doctor::run_doctor(&std::env::current_dir()?)?;
                 let output = doctor::doctor_to_json(&report);
-                println!("{}", serde_json::to_string_pretty(&output)?);
+                println!("{}", serde_json::to_string(&output)?);
                 return Ok(());
             }
             if let Some(capability) = enable {
@@ -144,10 +174,10 @@ fn run() -> anyhow::Result<()> {
             }
             Ok(())
         }
-        Command::Report { json } => {
+        Command::Report {} => {
             let report = report::run_report(&std::env::current_dir()?)?;
-            if json {
-                println!("{}", serde_json::to_string_pretty(&report)?);
+            if cli.json {
+                println!("{}", serde_json::to_string(&report)?);
             } else {
                 println!(
                     "{:<20} {:<10} {:>8} {:>8} {:>8} {:>8}",
@@ -223,13 +253,19 @@ fn run() -> anyhow::Result<()> {
             }
             Ok(())
         }
-        Command::Explain { topic, list, json } => {
-            explain::run_explain(topic.as_deref(), list, json)
+        Command::Explain { topic, list } => {
+            explain::run_explain(topic.as_deref(), list, cli.json)
         }
         Command::Signals => {
             let project_root = std::env::current_dir()?;
             let drift = signals::collect_drift_signals(&project_root);
-            println!("{}", serde_json::to_string_pretty(&drift)?);
+            println!("{}", serde_json::to_string(&drift)?);
+            Ok(())
+        }
+        Command::Completions { shell } => {
+            let mut cmd = Cli::command();
+            let name = cmd.get_name().to_string();
+            clap_complete::generate(shell, &mut cmd, &name, &mut std::io::stdout());
             Ok(())
         }
         Command::Upgrade => {
