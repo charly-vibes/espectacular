@@ -17,6 +17,7 @@ mod signals;
 mod upgrade;
 
 use clap::{CommandFactory, Parser, Subcommand};
+use std::io::Write;
 
 #[derive(Parser)]
 #[command(name = "ah", version)]
@@ -137,11 +138,16 @@ fn run() -> anyhow::Result<()> {
     match cli.command {
         Command::Check { changes } => {
             let report = check::run_check(&std::env::current_dir()?, &changes)?;
-            println!("{}", serde_json::to_string(&report)?);
+            if cli.json {
+                println!("{}", serde_json::to_string(&report)?);
+            } else {
+                print_check_report(&report);
+            }
             let has_blocking = report
                 .findings
                 .iter()
                 .any(|f| f.category == "structural" || f.category == "execution");
+            std::io::stdout().flush().unwrap_or_default();
             std::process::exit(if has_blocking { 1 } else { 0 });
         }
         Command::Doctor { enable } => {
@@ -326,5 +332,77 @@ fn run() -> anyhow::Result<()> {
                 Ok(())
             }
         },
+    }
+}
+
+fn print_check_report(report: &check::CheckOutput) {
+    let total = report.findings.len() + report.quality_findings.len();
+
+    if total == 0 {
+        if report.summary.passed == 0 {
+            println!("no scenarios to check — 0 passed, 0 findings");
+        } else {
+            println!("OK — {} passed, 0 findings", report.summary.passed);
+        }
+        return;
+    }
+
+    println!("found {total} issue(s):");
+
+    for finding in &report.findings {
+        let spec = &finding.spec;
+        let scenario_id = &finding.scenario.id;
+        let kind = &finding.kind;
+        let category = &finding.category;
+        let msg = finding.message.as_deref().unwrap_or("");
+        if msg.is_empty() {
+            println!("{category}: {spec}/{scenario_id} — {kind}");
+        } else {
+            println!("{category}: {spec}/{scenario_id} — {kind}: {msg}");
+        }
+        if let Some(test) = &finding.test {
+            let lines: Vec<&str> = test.stdout_tail.lines().collect();
+            for line in lines.iter().take(5) {
+                println!("  stdout: {line}");
+            }
+            if lines.len() > 5 {
+                println!("  stdout: ... ({} more lines)", lines.len() - 5);
+            }
+            let lines: Vec<&str> = test.stderr_tail.lines().collect();
+            for line in lines.iter().take(5) {
+                println!("  stderr: {line}");
+            }
+            if lines.len() > 5 {
+                println!("  stderr: ... ({} more lines)", lines.len() - 5);
+            }
+        }
+    }
+
+    if !report.quality_findings.is_empty() {
+        println!();
+        for qf in &report.quality_findings {
+            println!("quality: {} — {}", qf.kind, qf.message);
+            if let Some(kr) = qf.kill_rate {
+                println!("  kill_rate: {:.1}%", kr * 100.0);
+            }
+            if let Some(th) = qf.threshold {
+                println!("  threshold: {:.1}%", th * 100.0);
+            }
+        }
+    }
+
+    let summary = &report.summary;
+    println!();
+    println!(
+        "summary: {} passed, {} structural, {} execution, {} quality",
+        summary.passed,
+        summary.structural,
+        summary.execution,
+        report.quality_findings.len()
+    );
+    if !summary.counts_by_kind.is_empty() {
+        for (kind, count) in &summary.counts_by_kind {
+            println!("  {kind}: {count}");
+        }
     }
 }

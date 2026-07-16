@@ -1,4 +1,4 @@
-tool_version = "0.2.1"
+tool_version = "0.2.2"
 
 [paths]
 specs = "openspec/specs"

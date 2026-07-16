@@ -7,6 +7,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.2.2] — 2026-07-16
+
+### Fixed
+
+- `ah check` without `--json` now outputs human-readable diagnostics instead of
+  raw JSON, matching `ah doctor` behavior. The `--json` flag continues to emit
+  machine-readable JSON for CI/scripting use.
+
+---
+
 ## [0.2.0] — 2026-07-08
 
 ### Added
