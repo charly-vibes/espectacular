@@ -18,4 +18,5 @@ pre-push:
       run: cargo clippy -- -D warnings
     test:
       # Run only affected tests via testaruda (falls back to full cargo test)
-      run: testaruda-pre-push
+      # Run only affected tests via testaruda --safe (falls back to cargo test)
+      run: testaruda select --safe --base origin/main --head HEAD
