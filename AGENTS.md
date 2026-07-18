@@ -17,6 +17,20 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 <!-- OPENSPEC:END -->
 
+<!-- DONT:START -->
+# DONT MANAGED BLOCK — DO NOT EDIT
+
+This project uses `dont` for grounded-claim workflow.
+
+**When to use:** When making a design or correctness assertion during development, run `dont conclude "<assertion>"` before asserting it. For documented facts, use `dont ground "<fact>" --file <path> --lines <N>`.
+
+At session start run `dont prime --json`.
+
+Canonical agent instructions: `.dont/AGENTS.md`.
+
+Edits inside this managed block will be overwritten by `dont doctor --fix`.
+<!-- DONT:END -->
+
 <!-- WAI:START -->
 # Workflow Tools
 
@@ -71,8 +85,6 @@ context before starting research or creating tickets.
 # Agent Instructions
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
-
-This project also uses **dont** for evidence-grounded claims. Repo-local guidance lives in `.dont/AGENTS.md`.
 
 ## Quick Reference
 
@@ -168,6 +180,16 @@ Run `ah check` to verify spec-test correspondence before committing.
 - `ah doctor --enable <adapter>` — write adapter config into .espectacular/config.toml
 - `ah signals` — emit dont drift signals
 <!-- ah:managed:end -->
+
+## `ah` Binary Availability
+
+Verified: `ah` is available in pi's bash execution context.
+- `which ah` → `~/.cargo/bin/ah`
+- `ah --version` → `ah 0.2.2`
+- `~/.cargo/bin` is in pi's `PATH`
+
+If `ah` is not found in a session, ensure `~/.cargo/bin` is on the `PATH`.
+Install with: `cargo install --git git@cv:charly-vibes/espectacular.git`
 
 ## Git & Workflow Discipline
 
