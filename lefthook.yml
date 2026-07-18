@@ -17,4 +17,5 @@ pre-push:
     lint:
       run: cargo clippy -- -D warnings
     test:
-      run: cargo test
+      # Run only affected tests via testaruda (falls back to full cargo test)
+      run: testaruda-pre-push

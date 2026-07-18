@@ -12,3 +12,6 @@ docs/src/specs/
 !.beads/issues.jsonl
 !.beads/config.yaml
 .dont/
+
+# testaruda store (local SQLite DB)
+.testaruda/

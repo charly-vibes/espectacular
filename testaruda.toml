@@ -1,0 +1,18 @@
+# testaruda configuration
+
+[adapters]
+# Map file extensions to adapter binaries.
+# Adapters must be installed on PATH or specified as absolute paths.
+".rs" = "testaruda-adapter-rust"
+".py" = "testaruda-adapter-python"
+
+# Default adapter when no extension matches
+default = "testaruda-adapter-rust"
+
+[discover]
+# Directory/file names to exclude from discover walks.
+# Matches the end of the directory name (e.g., ".venv" matches any path
+# ending in ".venv"). The default list covers common tool/build artifacts.
+exclude = ["target", ".git", "node_modules", ".venv", "venv",
+          "__pycache__", ".mypy_cache", ".pytest_cache",
+          "build", "dist", ".tox"]
