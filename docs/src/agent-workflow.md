@@ -10,7 +10,7 @@ extracted from observed patterns across the charly-vibes project ecosystem.
 
 Agents learn about `ah check` through the **`ah:managed` block** in a
 project's `AGENTS.md` (or `CLAUDE.md`). This block is deployed by `ah init`
-and refreshed on every `ah check` or `ah init` invocation.
+and refreshed by `ah init`.
 
 ```markdown
 <!-- ah:managed:start -->
@@ -49,7 +49,11 @@ The standard loop when working on OpenSpec projects:
 edit → ah check → fix → ah check → commit
 ```
 
-Concrete example from a testaruda session:
+Concrete example:
+
+> This pattern was observed in testaruda pi sessions, where `ah check` was
+> the primary feedback loop during contract wiring and spec changes.
+> Source sessions: `2026-07-08T15-35-34-510Z`, `2026-07-16T01-38-10-034Z`.
 
 ```bash
 # 1. Make changes to spec or code
@@ -86,6 +90,14 @@ ah check --changes add-parser-validation
 
 This validates the base spec plus the overlay's additional scenarios, without
 requiring the overlay to be archived first.
+
+Multiple overlays can be validated together by repeating the flag:
+
+```bash
+ah check --changes add-parser-validation --changes fix-dangling-contracts
+```
+
+Useful when interdependent changes are being developed simultaneously.
 
 ### 3. Fresh project setup
 
@@ -134,9 +146,15 @@ git commit -m "chore: init espectacular and stub contracts"
 | `no-tests-declared` | Contract exists but has no test commands | Fill in `[[tests.shell]]` or `[[tests.flags]]` |
 | `collision` | Two specs declare the same scenario ID | Rename one scenario heading |
 | `test-failing` | A contract test exited non-zero | Inspect test output, fix code |
-| `no-tests-ran` | Shell test ran no tests (exit 0, no output) | Check test command or adapter config |
+| `no-tests-ran` | Shell test ran no tests (exit 0, no output) | Run `ah check --json` to inspect the full captured output. The contract's `[[tests.shell]]` command may not match any test files, or the adapter may not be detecting the test framework. Check config and test command. |
 | `duplicate-id` | Same scenario ID appears in two specs | Deduplicate |
 | `mutation-below-threshold` | Mutation kill rate too low | Add or improve test cases |
+
+Before starting work, ensure `ah` is available in PATH:
+
+```bash
+which ah || cargo install --git git@cv:charly-vibes/espectacular.git
+```
 
 ### Quick reference: interpreting output
 
@@ -150,8 +168,8 @@ git commit -m "chore: init espectacular and stub contracts"
 
 ```json
 {
-  "summary": { "structural": 1, "execution": 0, "passed": 0, "counts_by_kind": { "no-toml": 1 } },
-  "findings": [ { "kind": "no-toml", "category": "structural", ... } ]
+  "summary": { "structural": 1, "execution": 0, "passed": 0, "counts_by_kind": { "missing-contract": 1 } },
+  "findings": [ { "kind": "missing-contract", "category": "structural", ... } ]
 }
 ```
 → **Structural finding.** A scenario has no contract file. Run `ah scenario new`
@@ -172,6 +190,34 @@ For full guidance on any finding kind:
 ah explain <finding-kind>
 ```
 
+### CI/script usage
+
+In CI pipelines or automated scripts, use `--json` for machine-readable
+output:
+
+```bash
+ah check --json
+# Exit code: 0 if no structural/execution findings, 1 otherwise
+```
+
+The `--run-tests` flag forces contract test execution even when no spec
+changes are detected (useful in CI when dependencies may have changed).
+
+### Forcing a commit through findings
+
+On a WIP branch or when findings are acceptable, you can commit despite
+non-zero exit. This is common during staged change development:
+
+```bash
+ah check --changes my-change
+# If findings are scoped to the change and expected, proceed
+git commit -m "wip: my change"
+```
+
+For CI-only enforcement, run `ah check` in CI and allow local commits to
+pass — the managed block in AGENTS.md should still instruct agents to
+resolve findings.
+
 ---
 
 ## Commit Workflow with `ah check` as Gate
@@ -186,7 +232,7 @@ ah explain <finding-kind>
 5. [fix findings]           # Iterate until green
 6. git add <files>          # Stage specific files (never git add -A)
 7. git commit -m "..."      # Commit with descriptive message
-8. ah check                 # Verify post-commit (optional, catches regressions)
+8. ah check                 # Verify pre-push (catches regressions from merge)
 9. bd close <ticket>        # Close ticket
 ```
 
@@ -200,7 +246,7 @@ In those cases, the workflow is:
 
 ```
 1. ah check                 # Baseline — note existing findings
-2. [edit]                   # Make changes
+2. [edit code / specs]      # Make changes
 3. ah check                 # Verify — expected findings should match ticket scope
 4. [fix unexpected findings]
 5. ah check                 # Green — all expected findings resolved
@@ -218,7 +264,13 @@ pre-push:
   commands:
     ah-check:
       run: ah check
-      skip: true  # Only if you want it opt-in
+      skip: false  # Block push on failure
+```
+
+If you want `ah check` to run but not block the push (advisory mode), set
+`skip: true`. This lets you push while still seeing the output.
+
+The actual config generated by `ah init` uses `skip: false` by default.
 ```
 
 ---
@@ -249,8 +301,8 @@ pre-push:
 │                          green │                         │
 │                                ▼                         │
 │                      ┌──────────────────┐               │
-│                      │  ah check passes │               │
-│                      └────────┬─────────┘               │
+│                      │  ah check passes  │               │
+│                      └────────┬──────────┘               │
 └─────────────────────────────────┬───────────────────────┘
                                   │
                                   ▼
@@ -259,7 +311,7 @@ pre-push:
 │                                                          │
 │  1. git add <specific files>                              │
 │  2. git commit -m "fix: ..."                              │
-│  3. (optional) ah check post-commit                       │
+│  3. (optional) ah check pre-push                        │
 │  4. bd close <ticket>                                     │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -275,20 +327,31 @@ For agent operators who want to replicate this pattern:
 cargo install --git git@cv:charly-vibes/espectacular.git
 
 # 2. Ensure the project has an openspec/ directory
-#    (or create one with openspec/AGENTS.md)
+#    (the root AGENTS.md or CLAUDE.md will be updated
+#     automatically by ah init)
 
 # 3. Run init
 ah init
 
 # 4. Verify
 ah doctor    # Should show healthy
-ah check     # Should show findings (contracts need stubs)
+ah check     # Should have findings from stub contracts
 
-# 5. Add the ah:managed block reference to AGENTS.md
-#    (ah init does this automatically)
+# 5. Verify the ah:managed block was written to AGENTS.md
+#    (ah init does this automatically — no manual edits needed)
 ```
 
-The `ah:managed` block in `AGENTS.md` is the critical piece — without it,
-agents won't discover `ah check` in their context. The block is compact enough
-to fit in the first screen of agent context, which is why agents read it early
-and integrate it into their workflow.
+## Sources
+
+This document is extracted from observed agent workflow patterns in the
+following pi sessions:
+
+- `2026-07-08T15-35-34-510Z` — Heavy `ah check` usage during contract wiring
+  for the v0.2.0 release (espectacular project)
+- `2026-07-16T01-38-10-034Z` — Recent workflow showing the
+  edit → ah check → fix → ah check → commit cycle (testaruda project)
+
+Both sessions demonstrate the `ah check` feedback loop in practice.
+Testaruda was the first OpenSpec project to adopt `ah check` as a regular
+development gate, and its patterns were replicated across the charly-vibes
+ecosystem.
