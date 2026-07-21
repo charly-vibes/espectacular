@@ -17,6 +17,7 @@
 
 - [Specs, Contracts, Scenarios & Archetypes](concepts.md)
 - [Agent Workflow: ah check as Specification Gate](agent-workflow.md)
+- [Spec-Validation Patterns Audit](audit-spec-validation-patterns.md)
 
 # Specs
 
