@@ -35,6 +35,11 @@ enum Command {
     Check {
         #[arg(long = "changes")]
         changes: Vec<String>,
+        /// Run contract tests (shell, custom, property, snapshot entries).
+        /// By default, ah check only performs fast structural analysis
+        /// (spec/contract correspondence).
+        #[arg(long = "run-tests")]
+        run_tests: bool,
     },
     Doctor {
         #[arg(long)]
@@ -136,8 +141,8 @@ fn main() {
 fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Check { changes } => {
-            let report = check::run_check(&std::env::current_dir()?, &changes)?;
+        Command::Check { changes, run_tests } => {
+            let report = check::run_check(&std::env::current_dir()?, &changes, run_tests)?;
             if cli.json {
                 println!("{}", serde_json::to_string(&report)?);
             } else {

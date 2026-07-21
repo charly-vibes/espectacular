@@ -93,7 +93,11 @@ struct ResolvedScope {
     findings: Vec<ReportFinding>,
 }
 
-pub fn run_check(repo_root: &Path, selected_changes: &[String]) -> anyhow::Result<CheckOutput> {
+pub fn run_check(
+    repo_root: &Path,
+    selected_changes: &[String],
+    run_tests: bool,
+) -> anyhow::Result<CheckOutput> {
     let config_path = repo_root.join(".espectacular/config.toml");
     let cfg = config::load_config(config_path.to_str().unwrap())?;
     let specs_dir = repo_root.join(&cfg.paths.specs);
@@ -102,7 +106,7 @@ pub fn run_check(repo_root: &Path, selected_changes: &[String]) -> anyhow::Resul
     let ah_scope = std::env::var("AH_SCOPE").unwrap_or_default();
 
     let scope = resolve_scope(&specs_dir, &contracts_dir, &changes_dir, selected_changes)?;
-    evaluate_scope(repo_root, &cfg, &specs_dir, scope, &ah_scope)
+    evaluate_scope(repo_root, &cfg, &specs_dir, scope, &ah_scope, run_tests)
 }
 
 #[allow(dead_code)]
@@ -252,6 +256,7 @@ fn evaluate_scope(
     specs_root: &Path,
     scope: ResolvedScope,
     ah_scope: &str,
+    run_tests: bool,
 ) -> anyhow::Result<CheckOutput> {
     let mut findings = scope.findings;
     findings.extend(collect_structural_findings(
@@ -263,59 +268,84 @@ fn evaluate_scope(
     let mut passed = 0usize;
     let mut extra_quality_findings: Vec<quality::QualityFinding> = Vec::new();
 
-    for resolved in sorted_resolved_scenarios(&scope.scenarios) {
-        let scenario = &resolved.scenario;
-        if blocked.contains(&(scenario.spec_path.clone(), scenario.id.clone())) {
-            continue;
-        }
+    if run_tests {
+        for resolved in sorted_resolved_scenarios(&scope.scenarios) {
+            let scenario = &resolved.scenario;
+            if blocked.contains(&(scenario.spec_path.clone(), scenario.id.clone())) {
+                continue;
+            }
 
-        let contract = match contracts::load_contract(resolved.contract_path.to_str().unwrap()) {
-            Ok(contract) => contract,
-            Err(_) => continue,
-        };
+            let contract = match contracts::load_contract(resolved.contract_path.to_str().unwrap())
+            {
+                Ok(contract) => contract,
+                Err(_) => continue,
+            };
 
-        if contract.tests.is_empty() || contract.tests.values().all(|entries| entries.is_empty()) {
-            continue;
-        }
+            if contract.tests.is_empty()
+                || contract.tests.values().all(|entries| entries.is_empty())
+            {
+                continue;
+            }
 
-        let mut test_types: Vec<_> = contract.tests.keys().cloned().collect();
-        test_types.sort();
-        for test_type in test_types {
-            let entries = &contract.tests[&test_type];
-            for entry in entries {
-                if test_type == "custom" {
-                    match adapters::custom::invoke(repo_root, cfg, entry) {
-                        Ok(adapters::custom::CustomRunnerResult::Passed) => {
-                            passed += 1;
-                        }
-                        Ok(adapters::custom::CustomRunnerResult::TestFailing(result)) => {
-                            findings.push(execution_report(scenario, specs_root, result));
-                        }
-                        Ok(adapters::custom::CustomRunnerResult::EnvelopeFindings(raw)) => {
-                            for value in raw {
-                                match serde_json::from_value::<ReportFinding>(value) {
-                                    Ok(finding) => findings.push(finding),
-                                    Err(_) => findings.push(execution_report_message(
-                                        scenario,
-                                        specs_root,
-                                        "custom runner emitted a finding that does not match the finding schema",
-                                    )),
+            let mut test_types: Vec<_> = contract.tests.keys().cloned().collect();
+            test_types.sort();
+            for test_type in test_types {
+                let entries = &contract.tests[&test_type];
+                for entry in entries {
+                    if test_type == "custom" {
+                        match adapters::custom::invoke(repo_root, cfg, entry) {
+                            Ok(adapters::custom::CustomRunnerResult::Passed) => {
+                                passed += 1;
+                            }
+                            Ok(adapters::custom::CustomRunnerResult::TestFailing(result)) => {
+                                findings.push(execution_report(scenario, specs_root, result));
+                            }
+                            Ok(adapters::custom::CustomRunnerResult::EnvelopeFindings(raw)) => {
+                                for value in raw {
+                                    match serde_json::from_value::<ReportFinding>(value) {
+                                        Ok(finding) => findings.push(finding),
+                                        Err(_) => findings.push(execution_report_message(
+                                            scenario,
+                                            specs_root,
+                                            "custom runner emitted a finding that does not match the finding schema",
+                                        )),
+                                    }
                                 }
                             }
+                            Err(error) => {
+                                findings.push(structural_report(
+                                    scenario,
+                                    specs_root,
+                                    "missing-runner",
+                                    Some(error.to_string()),
+                                ));
+                            }
                         }
-                        Err(error) => {
-                            findings.push(structural_report(
-                                scenario,
-                                specs_root,
-                                "missing-runner",
-                                Some(error.to_string()),
-                            ));
-                        }
+                        continue;
                     }
-                    continue;
-                }
 
-                if test_type == "property" || test_type == "snapshot" {
+                    if test_type == "property" || test_type == "snapshot" {
+                        let result = match adapters::invoke(repo_root, cfg, &test_type, entry) {
+                            Ok(result) => result,
+                            Err(error) => {
+                                findings.push(structural_report(
+                                    scenario,
+                                    specs_root,
+                                    "missing-runner",
+                                    Some(error.to_string()),
+                                ));
+                                continue;
+                            }
+                        };
+                        if result.timed_out || result.exit_code != Some(0) {
+                            findings.push(execution_report(scenario, specs_root, result));
+                        } else {
+                            extra_quality_findings
+                                .push(quality::QualityFinding::for_test_type(&test_type));
+                        }
+                        continue;
+                    }
+
                     let result = match adapters::invoke(repo_root, cfg, &test_type, entry) {
                         Ok(result) => result,
                         Err(error) => {
@@ -330,31 +360,11 @@ fn evaluate_scope(
                     };
                     if result.timed_out || result.exit_code != Some(0) {
                         findings.push(execution_report(scenario, specs_root, result));
+                    } else if test_type == "shell" && zero_tests_ran(&result) {
+                        findings.push(no_tests_ran_report(scenario, specs_root, result));
                     } else {
-                        extra_quality_findings
-                            .push(quality::QualityFinding::for_test_type(&test_type));
+                        passed += 1;
                     }
-                    continue;
-                }
-
-                let result = match adapters::invoke(repo_root, cfg, &test_type, entry) {
-                    Ok(result) => result,
-                    Err(error) => {
-                        findings.push(structural_report(
-                            scenario,
-                            specs_root,
-                            "missing-runner",
-                            Some(error.to_string()),
-                        ));
-                        continue;
-                    }
-                };
-                if result.timed_out || result.exit_code != Some(0) {
-                    findings.push(execution_report(scenario, specs_root, result));
-                } else if test_type == "shell" && zero_tests_ran(&result) {
-                    findings.push(no_tests_ran_report(scenario, specs_root, result));
-                } else {
-                    passed += 1;
                 }
             }
         }
@@ -879,7 +889,7 @@ mod tests {
     #[test]
     fn run_check_reports_success_with_empty_findings() {
         let dir = success_repo();
-        let output = run_check(dir.path(), &[]).unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
         assert!(output.findings.is_empty());
         assert_eq!(output.summary.passed, 1);
         assert!(output.summary.counts_by_kind.is_empty());
@@ -903,7 +913,7 @@ mod tests {
             "id = \"added-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"ok\"\n",
         ).unwrap();
 
-        let output = run_check(dir.path(), &["add-parser".to_string()]).unwrap();
+        let output = run_check(dir.path(), &["add-parser".to_string()], true).unwrap();
         assert_eq!(output.scope.changes, vec!["add-parser"]);
         assert_eq!(output.summary.passed, 2);
     }
@@ -928,7 +938,8 @@ mod tests {
             ).unwrap();
         }
 
-        let output = run_check(dir.path(), &["zeta".to_string(), "alpha".to_string()]).unwrap();
+        let output =
+            run_check(dir.path(), &["zeta".to_string(), "alpha".to_string()], true).unwrap();
         assert_eq!(output.scope.changes, vec!["alpha", "zeta"]);
         assert!(output.findings.iter().any(|f| f.kind == "overlay-conflict"));
         assert_eq!(
@@ -942,7 +953,7 @@ mod tests {
         let dir = success_repo();
         write_executable(&dir.path().join("runner.sh"), "printf 'boom' >&2\nexit 7");
 
-        let output = run_check(dir.path(), &[]).unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
         let finding = output
             .findings
             .iter()
@@ -991,7 +1002,7 @@ mod tests {
     #[test]
     fn custom_runner_passed_envelope_counts_as_passed() {
         let dir = custom_repo("printf '{\"exit_code\":0,\"passed\":true,\"findings\":[]}'");
-        let output = run_check(dir.path(), &[]).unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
         assert!(output.findings.is_empty());
         assert_eq!(output.summary.passed, 1);
     }
@@ -999,7 +1010,7 @@ mod tests {
     #[test]
     fn custom_runner_non_zero_exit_emits_test_failing() {
         let dir = custom_repo("printf 'error' >&2; exit 1");
-        let output = run_check(dir.path(), &[]).unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
         assert!(output.findings.iter().any(|f| f.kind == "test-failing"));
         assert_eq!(output.summary.passed, 0);
     }
@@ -1047,7 +1058,7 @@ mod tests {
         )
         .unwrap();
 
-        let output = run_check(repo, &[]).unwrap();
+        let output = run_check(repo, &[], true).unwrap();
         assert_eq!(output.findings.len(), 1);
         assert_eq!(output.findings[0].kind, "test-failing");
         assert_eq!(output.summary.passed, 0);
@@ -1111,7 +1122,7 @@ mod tests {
     fn quality_tests_run_sequentially() {
         // property passing
         let dir = quality_test_repo("property", "exit 0");
-        let output = run_check(dir.path(), &[]).unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
         assert!(
             output
                 .quality_findings
@@ -1127,7 +1138,7 @@ mod tests {
 
         // property failing
         let dir = quality_test_repo("property", "exit 1");
-        let output = run_check(dir.path(), &[]).unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
         assert!(
             output.findings.iter().any(|f| f.kind == "test-failing"),
             "property failing: expected test-failing finding"
@@ -1139,7 +1150,7 @@ mod tests {
 
         // snapshot passing
         let dir = quality_test_repo("snapshot", "exit 0");
-        let output = run_check(dir.path(), &[]).unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
         assert!(
             output
                 .quality_findings
@@ -1155,7 +1166,7 @@ mod tests {
 
         // snapshot failing
         let dir = quality_test_repo("snapshot", "exit 1");
-        let output = run_check(dir.path(), &[]).unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
         assert!(
             output.findings.iter().any(|f| f.kind == "test-failing"),
             "snapshot failing: expected test-failing finding"
@@ -1167,7 +1178,7 @@ mod tests {
 
         // mutation tool failure emits test-failing
         let dir = mutation_failure_repo();
-        let output = run_check(dir.path(), &[]).unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
         assert!(
             output.findings.iter().any(|f| f.kind == "test-failing"),
             "mutation tool failure: expected test-failing finding; got findings: {:?}",
@@ -1176,7 +1187,7 @@ mod tests {
 
         // mutation failure does not produce quality findings
         let dir = mutation_failure_repo();
-        let output = run_check(dir.path(), &[]).unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
         assert!(
             output.quality_findings.is_empty(),
             "mutation failure: must not appear as advisory quality finding"
@@ -1213,7 +1224,7 @@ mod tests {
         let dir = shell_check_repo(
             "printf 'test result: ok. 0 passed; 0 failed; 0 ignored; 5 filtered out\\n'",
         );
-        let output = run_check(dir.path(), &[]).unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
         assert!(
             output.findings.iter().any(|f| f.kind == "no-tests-ran"),
             "expected no-tests-ran finding; got: {:?}",
@@ -1225,7 +1236,7 @@ mod tests {
     #[test]
     fn shell_with_passing_tests_does_not_emit_no_tests_ran() {
         let dir = shell_check_repo("printf 'test result: ok. 3 passed; 0 failed\\n'");
-        let output = run_check(dir.path(), &[]).unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
         assert!(
             !output.findings.iter().any(|f| f.kind == "no-tests-ran"),
             "unexpected no-tests-ran finding"
@@ -1236,7 +1247,7 @@ mod tests {
     #[test]
     fn shell_non_cargo_output_exit_zero_still_passes() {
         let dir = shell_check_repo("exit 0");
-        let output = run_check(dir.path(), &[]).unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
         assert!(
             !output.findings.iter().any(|f| f.kind == "no-tests-ran"),
             "plain exit 0 must not emit no-tests-ran"
@@ -1254,7 +1265,7 @@ mod tests {
         ).unwrap();
         fs::create_dir_all(dir.path().join("openspec/changes/add-parser/specs")).unwrap();
 
-        let output = run_check(dir.path(), &["add-parser".to_string()]).unwrap();
+        let output = run_check(dir.path(), &["add-parser".to_string()], true).unwrap();
         assert!(output
             .findings
             .iter()

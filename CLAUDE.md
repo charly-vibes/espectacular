@@ -17,6 +17,20 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 <!-- OPENSPEC:END -->
 
+<!-- DONT:START -->
+# DONT MANAGED BLOCK — DO NOT EDIT
+
+This project uses `dont` for grounded-claim workflow.
+
+**When to use:** When making a design or correctness assertion during development, run `dont conclude "<assertion>"` before asserting it. For documented facts, use `dont ground "<fact>" --file <path> --lines <N>`.
+
+At session start run `dont prime --json`.
+
+Canonical agent instructions: `.dont/AGENTS.md`.
+
+Edits inside this managed block will be overwritten by `dont doctor --fix`.
+<!-- DONT:END -->
+
 <!-- WAI:START -->
 # Workflow Tools
 
@@ -71,8 +85,6 @@ context before starting research or creating tickets.
 # Project Instructions for AI Agents
 
 This file provides instructions and context for AI coding agents working on this project.
-
-This project also uses **dont** for evidence-grounded claims. Repo-local guidance lives in `.dont/AGENTS.md`.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker

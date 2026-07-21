@@ -137,7 +137,7 @@ fn ah_check_success_emits_schema_valid_json() {
     let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
-        .args(["check", "--json"])
+        .args(["check", "--run-tests", "--json"])
         .assert()
         .success();
 
@@ -157,7 +157,7 @@ fn ah_check_failure_emits_execution_details_and_exit_one() {
     let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
-        .args(["check", "--json"])
+        .args(["check", "--run-tests", "--json"])
         .assert()
         .failure();
 
@@ -213,7 +213,7 @@ fn ah_check_with_changes_includes_overlay_scope() {
     let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
-        .args(["check", "--json", "--changes", "add-parser"])
+        .args(["check", "--run-tests", "--json", "--changes", "add-parser"])
         .assert()
         .success();
 
@@ -253,7 +253,7 @@ fn ah_check_pytest_contract_uses_adapter_dispatch() {
     let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo)
-        .args(["check", "--json"])
+        .args(["check", "--run-tests", "--json"])
         .assert()
         .success();
 
@@ -289,7 +289,7 @@ fn ah_check_pytest_failure_emits_execution_details() {
     let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo)
-        .args(["check", "--json"])
+        .args(["check", "--run-tests", "--json"])
         .assert()
         .failure();
 
@@ -349,7 +349,7 @@ fn ah_check_pytest_json_failure_is_classified_by_adapter() {
     let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo)
-        .args(["check", "--json"])
+        .args(["check", "--run-tests", "--json"])
         .assert()
         .failure();
 
@@ -376,7 +376,7 @@ fn ah_check_pytest_fixture_failure_is_classified_by_adapter() {
     let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo)
-        .args(["check", "--json"])
+        .args(["check", "--run-tests", "--json"])
         .assert()
         .failure();
 
@@ -402,7 +402,7 @@ fn ah_check_pytest_collection_failure_is_classified_by_adapter() {
     let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo)
-        .args(["check", "--json"])
+        .args(["check", "--run-tests", "--json"])
         .assert()
         .failure();
 
@@ -435,7 +435,7 @@ fn ah_check_human_readable_output_shows_findings() {
     let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
-        .arg("check")
+        .args(["check", "--run-tests"])
         .assert()
         .failure();
 
@@ -487,7 +487,7 @@ fn ah_check_python_pytest_e2e_zero_findings() {
     let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo)
-        .args(["check", "--json"])
+        .args(["check", "--run-tests", "--json"])
         .assert()
         .success();
 
@@ -526,7 +526,7 @@ fn ah_check_rust_cargo_e2e_zero_findings() {
     let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo)
-        .args(["check", "--json"])
+        .args(["check", "--run-tests", "--json"])
         .assert()
         .success();
 
@@ -565,7 +565,7 @@ fn ah_check_typescript_vitest_e2e_zero_findings() {
     let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo)
-        .args(["check", "--json"])
+        .args(["check", "--run-tests", "--json"])
         .assert()
         .success();
 
@@ -615,7 +615,7 @@ fn ah_check_quality_mutation_finding_exits_zero() {
     Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
-        .args(["check", "--json"])
+        .args(["check", "--run-tests", "--json"])
         .assert()
         .success();
 }
@@ -626,7 +626,7 @@ fn ah_check_quality_mutation_finding_present_in_output() {
     let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
-        .args(["check", "--json"])
+        .args(["check", "--run-tests", "--json"])
         .assert()
         .success();
 
@@ -646,7 +646,7 @@ fn ah_check_mutation_skipped_in_precommit_scope() {
         .unwrap()
         .current_dir(repo.path())
         .env("AH_SCOPE", "pre-commit")
-        .args(["check", "--json"])
+        .args(["check", "--run-tests", "--json"])
         .assert()
         .success();
 
