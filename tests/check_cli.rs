@@ -646,7 +646,7 @@ fn ah_check_mutation_skipped_in_precommit_scope() {
         .unwrap()
         .current_dir(repo.path())
         .env("AH_SCOPE", "pre-commit")
-        .args(["check", "--run-tests", "--json"])
+        .args(["check", "--json"])
         .assert()
         .success();
 

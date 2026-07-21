@@ -146,7 +146,7 @@ fn run() -> anyhow::Result<()> {
             if cli.json {
                 println!("{}", serde_json::to_string(&report)?);
             } else {
-                print_check_report(&report);
+                print_check_report(&report, run_tests);
             }
             let has_blocking = report
                 .findings
@@ -340,11 +340,13 @@ fn run() -> anyhow::Result<()> {
     }
 }
 
-fn print_check_report(report: &check::CheckOutput) {
+fn print_check_report(report: &check::CheckOutput, run_tests: bool) {
     let total = report.findings.len() + report.quality_findings.len();
 
     if total == 0 {
-        if report.summary.passed == 0 {
+        if report.summary.passed == 0 && !run_tests {
+            println!("no issues — 0 structural, 0 execution (contract tests skipped; run `ah check --run-tests` to execute)");
+        } else if report.summary.passed == 0 {
             println!("no scenarios to check — 0 passed, 0 findings");
         } else {
             println!("OK — {} passed, 0 findings", report.summary.passed);
