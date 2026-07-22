@@ -7,6 +7,26 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.3.0] — 2026-07-21
+
+### Added
+
+- `ah check --run-tests` — explicit flag to execute contract tests. Without this
+  flag, `ah check` runs fast static analysis only (spec/contract correspondence).
+- `just validate` recipe across all 13 charly OpenSpec projects — one-command
+  spec-test correspondence gate via `ah check`.
+- `docs/src/agent-workflow.md` — replicable agent workflow pattern for `ah check`
+  as a specification gate.
+- `docs/src/audit-spec-validation-patterns.md` — audit of agent spec-validation
+  patterns from April–July 2026.
+
+### Changed
+
+- `ah check` now defaults to fast static analysis. Use `--run-tests` to execute
+  contract tests. Previous behavior ran all contract tests unconditionally.
+
+---
+
 ## [0.2.2] — 2026-07-16
 
 ### Fixed

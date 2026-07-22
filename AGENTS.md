@@ -185,7 +185,7 @@ Run `ah check` to verify spec-test correspondence before committing.
 
 Verified: `ah` is available in pi's bash execution context.
 - `which ah` → `~/.cargo/bin/ah`
-- `ah --version` → `ah 0.2.2`
+- `ah --version` → `ah 0.3.0`
 - `~/.cargo/bin` is in pi's `PATH`
 
 If `ah` is not found in a session, ensure `~/.cargo/bin` is on the `PATH`.
