@@ -29,7 +29,7 @@ fn ah_feedback_dry_run_redacts_git_remote() {
 #[test]
 fn ah_feedback_from_last_error_prints_error_context() {
     let dir = tempfile::tempdir().unwrap();
-    let cache_dir = dir.path().join("espectacular");
+    let cache_dir = dir.path().join("ah");
     fs::create_dir_all(&cache_dir).unwrap();
     fs::write(
         cache_dir.join("errors.jsonl"),

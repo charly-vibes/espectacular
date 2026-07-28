@@ -14,59 +14,14 @@ mod report;
 mod runner;
 mod scenario;
 mod signals;
-mod suggestions;
 mod upgrade;
 
 use anyhow::Context;
 use clap::{CommandFactory, Parser, Subcommand};
 use genesis::envelope::{Envelope, EnvelopeKind};
+use genesis::guide::Guide;
 use std::fs;
 use std::io::Write;
-
-/// Simple ISO 8601 timestamp for error scratch records.
-fn chrono_now() -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    let secs = now.as_secs();
-    // Date calculation from Unix epoch
-    let days = secs / 86400;
-    let time_secs = secs % 86400;
-    let hours = time_secs / 3600;
-    let minutes = (time_secs % 3600) / 60;
-    let seconds = time_secs % 60;
-
-    let mut y = 1970i64;
-    let mut remaining = days as i64;
-    loop {
-        let days_in_year = if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
-            366
-        } else {
-            365
-        };
-        if remaining < days_in_year {
-            break;
-        }
-        remaining -= days_in_year;
-        y += 1;
-    }
-    let month_days = if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
-        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    } else {
-        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    };
-    let mut m = 1usize;
-    for (i, &md) in month_days.iter().enumerate() {
-        if remaining < md as i64 {
-            m = i + 1;
-            break;
-        }
-        remaining -= md as i64;
-    }
-    let d = (remaining + 1) as u8;
-
-    format!("{y:04}-{m:02}-{d:02}T{hours:02}:{minutes:02}:{seconds:02}Z")
-}
 
 /// Wrap any serializable data in a shared genesis envelope.
 fn to_json_envelope<T: serde::Serialize>(kind: EnvelopeKind, data: T) -> String {
@@ -177,6 +132,55 @@ enum ScenarioCommand {
     },
 }
 
+/// Commands the `ah` CLI accepts — sourced from `Guide::builder` so the
+/// guide owns command registration for typo detection.
+const AH_COMMANDS: &[&str] = &[
+    "check",
+    "doctor",
+    "init",
+    "report",
+    "archive",
+    "type",
+    "explain",
+    "upgrade",
+    "scenario",
+    "signals",
+    "completions",
+    "feedback",
+];
+
+/// Assemble the genesis `Guide` scaffold for `ah`.
+///
+/// The guide owns command registration (for typo detection), the
+/// `ErrorSink` used for self-healing error output, and marks adoption of
+/// `genesis::config` via `.config::<Config>()`.
+fn build_guide() -> Guide {
+    Guide::builder("ah", env!("CARGO_PKG_VERSION"))
+        .about("Behavioral verification layer enforcing spec-test correspondence")
+        .commands(AH_COMMANDS)
+        .config::<config::Config>()
+        .build()
+}
+
+/// Wrapper that renders an anyhow error with its full context chain (`:#`)
+/// as its `Display` output, so `ErrorSink::handle` prints the rich message
+/// while genesis owns the scratch + footer mechanics.
+struct FormattedError(String);
+
+impl std::fmt::Display for FormattedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::fmt::Debug for FormattedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+
+impl std::error::Error for FormattedError {}
+
 fn main() {
     // Handle --version --json before clap processes it
     let args: Vec<String> = std::env::args().collect();
@@ -210,22 +214,19 @@ fn main() {
         }
     }
 
+    let guide = build_guide();
+
     match Cli::try_parse() {
         Ok(cli) => {
             if let Err(error) = run(cli) {
-                eprintln!("{error:#}");
-
-                // Write to error scratch for --from-last-error (best-effort, never shadows real error)
-                let record = genesis::feedback::scratch::ErrorRecord {
-                    ts: chrono_now(),
-                    argv: std::env::args().collect(),
-                    exit: 2,
-                    footer: None,
-                    kind: "Error".to_string(),
-                };
-                genesis::feedback::scratch::write_scratch_best_effort("espectacular", &record);
-
-                eprintln!("Feedback: ah feedback bug --from-last-error");
+                // ErrorSink owns the error message, the self-healing footer,
+                // and the best-effort scratch write for `--from-last-error`.
+                let sink = guide
+                    .error_sink()
+                    .with_suggest(false)
+                    .with_feedback(Some("feedback"));
+                let mut stderr = std::io::stderr();
+                sink.handle(&FormattedError(format!("{error:#}")), &mut stderr);
                 std::process::exit(2);
             }
         }
@@ -234,7 +235,8 @@ fn main() {
                 if let Some(clap::error::ContextValue::String(bad_cmd)) =
                     err.get(clap::error::ContextKind::InvalidSubcommand)
                 {
-                    if let Some(suggestion) = suggestions::suggest(bad_cmd) {
+                    let engine = genesis::suggestions::SuggestionEngine::new();
+                    if let Some(suggestion) = engine.suggest_typo(bad_cmd, guide.registry()) {
                         eprintln!("{}", suggestion.message());
                         std::process::exit(2);
                     }
@@ -434,7 +436,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             let mut body_parts: Vec<String> = Vec::new();
 
             if from_last_error {
-                if let Some(record) = genesis::feedback::scratch::read_last_error("espectacular") {
+                if let Some(record) = genesis::feedback::scratch::read_last_error("ah") {
                     body_parts.push(format!(
                         "## Error\n\n**Command:** `{}`\n**Exit code:** {}\n**Kind:** {}",
                         record.argv.join(" "),
@@ -637,5 +639,30 @@ fn print_check_report(report: &check::CheckOutput, run_tests: bool) {
         for (kind, count) in &summary.counts_by_kind {
             println!("  {kind}: {count}");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn guide_registers_all_commands_and_config() {
+        let guide = build_guide();
+        assert_eq!(guide.name(), "ah");
+        assert_eq!(guide.version(), env!("CARGO_PKG_VERSION"));
+
+        let all = guide.registry().all();
+        for cmd in AH_COMMANDS {
+            assert!(all.contains(cmd), "guide registry missing command {cmd}");
+        }
+    }
+
+    #[test]
+    fn error_sink_is_configured_for_ah() {
+        let guide = build_guide();
+        let sink = guide.error_sink();
+        assert_eq!(sink.tool_name, "ah");
+        assert!(sink.scratch);
     }
 }
