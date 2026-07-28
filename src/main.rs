@@ -17,14 +17,36 @@ mod signals;
 mod suggestions;
 mod upgrade;
 
+use anyhow::Context;
 use clap::{CommandFactory, Parser, Subcommand};
 use genesis::envelope::{Envelope, EnvelopeKind};
+use std::fs;
 use std::io::Write;
 
 /// Wrap any serializable data in a shared genesis envelope.
 fn to_json_envelope<T: serde::Serialize>(kind: EnvelopeKind, data: T) -> String {
     let env: Envelope<T> = Envelope::success(kind, data, vec![], vec![]);
     serde_json::to_string(&env).expect("envelope serialization")
+}
+
+/// Extract the `repository` field from a Cargo.toml manifest string.
+fn extract_repository(manifest: &str) -> Option<String> {
+    for line in manifest.lines() {
+        let trimmed = line.trim();
+        if let Some(val) = trimmed.strip_prefix("repository = ") {
+            // Strip quotes
+            let clean = val.trim_matches('"').trim_matches('\'');
+            // Reduce to owner/repo format
+            if let Some(github) = clean.strip_prefix("https://github.com/") {
+                return Some(github.trim_end_matches('/').to_string());
+            }
+            if let Some(github) = clean.strip_prefix("git@github.com:") {
+                return Some(github.trim_end_matches(".git").to_string());
+            }
+            return Some(clean.to_string());
+        }
+    }
+    None
 }
 
 #[derive(Parser)]
@@ -77,6 +99,14 @@ enum Command {
     Completions {
         /// Shell to generate completions for (bash, zsh, fish, powershell, elvish)
         shell: clap_complete::Shell,
+    },
+    /// File an issue against the upstream repo via gh
+    Feedback {
+        kind: String,
+        #[arg(long)]
+        dry_run: bool,
+        #[arg(long)]
+        from_last_error: bool,
     },
 }
 
@@ -305,6 +335,96 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             let project_root = std::env::current_dir()?;
             let drift = signals::collect_drift_signals(&project_root);
             println!("{}", to_json_envelope(EnvelopeKind::Stats, &drift));
+            Ok(())
+        }
+        Command::Feedback {
+            kind,
+            dry_run,
+            from_last_error,
+        } => {
+            let repo = std::env::current_dir()?;
+            let manifest_path = repo.join("Cargo.toml");
+            let manifest = fs::read_to_string(&manifest_path).context("cannot read Cargo.toml")?;
+            let target_repo = extract_repository(&manifest)
+                .unwrap_or_else(|| "charly-vibes/espectacular".to_string());
+
+            // Build issue body
+            let mut body_parts: Vec<String> = Vec::new();
+
+            if from_last_error {
+                if let Some(record) = genesis::feedback::scratch::read_last_error("espectacular") {
+                    body_parts.push(format!(
+                        "## Error\n\n**Command:** `{}`\n**Exit code:** {}\n**Kind:** {}",
+                        record.argv.join(" "),
+                        record.exit,
+                        record.kind,
+                    ));
+                    if let Some(ref footer) = record.footer {
+                        body_parts.push(format!("**Suggestion:** {}", footer));
+                    }
+                } else {
+                    eprintln!("No recent error recorded. Run `ah check` or `ah doctor` first.");
+                    std::process::exit(1);
+                }
+            }
+
+            // Gather environment context
+            let cwd = std::env::current_dir().unwrap_or_default();
+            let bundle = genesis::feedback::context::gather_context(
+                "ah",
+                env!("CARGO_PKG_VERSION"),
+                None,
+                None,
+                None,
+                &cwd,
+            );
+            body_parts.push(genesis::feedback::context::format_context_bundle(&bundle));
+
+            // Redact sensitive info
+            let home = std::env::var("HOME").ok().map(std::path::PathBuf::from);
+            let git_remote = bundle.git_remote.clone();
+            let body = genesis::feedback::redactor::redact(
+                &body_parts.join("\n\n"),
+                home.as_deref(),
+                git_remote.as_deref(),
+            );
+
+            let labels = match kind.as_str() {
+                "bug" => vec!["agent-reported".into(), "bug".into(), "has-repro".into()],
+                "feature" => vec!["agent-reported".into(), "enhancement".into()],
+                "chore" => vec!["agent-reported".into(), "chore".into()],
+                _ => vec!["agent-reported".into()],
+            };
+
+            let opts = genesis::feedback::gh::CreateIssueOptions {
+                repo: target_repo,
+                title: format!("[ah] {}: auto-reported", kind),
+                body: body.clone(),
+                labels,
+                dry_run,
+            };
+
+            if dry_run {
+                eprintln!("{}", body);
+            }
+
+            match genesis::feedback::gh::create_issue(&opts) {
+                Ok(result) => match result {
+                    genesis::feedback::gh::GhResult::Created { url, number } => {
+                        println!("Created issue #{}: {}", number, url);
+                    }
+                    genesis::feedback::gh::GhResult::FallbackUrl(url) => {
+                        println!("Open this URL to file the issue: {}", url);
+                    }
+                    genesis::feedback::gh::GhResult::LocalFile(path) => {
+                        println!("Report written to: {}", path.display());
+                    }
+                },
+                Err(msg) => {
+                    eprintln!("{}", msg);
+                    std::process::exit(1);
+                }
+            }
             Ok(())
         }
         Command::Completions { shell } => {
