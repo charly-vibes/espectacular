@@ -426,7 +426,7 @@ dependencies = [
 [[package]]
 name = "genesis"
 version = "0.1.0"
-source = "git+https://github.com/charly-vibes/genesis.git?tag=v0.1.0#613dc00041839e6a4dff1bbf2cb1f6b55e93ab5d"
+source = "git+https://github.com/charly-vibes/genesis.git?tag=v0.2.0#a59670bdc2ae6a8a15b6bec479a57bcbb1ffac47"
 dependencies = [
  "clap",
  "miette",
@@ -434,7 +434,9 @@ dependencies = [
  "serde",
  "serde_json",
  "strsim",
+ "tempfile",
  "thiserror",
+ "toml",
 ]
 
 [[package]]
