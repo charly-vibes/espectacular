@@ -31,8 +31,7 @@ pub struct ReportSummary {
 }
 
 pub fn run_report(repo_root: &Path) -> anyhow::Result<ReportOutput> {
-    let config_path = repo_root.join(".espectacular/config.toml");
-    let cfg = crate::config::load_config(config_path.to_str().unwrap())?;
+    let cfg = crate::config::load(repo_root)?;
     let specs_dir = repo_root.join(&cfg.paths.specs);
     let contracts_dir = repo_root.join(".espectacular");
 

@@ -98,8 +98,7 @@ pub fn run_check(
     selected_changes: &[String],
     run_tests: bool,
 ) -> anyhow::Result<CheckOutput> {
-    let config_path = repo_root.join(".espectacular/config.toml");
-    let cfg = config::load_config(config_path.to_str().unwrap())?;
+    let cfg = config::load(repo_root)?;
     let specs_dir = repo_root.join(&cfg.paths.specs);
     let contracts_dir = repo_root.join(".espectacular");
     let changes_dir = repo_root.join(&cfg.paths.changes);

@@ -80,10 +80,7 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
     let mut detections: Vec<FrameworkDetection> = Vec::new();
     let mut recommendations: Vec<DoctorRecommendation> = Vec::new();
 
-    let config_path = repo_root.join(".espectacular/config.toml");
-    let config_path_str = config_path.to_string_lossy().to_string();
-
-    let config = match config::load_config(&config_path_str) {
+    let config = match config::load(repo_root) {
         Ok(c) => Some(c),
         Err(e) => {
             diagnostics.push(DoctorDiagnostic {
@@ -308,7 +305,7 @@ pub fn run_doctor_enable(repo_root: &Path, capability: &str) -> anyhow::Result<D
     }
 
     let config_path = repo_root.join(".espectacular/config.toml");
-    let cfg = config::load_config(config_path.to_str().unwrap())?;
+    let cfg = config::load(repo_root)?;
 
     match capability {
         "pytest" | "cargo" | "vitest" => {
