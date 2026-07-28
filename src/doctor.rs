@@ -236,13 +236,11 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
     // Managed block checks
     for filename in &["AGENTS.md", "CLAUDE.md"] {
         let path = repo_root.join(filename);
-        if path.exists() {
-            if !ah_block_injector().has_block(&path, "ah:managed") {
-                diagnostics.push(DoctorDiagnostic {
-                    kind: "missing-managed-block".into(),
-                    detail: format!("{filename} is missing the ah managed block"),
-                });
-            }
+        if path.exists() && !ah_block_injector().has_block(&path, "ah:managed") {
+            diagnostics.push(DoctorDiagnostic {
+                kind: "missing-managed-block".into(),
+                detail: format!("{filename} is missing the ah managed block"),
+            });
         }
     }
 
