@@ -43,10 +43,10 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
       - name: Build x86_64 Linux
-        run: cargo build --release --locked --target x86_64-unknown-linux-gnu
+        run: cargo build --release --target x86_64-unknown-linux-gnu
 
       - name: Build aarch64 Linux
-        run: cargo build --release --locked --target aarch64-unknown-linux-gnu
+        run: cargo build --release --target aarch64-unknown-linux-gnu
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
@@ -79,10 +79,10 @@ jobs:
           key: darwin
 
       - name: Build x86_64 macOS
-        run: cargo build --release --locked --target x86_64-apple-darwin
+        run: cargo build --release --target x86_64-apple-darwin
 
       - name: Build aarch64 macOS
-        run: cargo build --release --locked --target aarch64-apple-darwin
+        run: cargo build --release --target aarch64-apple-darwin
 
       - name: Stage binaries
         run: |
@@ -113,7 +113,7 @@ jobs:
           key: windows
 
       - name: Build x86_64 Windows
-        run: cargo build --release --locked --target x86_64-pc-windows-msvc
+        run: cargo build --release --target x86_64-pc-windows-msvc
 
       - name: Stage binaries
         shell: bash
@@ -177,7 +177,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to crates.io
-        run: cargo publish --locked
+        run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
