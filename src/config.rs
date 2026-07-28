@@ -1,8 +1,11 @@
 //! Tool config, thinned over `genesis::config`.
 //!
-//! The struct + `ConfigFile` impl live here; all file I/O (read, write,
-//! parse) delegates to genesis. `load()` registers the config with a
-//! `ConfigRegistry` (via `ConfigStore`) and validates it.
+//! The struct + `ConfigFile` impl live here; reading and parsing delegate
+//! to genesis (`load()` goes through a `ConfigStore` backed by a
+//! `ConfigRegistry`). Config *writes* remain tool-owned — `doctor --enable`
+//! and `upgrade` do surgical text edits rather than full re-serialization,
+//! so they don't go through `Config::write` — but the trait impl makes the
+//! write path available for future use.
 
 use anyhow::anyhow;
 use genesis::config::{

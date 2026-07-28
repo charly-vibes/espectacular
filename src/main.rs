@@ -154,6 +154,11 @@ const AH_COMMANDS: &[&str] = &[
 /// The guide owns command registration (for typo detection), the
 /// `ErrorSink` used for self-healing error output, and marks adoption of
 /// `genesis::config` via `.config::<Config>()`.
+///
+/// Note: `.config::<Config>()` is a forward-compatible intent marker —
+/// in genesis v0.2.0 it only sets an (unused) `has_config` flag and has
+/// no runtime effect. It's kept so a future `Guide` that drives config
+/// wiring picks espectacular up automatically.
 fn build_guide() -> Guide {
     Guide::builder("ah", env!("CARGO_PKG_VERSION"))
         .about("Behavioral verification layer enforcing spec-test correspondence")
@@ -221,13 +226,21 @@ fn main() {
             if let Err(error) = run(cli) {
                 // ErrorSink owns the error message, the self-healing footer,
                 // and the best-effort scratch write for `--from-last-error`.
+                // We suppress the generic "-> Run: ah doctor" footer
+                // (`with_suggest(false)`) because we provide the feedback
+                // footer instead (`with_feedback`); enabling suggestions
+                // would print a duplicate footer.
                 let sink = guide
                     .error_sink()
                     .with_suggest(false)
                     .with_feedback(Some("feedback"));
                 let mut stderr = std::io::stderr();
                 sink.handle(&FormattedError(format!("{error:#}")), &mut stderr);
-                std::process::exit(2);
+                // Exit 1 matches the `exit` field ErrorSink writes into the
+                // scratch record, so `feedback --from-last-error` reports a
+                // truthful exit code. (The typo-subcommand path below keeps
+                // exit 2 to match clap's invalid-subcommand convention.)
+                std::process::exit(1);
             }
         }
         Err(err) => {
@@ -664,5 +677,28 @@ mod tests {
         let sink = guide.error_sink();
         assert_eq!(sink.tool_name, "ah");
         assert!(sink.scratch);
+    }
+
+    /// `AH_COMMANDS` and the clap `Command` enum must list the same
+    /// subcommands, otherwise typo detection silently drops a command.
+    #[test]
+    fn ah_commands_match_clap_subcommands() {
+        let clap_names: std::collections::BTreeSet<String> = Cli::command()
+            .get_subcommands()
+            .map(|c| c.get_name().to_string())
+            .collect();
+        let listed: std::collections::BTreeSet<String> =
+            AH_COMMANDS.iter().map(|s| s.to_string()).collect();
+
+        let missing_from_listed: Vec<_> = clap_names.difference(&listed).collect();
+        let missing_from_clap: Vec<_> = listed.difference(&clap_names).collect();
+        assert!(
+            missing_from_listed.is_empty(),
+            "clap subcommands not in AH_COMMANDS (typo detection would miss them): {missing_from_listed:?}"
+        );
+        assert!(
+            missing_from_clap.is_empty(),
+            "AH_COMMANDS entries not in clap subcommands (stale typo targets): {missing_from_clap:?}"
+        );
     }
 }
