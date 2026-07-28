@@ -13,7 +13,7 @@ and adopts the new modules.
   - Thin `src/config.rs` to just the struct + `ConfigFile` impl.
   - Register with `ConfigRegistry` at startup.
   - Remove dead config parsing code.
-- Adopt `genesis::guide` (optional):
+- Adopt `genesis::guide`:
   - Replace `main.rs` CLI setup with `Guide::builder(...)`.
   - Convert command handlers to return `Output<T>`.
   - Remove dead error-handling code.
@@ -21,4 +21,3 @@ and adopts the new modules.
 ## Impact
 
 - Affected code: `Cargo.toml`, `src/config.rs`, `src/main.rs`.
-- Blocked by: genesis tagging v0.2.0.
