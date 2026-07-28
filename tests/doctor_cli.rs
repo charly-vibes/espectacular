@@ -71,7 +71,7 @@ fn doctor_json_emits_recommendation_findings() {
         .find(|f| f["kind"] == "recommendation")
         .expect("expected a recommendation finding");
     assert_eq!(rec["playbook_command"], "ah explain enable_capability");
-    assert!(rec["suggested_action"].as_str().unwrap_or("").len() > 0);
+    assert!(!rec["suggested_action"].as_str().unwrap_or("").is_empty());
     assert_eq!(rec["apply_command"], "ah doctor --enable pytest");
 }
 

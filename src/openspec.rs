@@ -78,18 +78,32 @@ fn parse_scenarios_from_spec(content: &str, spec_name: &str) -> Vec<Scenario> {
     scenarios
 }
 
-/// Returns (spec_path, slug_id, first_heading) for each id that appears more than once.
+/// Returns (spec_path, slug_id, first_heading) for each scenario whose slug appears more than once.
+/// Unlike the original implementation, this includes ALL scenarios sharing a colliding slug,
+/// not just the 2nd, 3rd, ... duplicates.
 pub fn detect_slug_collisions(scenarios: &[Scenario]) -> Vec<(String, String, String)> {
-    use std::collections::HashMap;
-    let mut seen: HashMap<(&str, &str), &str> = HashMap::new();
-    let mut collisions = Vec::new();
+    use std::collections::{HashMap, HashSet};
 
+    // First pass: count occurrences per (spec_path, id) key
+    let mut counts: HashMap<(&str, &str), usize> = HashMap::new();
     for s in scenarios {
         let key = (s.spec_path.as_str(), s.id.as_str());
-        if let Some(first_heading) = seen.get(&key) {
-            collisions.push((s.spec_path.clone(), s.id.clone(), first_heading.to_string()));
-        } else {
-            seen.insert(key, &s.heading);
+        *counts.entry(key).or_insert(0) += 1;
+    }
+
+    // Build set of keys that have collisions (count > 1)
+    let colliding_keys: HashSet<(&str, &str)> = counts
+        .into_iter()
+        .filter(|(_, count)| *count > 1)
+        .map(|(key, _)| key)
+        .collect();
+
+    // Collect all scenarios whose key is in the collision set
+    let mut collisions = Vec::new();
+    for s in scenarios {
+        let key = (s.spec_path.as_str(), s.id.as_str());
+        if colliding_keys.contains(&key) {
+            collisions.push((s.spec_path.clone(), s.id.clone(), s.heading.clone()));
         }
     }
 
@@ -193,7 +207,8 @@ mod tests {
     fn detects_slug_collision() {
         let scenarios = discover_scenarios(COLLISION_FIXTURE).unwrap();
         let collisions = detect_slug_collisions(&scenarios);
-        assert_eq!(collisions.len(), 1);
+        // Both scenarios share the same slug, so both are flagged
+        assert_eq!(collisions.len(), 2);
     }
 
     #[test]

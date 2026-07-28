@@ -814,7 +814,9 @@ mod tests {
     #[test]
     fn four_findings_fixture_emits_exactly_four() {
         let findings = structural_findings(SPECS, CONTRACTS).unwrap();
-        assert_eq!(findings.len(), 4);
+        // 5 findings: missing-contract, orphan-toml, no-tests-declared, slug-collision x2
+        // (both scenarios sharing a colliding slug are now flagged)
+        assert_eq!(findings.len(), 5);
     }
 
     #[test]
@@ -1085,7 +1087,7 @@ mod tests {
         )
         .unwrap();
         fs::write(
-            repo.join(format!(".espectacular/suite/quality-check.toml")),
+            repo.join(".espectacular/suite/quality-check.toml"),
             format!(
                 "id = \"quality-check\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.{test_type}]]\nflags = \"all\"\n"
             ),

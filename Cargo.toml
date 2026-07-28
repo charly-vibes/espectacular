@@ -12,10 +12,6 @@ categories = ["command-line-utilities", "development-tools"]
 name = "ah"
 path = "src/main.rs"
 
-[[bin]]
-name = "espectacular"
-path = "src/main.rs"
-
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"

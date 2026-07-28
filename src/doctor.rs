@@ -124,10 +124,10 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
             let specs_str = specs_dir.to_string_lossy().to_string();
             if let Ok(scenarios) = openspec::discover_scenarios(&specs_str) {
                 let collisions = openspec::detect_slug_collisions(&scenarios);
-                for (slug, _spec, _id) in &collisions {
+                for (spec, slug, _heading) in &collisions {
                     diagnostics.push(DoctorDiagnostic {
                         kind: "collision".into(),
-                        detail: format!("duplicate scenario slug: {slug}"),
+                        detail: format!("duplicate scenario slug '{slug}' in spec '{spec}'"),
                     });
                 }
 
@@ -651,7 +651,7 @@ changes = "openspec/changes"
         let repo = make_healthy_repo();
         fs::write(
             repo.path().join(".espectacular/config.toml"),
-            &format!(
+            format!(
                 "tool_version = \"{TOOL_VERSION}\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\npytest = [\"pytest\"]\n"
             ),
         )
@@ -672,7 +672,7 @@ changes = "openspec/changes"
         let repo = make_healthy_repo();
         fs::write(
             repo.path().join(".espectacular/config.toml"),
-            &format!(
+            format!(
                 "tool_version = \"{TOOL_VERSION}\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\ncargo = [\"cargo\", \"test\"]\n"
             ),
         )
@@ -693,7 +693,7 @@ changes = "openspec/changes"
         let repo = make_healthy_repo();
         fs::write(
             repo.path().join(".espectacular/config.toml"),
-            &format!(
+            format!(
                 "tool_version = \"{TOOL_VERSION}\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\nvitest = [\"vitest\", \"run\"]\n"
             ),
         )
@@ -714,7 +714,7 @@ changes = "openspec/changes"
         let repo = make_healthy_repo();
         fs::write(
             repo.path().join(".espectacular/config.toml"),
-            &format!(
+            format!(
                 "tool_version = \"{TOOL_VERSION}\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\n[capabilities.property]\nenabled = true\n"
             ),
         )
@@ -832,7 +832,7 @@ changes = "openspec/changes"
         fs::write(repo.path().join("pytest.ini"), "[pytest]\n").unwrap();
         fs::write(
             repo.path().join(".espectacular/config.toml"),
-            &format!(
+            format!(
                 "tool_version = \"{TOOL_VERSION}\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\npytest = [\"pytest\"]\n"
             ),
         )
@@ -861,7 +861,7 @@ changes = "openspec/changes"
     fn enable_pytest_writes_runner_entry_to_config() {
         let dir = TempDir::new().unwrap();
         let config_path = dir.path().join("config.toml");
-        fs::write(&config_path, &base_config_toml()).unwrap();
+        fs::write(&config_path, base_config_toml()).unwrap();
 
         let text = fs::read_to_string(&config_path).unwrap();
         let updated = insert_runner_entry(&text, "pytest", r#"["pytest"]"#);
@@ -878,7 +878,7 @@ changes = "openspec/changes"
     fn enable_cargo_writes_runner_entry_to_config() {
         let dir = TempDir::new().unwrap();
         let config_path = dir.path().join("config.toml");
-        fs::write(&config_path, &base_config_toml()).unwrap();
+        fs::write(&config_path, base_config_toml()).unwrap();
 
         let text = fs::read_to_string(&config_path).unwrap();
         let updated = insert_runner_entry(&text, "cargo", r#"["cargo", "test"]"#);
@@ -895,7 +895,7 @@ changes = "openspec/changes"
     fn enable_vitest_writes_runner_entry_to_config() {
         let dir = TempDir::new().unwrap();
         let config_path = dir.path().join("config.toml");
-        fs::write(&config_path, &base_config_toml()).unwrap();
+        fs::write(&config_path, base_config_toml()).unwrap();
 
         let text = fs::read_to_string(&config_path).unwrap();
         let updated = insert_runner_entry(&text, "vitest", r#"["vitest", "run"]"#);
@@ -912,7 +912,7 @@ changes = "openspec/changes"
     fn enable_mutation_appends_capability_block() {
         let dir = TempDir::new().unwrap();
         let config_path = dir.path().join("config.toml");
-        fs::write(&config_path, &base_config_toml()).unwrap();
+        fs::write(&config_path, base_config_toml()).unwrap();
 
         let text = fs::read_to_string(&config_path).unwrap();
         let updated = append_capability_block(&text, "mutation");
@@ -929,7 +929,7 @@ changes = "openspec/changes"
     fn enable_property_appends_capability_block() {
         let dir = TempDir::new().unwrap();
         let config_path = dir.path().join("config.toml");
-        fs::write(&config_path, &base_config_toml()).unwrap();
+        fs::write(&config_path, base_config_toml()).unwrap();
 
         let text = fs::read_to_string(&config_path).unwrap();
         let updated = append_capability_block(&text, "property");
@@ -946,7 +946,7 @@ changes = "openspec/changes"
     fn enable_snapshot_appends_capability_block() {
         let dir = TempDir::new().unwrap();
         let config_path = dir.path().join("config.toml");
-        fs::write(&config_path, &base_config_toml()).unwrap();
+        fs::write(&config_path, base_config_toml()).unwrap();
 
         let text = fs::read_to_string(&config_path).unwrap();
         let updated = append_capability_block(&text, "snapshot");
@@ -1015,7 +1015,7 @@ changes = "openspec/changes"
         let repo = make_healthy_repo();
         fs::write(
             repo.path().join(".espectacular/config.toml"),
-            &format!(
+            format!(
                 "tool_version = \"{TOOL_VERSION}\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\npytest = [\"pytest\"]\n"
             ),
         )
