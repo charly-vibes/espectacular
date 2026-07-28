@@ -18,7 +18,14 @@ mod suggestions;
 mod upgrade;
 
 use clap::{CommandFactory, Parser, Subcommand};
+use genesis::envelope::{Envelope, EnvelopeKind};
 use std::io::Write;
+
+/// Wrap any serializable data in a shared genesis envelope.
+fn to_json_envelope<T: serde::Serialize>(kind: EnvelopeKind, data: T) -> String {
+    let env: Envelope<T> = Envelope::success(kind, data, vec![], vec![]);
+    serde_json::to_string(&env).expect("envelope serialization")
+}
 
 #[derive(Parser)]
 #[command(name = "ah", version)]
@@ -111,24 +118,16 @@ fn main() {
                 || (a.starts_with("-j") && !a.starts_with("--") && !a.contains('h'))
         });
         if has_json {
-            let envelope = serde_json::json!({
-                "ok": true,
-                "envelope_version": "0.2",
-                "cli_version": env!("CARGO_PKG_VERSION"),
-                "envelope_kind": "version",
-                "data": {
+            let env = Envelope::success(
+                EnvelopeKind::Version,
+                serde_json::json!({
                     "name": "ah",
                     "version": env!("CARGO_PKG_VERSION")
-                },
-                "warnings": [],
-                "hints": [],
-                "meta": {
-                    "duration_ms": 0,
-                    "tx": serde_json::Value::Null,
-                    "request_id": serde_json::Value::Null
-                }
-            });
-            println!("{}", serde_json::to_string(&envelope).unwrap());
+                }),
+                vec![],
+                vec![],
+            );
+            println!("{}", serde_json::to_string(&env).unwrap());
             return;
         }
     }
@@ -161,7 +160,13 @@ fn run(cli: Cli) -> anyhow::Result<()> {
         Command::Check { changes, run_tests } => {
             let report = check::run_check(&std::env::current_dir()?, &changes, run_tests)?;
             if cli.json {
-                println!("{}", serde_json::to_string(&report)?);
+                let has_blocking = report
+                    .findings
+                    .iter()
+                    .any(|f| f.category == "structural" || f.category == "execution");
+                println!("{}", to_json_envelope(EnvelopeKind::Check, &report));
+                std::io::stdout().flush().unwrap_or_default();
+                std::process::exit(if has_blocking { 1 } else { 0 });
             } else {
                 print_check_report(&report, run_tests);
             }
@@ -176,7 +181,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             if cli.json {
                 let report = doctor::run_doctor(&std::env::current_dir()?)?;
                 let output = doctor::doctor_to_json(&report);
-                println!("{}", serde_json::to_string(&output)?);
+                println!("{}", to_json_envelope(EnvelopeKind::Doctor, &output));
                 return Ok(());
             }
             if let Some(capability) = enable {
@@ -217,7 +222,9 @@ fn run(cli: Cli) -> anyhow::Result<()> {
         Command::Report {} => {
             let report = report::run_report(&std::env::current_dir()?)?;
             if cli.json {
-                println!("{}", serde_json::to_string(&report)?);
+                let has_gaps = report.summary.missing > 0 || report.summary.failing > 0;
+                println!("{}", to_json_envelope(EnvelopeKind::Ok, &report));
+                std::process::exit(if has_gaps { 1 } else { 0 });
             } else {
                 println!(
                     "{:<20} {:<10} {:>8} {:>8} {:>8} {:>8}",
@@ -297,7 +304,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
         Command::Signals => {
             let project_root = std::env::current_dir()?;
             let drift = signals::collect_drift_signals(&project_root);
-            println!("{}", serde_json::to_string(&drift)?);
+            println!("{}", to_json_envelope(EnvelopeKind::Stats, &drift));
             Ok(())
         }
         Command::Completions { shell } => {

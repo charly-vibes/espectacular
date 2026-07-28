@@ -1,6 +1,6 @@
 use crate::adapters::{self, DetectionSource};
 use crate::archetypes;
-use crate::init::{detect_hook_framework, HookFramework, AH_BLOCK_START};
+use crate::init::{ah_block_injector, detect_hook_framework, HookFramework};
 use crate::openspec;
 use crate::{config, contracts};
 use serde::Serialize;
@@ -237,13 +237,11 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
     for filename in &["AGENTS.md", "CLAUDE.md"] {
         let path = repo_root.join(filename);
         if path.exists() {
-            if let Ok(content) = fs::read_to_string(&path) {
-                if !content.contains(AH_BLOCK_START) {
-                    diagnostics.push(DoctorDiagnostic {
-                        kind: "missing-managed-block".into(),
-                        detail: format!("{filename} is missing the ah managed block"),
-                    });
-                }
+            if !ah_block_injector().has_block(&path, "ah:managed") {
+                diagnostics.push(DoctorDiagnostic {
+                    kind: "missing-managed-block".into(),
+                    detail: format!("{filename} is missing the ah managed block"),
+                });
             }
         }
     }

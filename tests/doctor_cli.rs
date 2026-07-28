@@ -63,7 +63,8 @@ fn doctor_json_emits_recommendation_findings() {
         .success();
     let stdout = std::str::from_utf8(&output.get_output().stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(stdout).unwrap();
-    let findings = json["findings"]
+    let data = &json["data"];
+    let findings = data["findings"]
         .as_array()
         .expect("expected a findings array");
     let rec = findings

@@ -1,6 +1,7 @@
-use crate::fsutil::{refresh_managed_file, write_text};
+use crate::fsutil::write_text;
 use crate::openspec;
 use anyhow::Context;
+use genesis::managed_block::{BlockDef, BlockInjector, BlockRegistry};
 use std::fs;
 use std::path::Path;
 
@@ -12,9 +13,24 @@ pub struct InitResult {
     pub stubbed_contracts: Vec<String>,
 }
 
-pub const AH_BLOCK_START: &str = "<!-- ah:managed:start -->";
-const AH_BLOCK_END: &str = "<!-- ah:managed:end -->";
+/// The content between managed block markers (command reference + adapter listing).
+/// Kept separate from the markers so genesis::managed_block wraps it.
+pub const AH_BLOCK_INNER: &str = r#"
+## espectacular
 
+Run `ah check` to verify spec-test correspondence before committing.
+
+- `ah check` — validate all deployed specs
+- `ah check --changes <name>` — validate with a change overlay
+- `ah init` — set up or refresh espectacular project files
+- `ah doctor` — diagnose setup issues
+- `ah explain <topic>` — playbook guidance for finding kinds and suggested actions
+- `ah doctor --enable <adapter>` — write adapter config into .espectacular/config.toml
+- `ah signals` — emit dont drift signals
+"#;
+
+/// Full managed block content including markers (for backwards compat / test fixtures).
+#[allow(dead_code)]
 pub const AH_BLOCK_CONTENT: &str = r#"<!-- ah:managed:start -->
 ## espectacular
 
@@ -28,6 +44,17 @@ Run `ah check` to verify spec-test correspondence before committing.
 - `ah doctor --enable <adapter>` — write adapter config into .espectacular/config.toml
 - `ah signals` — emit dont drift signals
 <!-- ah:managed:end -->"#;
+
+/// Build a BlockInjector for the `ah:managed` block.
+pub fn ah_block_injector() -> BlockInjector {
+    let mut reg = BlockRegistry::new();
+    reg.register(BlockDef::with_markers(
+        "ah:managed",
+        "<!-- ah:managed:start -->",
+        "<!-- ah:managed:end -->",
+    ));
+    BlockInjector::new(reg)
+}
 
 const ESPECTACULAR_AGENTS_CONTENT: &str =
     "Before acting on any `ah check` finding, run its `playbook_command` to get the \
@@ -135,6 +162,16 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
     let claude_md = repo_root.join("CLAUDE.md");
     update_managed_file(&claude_md, &mut result)?;
 
+    // Also inject managed block into .espectacular/AGENTS.md
+    let ah_agents = espectacular_dir.join("AGENTS.md");
+    if ah_agents.exists() {
+        let injector = ah_block_injector();
+        if !injector.has_block(&ah_agents, "ah:managed") {
+            injector.inject(&ah_agents, "ah:managed", AH_BLOCK_INNER)?;
+            result.refreshed.push(".espectacular/AGENTS.md".into());
+        }
+    }
+
     // Stub contracts for deployed scenarios without existing contracts
     let specs_dir = repo_root.join("openspec/specs");
     if specs_dir.exists() {
@@ -168,7 +205,10 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
 
 fn update_managed_file(path: &Path, result: &mut InitResult) -> anyhow::Result<()> {
     let existed = path.exists();
-    refresh_managed_file(path, AH_BLOCK_CONTENT, AH_BLOCK_START, AH_BLOCK_END)?;
+    let injector = ah_block_injector();
+    injector
+        .inject(path, "ah:managed", AH_BLOCK_INNER)
+        .context("cannot inject ah:managed block")?;
     let name = path.file_name().unwrap().to_string_lossy().to_string();
     if existed {
         result.refreshed.push(name);

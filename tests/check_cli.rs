@@ -4,6 +4,11 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
+/// Extract the inner data payload from a genesis envelope.
+fn data_from_envelope(output: &Value) -> &Value {
+    &output["data"]
+}
+
 fn make_healthy_doctor_repo() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
@@ -66,7 +71,13 @@ fn assert_schema_valid(instance: &Value) {
         serde_json::from_str(&fs::read_to_string("schemas/check-output.schema.json").unwrap())
             .unwrap();
     let compiled = jsonschema::JSONSchema::compile(&raw).unwrap();
-    let validation = compiled.validate(instance);
+    // If the instance is a genesis envelope, unwrap the data payload
+    let data = if instance.get("data").is_some() {
+        &instance["data"]
+    } else {
+        instance
+    };
+    let validation = compiled.validate(data);
     if let Err(errors) = validation {
         let messages: Vec<_> = errors.map(|error| error.to_string()).collect();
         panic!("schema validation failed: {messages:?}");
@@ -78,7 +89,13 @@ fn assert_custom_runner_schema_valid(instance: &Value) {
         serde_json::from_str(&fs::read_to_string("schemas/custom-runner.schema.json").unwrap())
             .unwrap();
     let compiled = jsonschema::JSONSchema::compile(&raw).unwrap();
-    let validation = compiled.validate(instance);
+    // If the instance is a genesis envelope, unwrap the data payload
+    let data = if instance.get("data").is_some() {
+        &instance["data"]
+    } else {
+        instance
+    };
+    let validation = compiled.validate(data);
     if let Err(errors) = validation {
         let messages: Vec<_> = errors.map(|error| error.to_string()).collect();
         panic!("custom runner schema validation failed: {messages:?}");
@@ -142,11 +159,12 @@ fn ah_check_success_emits_schema_valid_json() {
         .success();
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
     assert_schema_valid(&output);
-    assert_eq!(output["findings"], Value::Array(vec![]));
-    assert_eq!(output["summary"]["passed"], 2);
-    assert_eq!(output["summary"]["counts_by_kind"], serde_json::json!({}));
-    assert_eq!(output["scope"]["deployed"], true);
+    assert_eq!(data["findings"], Value::Array(vec![]));
+    assert_eq!(data["summary"]["passed"], 2);
+    assert_eq!(data["summary"]["counts_by_kind"], serde_json::json!({}));
+    assert_eq!(data["scope"]["deployed"], true);
 }
 
 #[test]
@@ -162,9 +180,10 @@ fn ah_check_failure_emits_execution_details_and_exit_one() {
         .failure();
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
     assert_schema_valid(&output);
 
-    let findings = output["findings"].as_array().unwrap();
+    let findings = data["findings"].as_array().unwrap();
     let failing = findings
         .iter()
         .find(|finding| finding["kind"] == "test-failing")
@@ -183,7 +202,7 @@ fn ah_check_failure_emits_execution_details_and_exit_one() {
     assert_eq!(failing["test"]["type"], "unit");
     assert_eq!(failing["test"]["exit_code"], 7);
     assert_eq!(failing["test"]["stderr_tail"], "boom");
-    assert_eq!(output["summary"]["counts_by_kind"]["test-failing"], 1);
+    assert_eq!(data["summary"]["counts_by_kind"]["test-failing"], 1);
 }
 
 #[test]
@@ -218,12 +237,10 @@ fn ah_check_with_changes_includes_overlay_scope() {
         .success();
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
     assert_schema_valid(&output);
-    assert_eq!(
-        output["scope"]["changes"],
-        serde_json::json!(["add-parser"])
-    );
-    assert_eq!(output["summary"]["passed"], 3);
+    assert_eq!(data["scope"]["changes"], serde_json::json!(["add-parser"]));
+    assert_eq!(data["summary"]["passed"], 3);
 }
 
 #[test]
@@ -258,8 +275,9 @@ fn ah_check_pytest_contract_uses_adapter_dispatch() {
         .success();
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
     assert_schema_valid(&output);
-    assert_eq!(output["summary"]["passed"], 1);
+    assert_eq!(data["summary"]["passed"], 1);
 }
 
 #[test]
@@ -294,8 +312,9 @@ fn ah_check_pytest_failure_emits_execution_details() {
         .failure();
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
     assert_schema_valid(&output);
-    let failing = output["findings"].as_array().unwrap()[0].clone();
+    let failing = data["findings"].as_array().unwrap()[0].clone();
     assert_eq!(failing["kind"], "test-failing");
     assert_eq!(failing["test"]["type"], "pytest");
     assert_eq!(failing["test"]["exit_code"], 9);
@@ -354,8 +373,9 @@ fn ah_check_pytest_json_failure_is_classified_by_adapter() {
         .failure();
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
     assert_schema_valid(&output);
-    let failing = output["findings"].as_array().unwrap()[0].clone();
+    let failing = data["findings"].as_array().unwrap()[0].clone();
     assert_eq!(failing["kind"], "test-failing");
     assert_eq!(failing["test"]["type"], "pytest-import-error");
     assert_eq!(failing["test"]["exit_code"], 2);
@@ -381,8 +401,9 @@ fn ah_check_pytest_fixture_failure_is_classified_by_adapter() {
         .failure();
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
     assert_schema_valid(&output);
-    let failing = output["findings"].as_array().unwrap()[0].clone();
+    let failing = data["findings"].as_array().unwrap()[0].clone();
     assert_eq!(failing["test"]["type"], "pytest-fixture-error");
     assert_eq!(failing["test"]["exit_code"], 1);
 }
@@ -407,8 +428,9 @@ fn ah_check_pytest_collection_failure_is_classified_by_adapter() {
         .failure();
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
     assert_schema_valid(&output);
-    let failing = output["findings"].as_array().unwrap()[0].clone();
+    let failing = data["findings"].as_array().unwrap()[0].clone();
     assert_eq!(failing["test"]["type"], "pytest-collection-error");
     assert_eq!(failing["test"]["exit_code"], 2);
 }
@@ -492,9 +514,10 @@ fn ah_check_python_pytest_e2e_zero_findings() {
         .success();
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
     assert_schema_valid(&output);
-    assert_eq!(output["findings"], Value::Array(vec![]));
-    assert_eq!(output["summary"]["passed"], 1);
+    assert_eq!(data["findings"], Value::Array(vec![]));
+    assert_eq!(data["summary"]["passed"], 1);
 }
 
 // 11.2 — E2E: Rust project with cargo test, ah check produces zero findings
@@ -531,9 +554,10 @@ fn ah_check_rust_cargo_e2e_zero_findings() {
         .success();
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
     assert_schema_valid(&output);
-    assert_eq!(output["findings"], Value::Array(vec![]));
-    assert_eq!(output["summary"]["passed"], 1);
+    assert_eq!(data["findings"], Value::Array(vec![]));
+    assert_eq!(data["summary"]["passed"], 1);
 }
 
 // 11.3 — E2E: TypeScript project with vitest, ah check produces zero findings
@@ -570,9 +594,10 @@ fn ah_check_typescript_vitest_e2e_zero_findings() {
         .success();
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
     assert_schema_valid(&output);
-    assert_eq!(output["findings"], Value::Array(vec![]));
-    assert_eq!(output["summary"]["passed"], 1);
+    assert_eq!(data["findings"], Value::Array(vec![]));
+    assert_eq!(data["summary"]["passed"], 1);
 }
 
 // 8.7/8.8: quality findings do not cause non-zero exit
@@ -631,7 +656,8 @@ fn ah_check_quality_mutation_finding_present_in_output() {
         .success();
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
-    let qf = &output["quality_findings"];
+    let data = data_from_envelope(&output);
+    let qf = &data["quality_findings"];
     assert!(qf.is_array(), "quality_findings must be an array");
     assert_eq!(qf.as_array().unwrap().len(), 1);
     assert_eq!(qf[0]["kind"], "quality-mutation");
@@ -651,9 +677,10 @@ fn ah_check_mutation_skipped_in_precommit_scope() {
         .success();
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
     assert!(
         output.get("quality_findings").is_none()
-            || output["quality_findings"].as_array().unwrap().is_empty(),
+            || data["quality_findings"].as_array().unwrap().is_empty(),
         "quality findings must be empty in pre-commit scope"
     );
 }
@@ -719,7 +746,8 @@ fn ah_report_json_emits_matrix_with_coverage_counts() {
         .assert()
         .success();
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
-    let matrix = output["matrix"].as_array().expect("expected matrix array");
+    let data = data_from_envelope(&output);
+    let matrix = data["matrix"].as_array().expect("expected matrix array");
     assert!(matrix.len() >= 2, "expected at least 2 specs");
 
     // Each row: spec, archetype, covered, missing, failing, total
@@ -740,8 +768,8 @@ fn ah_report_json_emits_matrix_with_coverage_counts() {
     assert_eq!(adapters_row["total"], 1);
 
     // Verify summary
-    assert!(output["summary"]["total_scenarios"].as_u64() >= Some(3));
-    assert!(output["summary"]["total_contracts"].as_u64() >= Some(3));
+    assert!(data["summary"]["total_scenarios"].as_u64() >= Some(3));
+    assert!(data["summary"]["total_contracts"].as_u64() >= Some(3));
 }
 
 #[test]

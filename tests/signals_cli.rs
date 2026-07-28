@@ -37,7 +37,8 @@ fn signals_returns_empty_array_with_no_events() {
         .stdout
         .clone();
     let v: serde_json::Value = serde_json::from_slice(&output).unwrap();
-    assert!(v.as_array().unwrap().is_empty());
+    let signals = v["data"].as_array().unwrap();
+    assert!(signals.is_empty());
 }
 
 #[test]
@@ -56,7 +57,7 @@ fn signals_returns_drift_signals_for_ungrounded_event() {
         .stdout
         .clone();
     let v: serde_json::Value = serde_json::from_slice(&output).unwrap();
-    let signals = v.as_array().unwrap();
+    let signals = v["data"].as_array().unwrap();
     assert_eq!(signals.len(), 1);
     assert_eq!(signals[0]["rule_name"], "ungrounded");
     assert_eq!(signals[0]["signal_kind"], "dont-rejection");
@@ -84,8 +85,8 @@ fn signals_output_is_valid_json_array() {
         .stdout
         .clone();
     let v: serde_json::Value = serde_json::from_slice(&output).unwrap();
-    assert!(v.is_array());
-    let signals = v.as_array().unwrap();
+    let signals = v["data"].as_array().unwrap();
+    assert!(signals.len() == 1 || v["data"].is_array());
     assert_eq!(signals.len(), 1); // one event file → one signal
     assert_eq!(signals[0]["violation_count"], 2);
 }
