@@ -426,7 +426,7 @@ dependencies = [
 [[package]]
 name = "genesis"
 version = "0.1.0"
-source = "git+ssh://git@ssh.github.com:443/charly-vibes/genesis.git?tag=v0.1.0#613dc00041839e6a4dff1bbf2cb1f6b55e93ab5d"
+source = "git+https://github.com/charly-vibes/genesis.git?tag=v0.1.0#613dc00041839e6a4dff1bbf2cb1f6b55e93ab5d"
 dependencies = [
  "clap",
  "miette",

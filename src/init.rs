@@ -15,7 +15,7 @@ pub struct InitResult {
 
 /// The content between managed block markers (command reference + adapter listing).
 /// Kept separate from the markers so genesis::managed_block wraps it.
-pub const AH_BLOCK_INNER: &str = r#"
+pub const AH_BLOCK_CONTENT: &str = r#"
 ## espectacular
 
 Run `ah check` to verify spec-test correspondence before committing.
@@ -29,9 +29,9 @@ Run `ah check` to verify spec-test correspondence before committing.
 - `ah signals` — emit dont drift signals
 "#;
 
-/// Full managed block content including markers (for backwards compat / test fixtures).
-#[allow(dead_code)]
-pub const AH_BLOCK_CONTENT: &str = r#"<!-- ah:managed:start -->
+/// Full managed block content including markers (for test fixtures only).
+#[cfg(test)]
+pub const AH_BLOCK_CONTENT_WITH_MARKERS: &str = r#"<!-- ah:managed:start -->
 ## espectacular
 
 Run `ah check` to verify spec-test correspondence before committing.
@@ -167,7 +167,7 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
     if ah_agents.exists() {
         let injector = ah_block_injector();
         if !injector.has_block(&ah_agents, "ah:managed") {
-            injector.inject(&ah_agents, "ah:managed", AH_BLOCK_INNER)?;
+            injector.inject(&ah_agents, "ah:managed", AH_BLOCK_CONTENT)?;
             result.refreshed.push(".espectacular/AGENTS.md".into());
         }
     }
@@ -207,7 +207,7 @@ fn update_managed_file(path: &Path, result: &mut InitResult) -> anyhow::Result<(
     let existed = path.exists();
     let injector = ah_block_injector();
     injector
-        .inject(path, "ah:managed", AH_BLOCK_INNER)
+        .inject(path, "ah:managed", AH_BLOCK_CONTENT)
         .context("cannot inject ah:managed block")?;
     let name = path.file_name().unwrap().to_string_lossy().to_string();
     if existed {

@@ -20,7 +20,7 @@ serde_json = "1"
 toml = "0.8"
 jsonschema = "0.18"
 anyhow = "1"
-genesis = { git = "ssh://git@ssh.github.com:443/charly-vibes/genesis.git", tag = "v0.1.0" }
+genesis = { git = "https://github.com/charly-vibes/genesis.git", tag = "v0.1.0" }
 
 [dev-dependencies]
 assert_cmd = "2"

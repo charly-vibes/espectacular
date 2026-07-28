@@ -23,6 +23,51 @@ use genesis::envelope::{Envelope, EnvelopeKind};
 use std::fs;
 use std::io::Write;
 
+/// Simple ISO 8601 timestamp for error scratch records.
+fn chrono_now() -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    let secs = now.as_secs();
+    // Date calculation from Unix epoch
+    let days = secs / 86400;
+    let time_secs = secs % 86400;
+    let hours = time_secs / 3600;
+    let minutes = (time_secs % 3600) / 60;
+    let seconds = time_secs % 60;
+
+    let mut y = 1970i64;
+    let mut remaining = days as i64;
+    loop {
+        let days_in_year = if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
+            366
+        } else {
+            365
+        };
+        if remaining < days_in_year {
+            break;
+        }
+        remaining -= days_in_year;
+        y += 1;
+    }
+    let month_days = if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    } else {
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    };
+    let mut m = 1usize;
+    for (i, &md) in month_days.iter().enumerate() {
+        if remaining < md as i64 {
+            m = i + 1;
+            break;
+        }
+        remaining -= md as i64;
+    }
+    let d = (remaining + 1) as u8;
+
+    format!("{y:04}-{m:02}-{d:02}T{hours:02}:{minutes:02}:{seconds:02}Z")
+}
+
 /// Wrap any serializable data in a shared genesis envelope.
 fn to_json_envelope<T: serde::Serialize>(kind: EnvelopeKind, data: T) -> String {
     let env: Envelope<T> = Envelope::success(kind, data, vec![], vec![]);
@@ -37,13 +82,16 @@ fn extract_repository(manifest: &str) -> Option<String> {
             // Strip quotes
             let clean = val.trim_matches('"').trim_matches('\'');
             // Reduce to owner/repo format
-            if let Some(github) = clean.strip_prefix("https://github.com/") {
-                return Some(github.trim_end_matches('/').to_string());
-            }
-            if let Some(github) = clean.strip_prefix("git@github.com:") {
-                return Some(github.trim_end_matches(".git").to_string());
-            }
-            return Some(clean.to_string());
+            let clean = clean
+                .strip_prefix("https://github.com/")
+                .or_else(|| clean.strip_prefix("git@github.com:"))
+                .unwrap_or(clean);
+            // Strip trailing .git and slashes
+            let clean = clean
+                .trim_end_matches(".git")
+                .trim_end_matches('/')
+                .to_string();
+            return Some(clean);
         }
     }
     None
@@ -166,6 +214,18 @@ fn main() {
         Ok(cli) => {
             if let Err(error) = run(cli) {
                 eprintln!("{error:#}");
+
+                // Write to error scratch for --from-last-error (best-effort, never shadows real error)
+                let record = genesis::feedback::scratch::ErrorRecord {
+                    ts: chrono_now(),
+                    argv: std::env::args().collect(),
+                    exit: 2,
+                    footer: None,
+                    kind: "Error".to_string(),
+                };
+                genesis::feedback::scratch::write_scratch_best_effort("espectacular", &record);
+
+                eprintln!("Feedback: ah feedback bug --from-last-error");
                 std::process::exit(2);
             }
         }
@@ -342,6 +402,28 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             dry_run,
             from_last_error,
         } => {
+            // Validate kind with suggestions
+            let valid_kinds = ["bug", "feature", "chore"];
+            if !valid_kinds.contains(&kind.as_str()) {
+                // Use genesis suggestions to find close matches
+                let mut reg = genesis::suggestions::CommandRegistry::new();
+                reg.register("kind", valid_kinds.iter().map(|k| k.to_string()).collect());
+                let engine = genesis::suggestions::SuggestionEngine::new();
+                if let Some(suggestion) = engine.suggest_typo(&kind, &reg) {
+                    eprintln!("{}", suggestion.message());
+                } else {
+                    eprintln!(
+                        "unknown kind: {kind}. Valid kinds: {}",
+                        valid_kinds.join(", ")
+                    );
+                }
+                std::process::exit(2);
+            }
+
+            if !dry_run {
+                eprintln!("Warning: this will file a real issue. Use --dry-run to preview first.");
+            }
+
             let repo = std::env::current_dir()?;
             let manifest_path = repo.join("Cargo.toml");
             let manifest = fs::read_to_string(&manifest_path).context("cannot read Cargo.toml")?;

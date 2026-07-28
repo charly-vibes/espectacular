@@ -1,5 +1,2 @@
 [net]
 git-fetch-with-cli = true
-
-[url."ssh://git@ssh.github.com:443/charly-vibes/"]
-instead-of = ["https://github.com/charly-vibes/"]

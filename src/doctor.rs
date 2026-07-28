@@ -396,12 +396,18 @@ changes = "openspec/changes"
 
         fs::write(
             root.join("AGENTS.md"),
-            format!("# Project\n\n{}\n", crate::init::AH_BLOCK_CONTENT),
+            format!(
+                "# Project\n\n{}\n",
+                crate::init::AH_BLOCK_CONTENT_WITH_MARKERS
+            ),
         )
         .unwrap();
         fs::write(
             root.join("CLAUDE.md"),
-            format!("# Project\n\n{}\n", crate::init::AH_BLOCK_CONTENT),
+            format!(
+                "# Project\n\n{}\n",
+                crate::init::AH_BLOCK_CONTENT_WITH_MARKERS
+            ),
         )
         .unwrap();
         fs::write(
