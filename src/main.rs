@@ -14,6 +14,7 @@ mod report;
 mod runner;
 mod scenario;
 mod signals;
+mod suggestions;
 mod upgrade;
 
 use clap::{CommandFactory, Parser, Subcommand};
@@ -132,14 +133,30 @@ fn main() {
         }
     }
 
-    if let Err(error) = run() {
-        eprintln!("{error:#}");
-        std::process::exit(2);
+    match Cli::try_parse() {
+        Ok(cli) => {
+            if let Err(error) = run(cli) {
+                eprintln!("{error:#}");
+                std::process::exit(2);
+            }
+        }
+        Err(err) => {
+            if err.kind() == clap::error::ErrorKind::InvalidSubcommand {
+                if let Some(clap::error::ContextValue::String(bad_cmd)) =
+                    err.get(clap::error::ContextKind::InvalidSubcommand)
+                {
+                    if let Some(suggestion) = suggestions::suggest(bad_cmd) {
+                        eprintln!("{}", suggestion.message());
+                        std::process::exit(2);
+                    }
+                }
+            }
+            err.exit();
+        }
     }
 }
 
-fn run() -> anyhow::Result<()> {
-    let cli = Cli::parse();
+fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Command::Check { changes, run_tests } => {
             let report = check::run_check(&std::env::current_dir()?, &changes, run_tests)?;
