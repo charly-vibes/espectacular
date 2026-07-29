@@ -95,6 +95,20 @@ When context reaches ~40%: stop and tell the user — responses degrade past
 this point. Recommend `wai close` then `/clear` to resume cleanly.
 Do NOT skip `wai close` — it enables resume detection.
 
+## Quality Gate
+
+Before your final commit or response, produce a quality ledger:
+
+```
+Changed  — files/modules touched and why
+Verified — commands run to confirm correctness (test, build, lint)
+Review   — what was reviewed, by whom/what (self, ro5, pair)
+Risks    — known risks, edge cases, or deferred concerns
+Next     — follow-up work, if any
+```
+
+The ledger lives in the commit message or session handoff, not in code.
+
 ## Quick Reference
 
 ### wai
