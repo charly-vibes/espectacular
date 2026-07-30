@@ -1,3 +1,6 @@
+> *"Porque mis armas son los pinceles y mis municiones son las pinturas"*
+> — Peter de los Polvorines
+
 # espectacular
 
 [![tracked with wai](https://img.shields.io/badge/tracked%20with-wai-blue)](https://github.com/charly-vibes/wai)

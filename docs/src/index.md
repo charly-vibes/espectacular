@@ -1,3 +1,6 @@
+> *"Porque mis armas son los pinceles y mis municiones son las pinturas"*
+> — Peter de los Polvorines
+
 # espectacular
 
 **In brief:** `ah` is a CLI that enforces a contract between your specs and your tests. You write behavioral specs in Markdown, attach a TOML contract to each scenario declaring which tests cover it, then run `ah check` in CI to catch drift.
