@@ -330,6 +330,16 @@ fn install_prek(repo_root: &Path, result: &mut InitResult) -> anyhow::Result<()>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use genesis::aix;
+    #[test]
+    fn aix_agents_block_adoption() {
+        let block = genesis::aix::agents_block("ah", AH_BLOCK_CONTENT);
+        assert!(block.contains("<!-- ah:START -->"));
+        assert!(block.contains("<!-- ah:END -->"));
+        assert!(block.contains("ah check"));
+    }
+
+    use super::*;
     use std::fs;
     use tempfile::TempDir;
 
