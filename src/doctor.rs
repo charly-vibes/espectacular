@@ -3,15 +3,40 @@ use crate::archetypes;
 use crate::init::{ah_block_injector, detect_hook_framework, HookFramework};
 use crate::openspec;
 use crate::{config, contracts};
+use genesis::suite_linter::{LintResult, Severity};
 use serde::Serialize;
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+/// A diagnostic finding from a doctor check.
+///
+/// Wraps genesis::suite_linter::LintResult; the `kind` field provides
+/// structured identification for test assertions and filtering.
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct DoctorDiagnostic {
     pub kind: String,
     pub detail: String,
+    #[allow(dead_code)]
+    pub severity: Severity,
+}
+
+impl DoctorDiagnostic {
+    /// Create a new error-severity diagnostic.
+    pub fn error(kind: impl Into<String>, detail: impl Into<String>) -> Self {
+        Self {
+            kind: kind.into(),
+            detail: detail.into(),
+            severity: Severity::Error,
+        }
+    }
+
+    /// Convert into a genesis LintResult.
+    #[allow(dead_code)]
+    pub fn into_lint_result(self) -> LintResult {
+        LintResult::new(self.detail, self.severity)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -83,38 +108,35 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
     let config = match config::load(repo_root) {
         Ok(c) => Some(c),
         Err(e) => {
-            diagnostics.push(DoctorDiagnostic {
-                kind: "bad-config".into(),
-                detail: format!("{e:#}"),
-            });
+            diagnostics.push(DoctorDiagnostic::error("bad-config", format!("{e:#}")));
             None
         }
     };
 
     if let Some(ref cfg) = config {
         if cfg.tool_version != TOOL_VERSION {
-            diagnostics.push(DoctorDiagnostic {
-                kind: "version-drift".into(),
-                detail: format!(
+            diagnostics.push(DoctorDiagnostic::error(
+                "version-drift",
+                format!(
                     "config tool_version {} does not match binary version {TOOL_VERSION}",
                     cfg.tool_version
                 ),
-            });
+            ));
         }
 
         let specs_dir = repo_root.join(&cfg.paths.specs);
         if !specs_dir.exists() {
-            diagnostics.push(DoctorDiagnostic {
-                kind: "missing-path".into(),
-                detail: format!("specs directory not found: {}", specs_dir.display()),
-            });
+            diagnostics.push(DoctorDiagnostic::error(
+                "missing-path",
+                format!("specs directory not found: {}", specs_dir.display()),
+            ));
         }
         let changes_dir = repo_root.join(&cfg.paths.changes);
         if !changes_dir.exists() {
-            diagnostics.push(DoctorDiagnostic {
-                kind: "missing-path".into(),
-                detail: format!("changes directory not found: {}", changes_dir.display()),
-            });
+            diagnostics.push(DoctorDiagnostic::error(
+                "missing-path",
+                format!("changes directory not found: {}", changes_dir.display()),
+            ));
         }
 
         if specs_dir.exists() {
@@ -122,10 +144,10 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
             if let Ok(scenarios) = openspec::discover_scenarios(&specs_str) {
                 let collisions = openspec::detect_slug_collisions(&scenarios);
                 for (spec, slug, _heading) in &collisions {
-                    diagnostics.push(DoctorDiagnostic {
-                        kind: "collision".into(),
-                        detail: format!("duplicate scenario slug '{slug}' in spec '{spec}'"),
-                    });
+                    diagnostics.push(DoctorDiagnostic::error(
+                        "collision",
+                        format!("duplicate scenario slug '{slug}' in spec '{spec}'"),
+                    ));
                 }
 
                 let known_spec_slugs: HashSet<(String, String)> = scenarios
@@ -157,13 +179,13 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
                                 let slug = cp.file_stem().unwrap().to_string_lossy().to_string();
 
                                 if !known_spec_slugs.contains(&(spec_name.clone(), slug.clone())) {
-                                    diagnostics.push(DoctorDiagnostic {
-                                        kind: "orphan-contract".into(),
-                                        detail: format!(
+                                    diagnostics.push(DoctorDiagnostic::error(
+                                        "orphan-contract",
+                                        format!(
                                             "contract {}/{}.toml has no matching scenario",
                                             spec_name, slug
                                         ),
-                                    });
+                                    ));
                                     continue;
                                 }
 
@@ -172,13 +194,13 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
                                     if !contract.archetype.is_empty()
                                         && !archetypes::is_known(&contract.archetype)
                                     {
-                                        diagnostics.push(DoctorDiagnostic {
-                                            kind: "unknown-archetype".into(),
-                                            detail: format!(
+                                        diagnostics.push(DoctorDiagnostic::error(
+                                            "unknown-archetype",
+                                            format!(
                                                 "{}/{}.toml has unknown archetype: {}",
                                                 spec_name, slug, contract.archetype
                                             ),
-                                        });
+                                        ));
                                     }
                                 }
                             }
@@ -234,19 +256,19 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
     for filename in &["AGENTS.md", "CLAUDE.md"] {
         let path = repo_root.join(filename);
         if path.exists() && !ah_block_injector().has_block(&path, "ah:managed") {
-            diagnostics.push(DoctorDiagnostic {
-                kind: "missing-managed-block".into(),
-                detail: format!("{filename} is missing the ah managed block"),
-            });
+            diagnostics.push(DoctorDiagnostic::error(
+                "missing-managed-block",
+                format!("{filename} is missing the ah managed block"),
+            ));
         }
     }
 
     // Hook detection
     if let HookFramework::None = detect_hook_framework(repo_root) {
-        diagnostics.push(DoctorDiagnostic {
-            kind: "hook-absent".into(),
-            detail: "no supported pre-commit hook framework detected (lefthook or prek)".into(),
-        });
+        diagnostics.push(DoctorDiagnostic::error(
+            "hook-absent",
+            "no supported pre-commit hook framework detected (lefthook or prek)",
+        ));
     }
 
     let healthy = diagnostics.is_empty();
@@ -1073,5 +1095,35 @@ changes = "openspec/changes"
             "must not add duplicate [runners] header"
         );
         assert!(result.contains("cargo = [\"cargo\", \"test\"]"));
+    }
+
+    // ── genesis::suite_linter adoption ────────────────────────────────────
+
+    #[test]
+    fn uses_genesis_suite_linter_types() {
+        // Compile-time proof that genesis::suite_linter is imported and used.
+        use genesis::suite_linter::{LintCheck, LinterRegistry, Severity};
+
+        struct SuiteLinterAdoptionCheck;
+        impl LintCheck for SuiteLinterAdoptionCheck {
+            fn name(&self) -> &'static str {
+                "suite-linter-adoption"
+            }
+            fn description(&self) -> &'static str {
+                "Proves genesis::suite_linter is adopted"
+            }
+            fn run(&self, _: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
+                Ok(vec![LintResult::new("adopted", Severity::Advisory)])
+            }
+        }
+
+        let mut registry = LinterRegistry::new();
+        registry.register(Box::new(SuiteLinterAdoptionCheck));
+        assert_eq!(registry.len(), 1);
+
+        let results = registry.run_all(Path::new("/tmp"));
+        assert_eq!(results.len(), 1);
+        let advisory = &results[0].1[0];
+        assert_eq!(advisory.severity, Severity::Advisory);
     }
 }
