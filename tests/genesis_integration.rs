@@ -1,6 +1,7 @@
 use genesis::{
     envelope::{Envelope, EnvelopeKind, ErrorResult, RemediationEntry},
     feedback::{self, gh::CreateIssueOptions, scratch::ErrorRecord},
+    fixture::Fixture,
     managed_block::{BlockDef, BlockInjector, BlockRegistry},
     suggestions::{CommandRegistry, Suggestion, SuggestionEngine},
 };
@@ -83,4 +84,18 @@ fn genesis_modules_are_resolvable() {
     };
     assert_eq!(record.exit, 1);
     assert_eq!(record.argv, vec!["ah", "check"]);
+
+    // ── Fixture ───────────────────────────────────────────────────────
+    let f = Fixture::new()
+        .with_marker(".espectacular")
+        .with_file("hello.txt", "world")
+        .build()
+        .expect("fixture");
+    assert!(f.path(".espectacular").exists());
+    assert!(f.path("hello.txt").exists());
+    assert!(
+        f.path(".espectacular").is_dir(),
+        ".espectacular should be a directory"
+    );
+    f.assert_file_contains("hello.txt", "world");
 }
