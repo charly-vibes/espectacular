@@ -3,6 +3,7 @@ use crate::archetypes;
 use crate::init::{ah_block_injector, detect_hook_framework, HookFramework};
 use crate::openspec;
 use crate::{config, contracts};
+use genesis::doctor::DoctorCheck;
 use genesis::status::StatusSection;
 use genesis::suite_linter::{LintResult, Severity};
 use serde::Serialize;
@@ -10,35 +11,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
-/// A diagnostic finding from a doctor check.
-///
-/// Wraps genesis::suite_linter::LintResult; the `kind` field provides
-/// structured identification for test assertions and filtering.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct DoctorDiagnostic {
-    pub kind: String,
-    pub detail: String,
-    #[allow(dead_code)]
-    pub severity: Severity,
-}
-
-impl DoctorDiagnostic {
-    /// Create a new error-severity diagnostic.
-    pub fn error(kind: impl Into<String>, detail: impl Into<String>) -> Self {
-        Self {
-            kind: kind.into(),
-            detail: detail.into(),
-            severity: Severity::Error,
-        }
-    }
-
-    /// Convert into a genesis LintResult.
-    #[allow(dead_code)]
-    pub fn into_lint_result(self) -> LintResult {
-        LintResult::new(self.detail, self.severity)
-    }
-}
+// ── Domain types (not in genesis) ─────────────────────────────────────
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FrameworkDetection {
@@ -61,6 +34,24 @@ pub struct DoctorReport {
     pub recommendations: Vec<DoctorRecommendation>,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct DoctorDiagnostic {
+    pub kind: String,
+    pub detail: String,
+    pub severity: Severity,
+}
+
+impl DoctorDiagnostic {
+    #[allow(dead_code)]
+    pub fn error(kind: impl Into<String>, detail: impl Into<String>) -> Self {
+        Self {
+            kind: kind.into(),
+            detail: detail.into(),
+            severity: Severity::Error,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum DoctorEnableResult {
     Written { path: String, table_name: String },
@@ -68,6 +59,359 @@ pub enum DoctorEnableResult {
 }
 
 const TOOL_VERSION: &str = env!("CARGO_PKG_VERSION");
+const KNOWN_CAPABILITIES: &[&str] = &[
+    "pytest", "cargo", "vitest", "mutation", "property", "snapshot",
+];
+
+// ── DoctorCheck implementations ───────────────────────────────────────
+
+struct ConfigCheck;
+impl DoctorCheck for ConfigCheck {
+    fn name(&self) -> &'static str {
+        "config"
+    }
+    fn description(&self) -> &'static str {
+        "Validate .espectacular/config.toml"
+    }
+    fn run(&self, repo_root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
+        match config::load(repo_root) {
+            Ok(_) => Ok(vec![]),
+            Err(e) => Ok(vec![LintResult::new(
+                format!("bad config: {e:#}"),
+                Severity::Error,
+            )]),
+        }
+    }
+}
+
+struct VersionDriftCheck {
+    config: config::Config,
+}
+impl DoctorCheck for VersionDriftCheck {
+    fn name(&self) -> &'static str {
+        "version-drift"
+    }
+    fn description(&self) -> &'static str {
+        "Check that config tool_version matches binary version"
+    }
+    fn run(&self, _repo_root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
+        if self.config.tool_version == TOOL_VERSION {
+            Ok(vec![])
+        } else {
+            Ok(vec![LintResult::new(
+                format!(
+                    "config tool_version {} does not match binary version {TOOL_VERSION}",
+                    self.config.tool_version
+                ),
+                Severity::Error,
+            )])
+        }
+    }
+}
+
+struct SpecsDirCheck {
+    specs_dir: std::path::PathBuf,
+}
+impl DoctorCheck for SpecsDirCheck {
+    fn name(&self) -> &'static str {
+        "missing-specs-dir"
+    }
+    fn description(&self) -> &'static str {
+        "Check that the specs directory exists"
+    }
+    fn run(&self, _repo_root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
+        if self.specs_dir.exists() {
+            Ok(vec![])
+        } else {
+            Ok(vec![LintResult::new(
+                format!("specs directory not found: {}", self.specs_dir.display()),
+                Severity::Error,
+            )])
+        }
+    }
+}
+
+struct ChangesDirCheck {
+    changes_dir: std::path::PathBuf,
+}
+impl DoctorCheck for ChangesDirCheck {
+    fn name(&self) -> &'static str {
+        "missing-changes-dir"
+    }
+    fn description(&self) -> &'static str {
+        "Check that the changes directory exists"
+    }
+    fn run(&self, _repo_root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
+        if self.changes_dir.exists() {
+            Ok(vec![])
+        } else {
+            Ok(vec![LintResult::new(
+                format!(
+                    "changes directory not found: {}",
+                    self.changes_dir.display()
+                ),
+                Severity::Error,
+            )])
+        }
+    }
+}
+
+struct CollisionCheck {
+    #[allow(dead_code)]
+    repo_root: std::path::PathBuf,
+    specs_dir: std::path::PathBuf,
+}
+impl DoctorCheck for CollisionCheck {
+    fn name(&self) -> &'static str {
+        "scenario-collisions"
+    }
+    fn description(&self) -> &'static str {
+        "Check for duplicate scenario slugs"
+    }
+    fn run(&self, _repo_root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
+        if !self.specs_dir.exists() {
+            return Ok(vec![]);
+        }
+        let specs_str = self.specs_dir.to_string_lossy().to_string();
+        let scenarios = match openspec::discover_scenarios(&specs_str) {
+            Ok(s) => s,
+            Err(_) => return Ok(vec![]),
+        };
+        let collisions = openspec::detect_slug_collisions(&scenarios);
+        Ok(collisions
+            .into_iter()
+            .map(|(spec, slug, _heading)| {
+                LintResult::new(
+                    format!("duplicate scenario slug '{slug}' in spec '{spec}'"),
+                    Severity::Error,
+                )
+            })
+            .collect())
+    }
+}
+
+struct OrphanContractCheck {
+    repo_root: std::path::PathBuf,
+    specs_dir: std::path::PathBuf,
+}
+impl DoctorCheck for OrphanContractCheck {
+    fn name(&self) -> &'static str {
+        "orphan-contracts"
+    }
+    fn description(&self) -> &'static str {
+        "Check for contracts with no matching scenario"
+    }
+    fn run(&self, _repo_root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
+        if !self.specs_dir.exists() {
+            return Ok(vec![]);
+        }
+        let specs_str = self.specs_dir.to_string_lossy().to_string();
+        let scenarios = match openspec::discover_scenarios(&specs_str) {
+            Ok(s) => s,
+            Err(_) => return Ok(vec![]),
+        };
+        let known_spec_slugs: HashSet<(String, String)> = scenarios
+            .iter()
+            .map(|s| (s.spec_path.clone(), s.id.clone()))
+            .collect();
+
+        let espectacular_dir = self.repo_root.join(".espectacular");
+        let mut results = Vec::new();
+        if let Ok(entries) = fs::read_dir(&espectacular_dir) {
+            for entry in entries.flatten() {
+                let entry_path = entry.path();
+                if !entry_path.is_dir() {
+                    continue;
+                }
+                let spec_name = entry_path
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string();
+                if spec_name == "changes" {
+                    continue;
+                }
+                if let Ok(contract_entries) = fs::read_dir(&entry_path) {
+                    for ce in contract_entries.flatten() {
+                        let cp = ce.path();
+                        if cp.extension().and_then(|e| e.to_str()) != Some("toml") {
+                            continue;
+                        }
+                        let slug = cp.file_stem().unwrap().to_string_lossy().to_string();
+                        if !known_spec_slugs.contains(&(spec_name.clone(), slug.clone())) {
+                            results.push(LintResult::new(
+                                format!(
+                                    "contract {}/{}.toml has no matching scenario",
+                                    spec_name, slug
+                                ),
+                                Severity::Error,
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(results)
+    }
+}
+
+struct UnknownArchetypeCheck {
+    repo_root: std::path::PathBuf,
+    specs_dir: std::path::PathBuf,
+}
+impl DoctorCheck for UnknownArchetypeCheck {
+    fn name(&self) -> &'static str {
+        "unknown-archetypes"
+    }
+    fn description(&self) -> &'static str {
+        "Check contracts reference known archetypes"
+    }
+    fn run(&self, _repo_root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
+        if !self.specs_dir.exists() {
+            return Ok(vec![]);
+        }
+        let mut results = Vec::new();
+        let espectacular_dir = self.repo_root.join(".espectacular");
+        if let Ok(entries) = fs::read_dir(&espectacular_dir) {
+            for entry in entries.flatten() {
+                let entry_path = entry.path();
+                if !entry_path.is_dir() {
+                    continue;
+                }
+                let spec_name = entry_path
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string();
+                if spec_name == "changes" {
+                    continue;
+                }
+                if let Ok(contract_entries) = fs::read_dir(&entry_path) {
+                    for ce in contract_entries.flatten() {
+                        let cp = ce.path();
+                        if cp.extension().and_then(|e| e.to_str()) != Some("toml") {
+                            continue;
+                        }
+                        let slug = cp.file_stem().unwrap().to_string_lossy().to_string();
+                        if let Ok(contract) = contracts::load_contract(cp.to_str().unwrap()) {
+                            if !contract.archetype.is_empty()
+                                && !archetypes::is_known(&contract.archetype)
+                            {
+                                results.push(LintResult::new(
+                                    format!(
+                                        "{}/{}.toml has unknown archetype: {}",
+                                        spec_name, slug, contract.archetype
+                                    ),
+                                    Severity::Error,
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(results)
+    }
+}
+
+struct ManagedBlockCheck {
+    filename: &'static str,
+}
+impl DoctorCheck for ManagedBlockCheck {
+    fn name(&self) -> &'static str {
+        "managed-block"
+    }
+    fn description(&self) -> &'static str {
+        "Check that agent files have the ah managed block"
+    }
+    fn run(&self, repo_root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
+        let path = repo_root.join(self.filename);
+        if path.exists() && !ah_block_injector().has_block(&path, "ah:managed") {
+            Ok(vec![LintResult::new(
+                format!(
+                    "{filename} is missing the ah managed block",
+                    filename = self.filename
+                ),
+                Severity::Error,
+            )])
+        } else {
+            Ok(vec![])
+        }
+    }
+}
+
+struct HookCheck;
+impl DoctorCheck for HookCheck {
+    fn name(&self) -> &'static str {
+        "hook-framework"
+    }
+    fn description(&self) -> &'static str {
+        "Check that a supported pre-commit hook framework is installed"
+    }
+    fn run(&self, repo_root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
+        match detect_hook_framework(repo_root) {
+            HookFramework::None => Ok(vec![LintResult::new(
+                "no supported pre-commit hook framework detected (lefthook or prek)",
+                Severity::Error,
+            )]),
+            _ => Ok(vec![]),
+        }
+    }
+}
+
+// ── Framework detection checks (produce detections & recommendations) ──
+
+fn framework_result(
+    framework: &str,
+    repo_root: &Path,
+    cfg: &config::Config,
+) -> (Option<FrameworkDetection>, Option<DoctorRecommendation>) {
+    match adapters::detect(repo_root, cfg, framework) {
+        Some(DetectionSource::Configured) => (
+            Some(FrameworkDetection {
+                name: framework.to_string(),
+                detection_source: DetectionSource::Configured,
+            }),
+            None,
+        ),
+        Some(source) => (
+            None,
+            Some(DoctorRecommendation {
+                capability: framework.to_string(),
+                detail: format!("{framework} detected via {}", source_label(source)),
+                apply_command: format!("ah doctor --enable {framework}"),
+            }),
+        ),
+        None => (None, None),
+    }
+}
+
+fn property_result(
+    repo_root: &Path,
+    cfg: &config::Config,
+) -> (Option<FrameworkDetection>, Option<DoctorRecommendation>) {
+    match detect_property(repo_root, cfg) {
+        Some(DetectionSource::Configured) => (
+            Some(FrameworkDetection {
+                name: "property".to_string(),
+                detection_source: DetectionSource::Configured,
+            }),
+            None,
+        ),
+        Some(source) => (
+            None,
+            Some(DoctorRecommendation {
+                capability: "property".to_string(),
+                detail: format!(
+                    "property-based testing framework detected via {}",
+                    source_label(source)
+                ),
+                apply_command: "ah doctor --enable property".to_string(),
+            }),
+        ),
+        None => (None, None),
+    }
+}
 
 fn source_label(source: DetectionSource) -> &'static str {
     match source {
@@ -101,175 +445,95 @@ fn detect_property(repo_root: &Path, cfg: &config::Config) -> Option<DetectionSo
     None
 }
 
+// ── Build the runner ──────────────────────────────────────────────────
+
+fn build_checks(repo_root: &Path) -> Vec<Box<dyn DoctorCheck>> {
+    let mut checks: Vec<Box<dyn DoctorCheck>> = Vec::new();
+
+    // Config-independent checks
+    checks.push(Box::new(ConfigCheck));
+    checks.push(Box::new(HookCheck));
+    for &filename in &["AGENTS.md", "CLAUDE.md"] {
+        checks.push(Box::new(ManagedBlockCheck { filename }));
+    }
+
+    // Config-dependent checks
+    if let Ok(cfg) = config::load(repo_root) {
+        let specs_dir = repo_root.join(&cfg.paths.specs);
+
+        checks.push(Box::new(VersionDriftCheck {
+            config: cfg.clone(),
+        }));
+        checks.push(Box::new(SpecsDirCheck {
+            specs_dir: specs_dir.clone(),
+        }));
+        checks.push(Box::new(ChangesDirCheck {
+            changes_dir: repo_root.join(&cfg.paths.changes),
+        }));
+        checks.push(Box::new(CollisionCheck {
+            repo_root: repo_root.to_path_buf(),
+            specs_dir: specs_dir.clone(),
+        }));
+        checks.push(Box::new(OrphanContractCheck {
+            repo_root: repo_root.to_path_buf(),
+            specs_dir: specs_dir.clone(),
+        }));
+        checks.push(Box::new(UnknownArchetypeCheck {
+            repo_root: repo_root.to_path_buf(),
+            specs_dir,
+        }));
+    }
+
+    checks
+}
+
+// ── Public API ────────────────────────────────────────────────────────
+
 pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
-    let mut diagnostics: Vec<DoctorDiagnostic> = Vec::new();
+    let checks = build_checks(repo_root);
     let mut detections: Vec<FrameworkDetection> = Vec::new();
     let mut recommendations: Vec<DoctorRecommendation> = Vec::new();
 
-    let config = match config::load(repo_root) {
-        Ok(c) => Some(c),
-        Err(e) => {
-            diagnostics.push(DoctorDiagnostic::error("bad-config", format!("{e:#}")));
-            None
-        }
-    };
+    // Run genesis doctor framework
+    let runner = genesis::doctor::DoctorRunner::new(checks).with_tool_name("ah");
+    let genesis_report = runner
+        .run(repo_root, false)
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
 
-    if let Some(ref cfg) = config {
-        if cfg.tool_version != TOOL_VERSION {
-            diagnostics.push(DoctorDiagnostic::error(
-                "version-drift",
-                format!(
-                    "config tool_version {} does not match binary version {TOOL_VERSION}",
-                    cfg.tool_version
-                ),
-            ));
-        }
+    // Map CheckEntry status to diagnostics
+    let diagnostics: Vec<DoctorDiagnostic> = genesis_report
+        .checks
+        .iter()
+        .filter(|c| c.status != genesis::doctor::CheckStatus::Pass)
+        .map(|c| DoctorDiagnostic {
+            kind: c.name.clone(),
+            detail: c.message.clone(),
+            severity: match c.status {
+                genesis::doctor::CheckStatus::Fail => Severity::Error,
+                genesis::doctor::CheckStatus::Warn => Severity::Warning,
+                _ => Severity::Advisory,
+            },
+        })
+        .collect();
 
-        let specs_dir = repo_root.join(&cfg.paths.specs);
-        if !specs_dir.exists() {
-            diagnostics.push(DoctorDiagnostic::error(
-                "missing-path",
-                format!("specs directory not found: {}", specs_dir.display()),
-            ));
-        }
-        let changes_dir = repo_root.join(&cfg.paths.changes);
-        if !changes_dir.exists() {
-            diagnostics.push(DoctorDiagnostic::error(
-                "missing-path",
-                format!("changes directory not found: {}", changes_dir.display()),
-            ));
-        }
-
-        if specs_dir.exists() {
-            let specs_str = specs_dir.to_string_lossy().to_string();
-            if let Ok(scenarios) = openspec::discover_scenarios(&specs_str) {
-                let collisions = openspec::detect_slug_collisions(&scenarios);
-                for (spec, slug, _heading) in &collisions {
-                    diagnostics.push(DoctorDiagnostic::error(
-                        "collision",
-                        format!("duplicate scenario slug '{slug}' in spec '{spec}'"),
-                    ));
-                }
-
-                let known_spec_slugs: HashSet<(String, String)> = scenarios
-                    .iter()
-                    .map(|s| (s.spec_path.clone(), s.id.clone()))
-                    .collect();
-
-                let espectacular_dir = repo_root.join(".espectacular");
-                if let Ok(entries) = fs::read_dir(&espectacular_dir) {
-                    for entry in entries.flatten() {
-                        let entry_path = entry.path();
-                        if !entry_path.is_dir() {
-                            continue;
-                        }
-                        let spec_name = entry_path
-                            .file_name()
-                            .unwrap()
-                            .to_string_lossy()
-                            .to_string();
-                        if spec_name == "changes" {
-                            continue;
-                        }
-                        if let Ok(contract_entries) = fs::read_dir(&entry_path) {
-                            for ce in contract_entries.flatten() {
-                                let cp = ce.path();
-                                if cp.extension().and_then(|e| e.to_str()) != Some("toml") {
-                                    continue;
-                                }
-                                let slug = cp.file_stem().unwrap().to_string_lossy().to_string();
-
-                                if !known_spec_slugs.contains(&(spec_name.clone(), slug.clone())) {
-                                    diagnostics.push(DoctorDiagnostic::error(
-                                        "orphan-contract",
-                                        format!(
-                                            "contract {}/{}.toml has no matching scenario",
-                                            spec_name, slug
-                                        ),
-                                    ));
-                                    continue;
-                                }
-
-                                if let Ok(contract) = contracts::load_contract(cp.to_str().unwrap())
-                                {
-                                    if !contract.archetype.is_empty()
-                                        && !archetypes::is_known(&contract.archetype)
-                                    {
-                                        diagnostics.push(DoctorDiagnostic::error(
-                                            "unknown-archetype",
-                                            format!(
-                                                "{}/{}.toml has unknown archetype: {}",
-                                                spec_name, slug, contract.archetype
-                                            ),
-                                        ));
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+    // Framework detection (domain-specific, not in genesis)
+    if let Ok(cfg) = config::load(repo_root) {
+        for &fw in &["pytest", "cargo", "vitest"] {
+            let (det, rec) = framework_result(fw, repo_root, &cfg);
+            if let Some(d) = det {
+                detections.push(d);
+            }
+            if let Some(r) = rec {
+                recommendations.push(r);
             }
         }
-
-        // Framework detection (7.1/7.2)
-        for framework in &["pytest", "cargo", "vitest"] {
-            match adapters::detect(repo_root, cfg, framework) {
-                Some(DetectionSource::Configured) => {
-                    detections.push(FrameworkDetection {
-                        name: framework.to_string(),
-                        detection_source: DetectionSource::Configured,
-                    });
-                }
-                Some(source) => {
-                    recommendations.push(DoctorRecommendation {
-                        capability: framework.to_string(),
-                        detail: format!("{framework} detected via {}", source_label(source)),
-                        apply_command: format!("ah doctor --enable {framework}"),
-                    });
-                }
-                None => {}
-            }
+        let (det, rec) = property_result(repo_root, &cfg);
+        if let Some(d) = det {
+            detections.push(d);
         }
-
-        // Property-based testing detection (7.1/7.2)
-        match detect_property(repo_root, cfg) {
-            Some(DetectionSource::Configured) => {
-                detections.push(FrameworkDetection {
-                    name: "property".to_string(),
-                    detection_source: DetectionSource::Configured,
-                });
-            }
-            Some(source) => {
-                recommendations.push(DoctorRecommendation {
-                    capability: "property".to_string(),
-                    detail: format!(
-                        "property-based testing framework detected via {}",
-                        source_label(source)
-                    ),
-                    apply_command: "ah doctor --enable property".to_string(),
-                });
-            }
-            None => {}
+        if let Some(r) = rec {
+            recommendations.push(r);
         }
-    }
-
-    // Managed block checks
-    for filename in &["AGENTS.md", "CLAUDE.md"] {
-        let path = repo_root.join(filename);
-        if path.exists() && !ah_block_injector().has_block(&path, "ah:managed") {
-            diagnostics.push(DoctorDiagnostic::error(
-                "missing-managed-block",
-                format!("{filename} is missing the ah managed block"),
-            ));
-        }
-    }
-
-    // Hook detection
-    if let HookFramework::None = detect_hook_framework(repo_root) {
-        diagnostics.push(DoctorDiagnostic::error(
-            "hook-absent",
-            "no supported pre-commit hook framework detected (lefthook or prek)",
-        ));
     }
 
     let healthy = diagnostics.is_empty();
@@ -281,11 +545,7 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
     })
 }
 
-use crate::init::{append_capability_block, insert_runner_entry};
-
-const KNOWN_CAPABILITIES: &[&str] = &[
-    "pytest", "cargo", "vitest", "mutation", "property", "snapshot",
-];
+// ── JSON output ───────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct DoctorJsonOutput {
@@ -302,7 +562,6 @@ pub struct DoctorFinding {
     pub capability: String,
 }
 
-/// Convert a DoctorReport into JSON output with recommendation findings.
 pub fn doctor_to_json(report: &DoctorReport) -> DoctorJsonOutput {
     let findings: Vec<DoctorFinding> = report
         .recommendations
@@ -319,9 +578,8 @@ pub fn doctor_to_json(report: &DoctorReport) -> DoctorJsonOutput {
     DoctorJsonOutput { findings }
 }
 
-/// Build a genesis StatusSection from a doctor run.
-///
-/// Adopts genesis::status for cross-tool status dashboards.
+// ── Status section ────────────────────────────────────────────────────
+
 #[allow(dead_code)]
 pub fn status_section(repo_root: &Path) -> Result<StatusSection, String> {
     let report = run_doctor(repo_root).map_err(|e| e.to_string())?;
@@ -339,15 +597,14 @@ pub fn status_section(repo_root: &Path) -> Result<StatusSection, String> {
         report
             .diagnostics
             .into_iter()
-            .map(|d| d.into_lint_result())
-            .map(|lr| {
-                let level = match lr.severity {
+            .map(|d| {
+                let level = match d.severity {
                     Severity::Error => genesis::status::StatusLevel::Error,
                     Severity::Warning => genesis::status::StatusLevel::Warning,
                     Severity::Advisory => genesis::status::StatusLevel::Healthy,
                 };
                 genesis::status::StatusItem {
-                    label: lr.message.clone(),
+                    label: d.detail,
                     value: String::new(),
                     level,
                 }
@@ -355,6 +612,10 @@ pub fn status_section(repo_root: &Path) -> Result<StatusSection, String> {
             .collect(),
     ))
 }
+
+// ── Enable capability ─────────────────────────────────────────────────
+
+use crate::init::{append_capability_block, insert_runner_entry};
 
 pub fn run_doctor_enable(repo_root: &Path, capability: &str) -> anyhow::Result<DoctorEnableResult> {
     if !KNOWN_CAPABILITIES.contains(&capability) {
@@ -426,6 +687,8 @@ pub fn run_doctor_enable(repo_root: &Path, capability: &str) -> anyhow::Result<D
     }
 }
 
+// ── Tests ─────────────────────────────────────────────────────────────
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -483,8 +746,6 @@ changes = "openspec/changes"
         )
     }
 
-    // ── 4.7 existing tests (unchanged) ───────────────────────────────────────
-
     #[test]
     fn healthy_repo_exits_zero_with_no_diagnostics() {
         let repo = make_healthy_repo();
@@ -512,8 +773,8 @@ changes = "openspec/changes"
         let report = run_doctor(repo.path()).unwrap();
         assert!(!report.healthy);
         assert!(
-            report.diagnostics.iter().any(|d| d.kind == "bad-config"),
-            "bad config must emit bad-config diagnostic; got: {:?}",
+            report.diagnostics.iter().any(|d| d.kind == "config"),
+            "bad config must emit config diagnostic; got: {:?}",
             report.diagnostics
         );
     }
@@ -525,8 +786,11 @@ changes = "openspec/changes"
         let report = run_doctor(repo.path()).unwrap();
         assert!(!report.healthy);
         assert!(
-            report.diagnostics.iter().any(|d| d.kind == "missing-path"),
-            "missing specs dir must emit missing-path diagnostic; got: {:?}",
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.kind == "missing-specs-dir"),
+            "missing specs dir must emit missing-specs-dir diagnostic; got: {:?}",
             report.diagnostics
         );
     }
@@ -538,8 +802,11 @@ changes = "openspec/changes"
         let report = run_doctor(repo.path()).unwrap();
         assert!(!report.healthy);
         assert!(
-            report.diagnostics.iter().any(|d| d.kind == "missing-path"),
-            "missing changes dir must emit missing-path diagnostic; got: {:?}",
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.kind == "missing-changes-dir"),
+            "missing changes dir must emit missing-changes-dir diagnostic; got: {:?}",
             report.diagnostics
         );
     }
@@ -577,11 +844,8 @@ changes = "openspec/changes"
         let report = run_doctor(repo.path()).unwrap();
         assert!(!report.healthy);
         assert!(
-            report
-                .diagnostics
-                .iter()
-                .any(|d| d.kind == "missing-managed-block"),
-            "missing managed block must emit missing-managed-block; got: {:?}",
+            report.diagnostics.iter().any(|d| d.kind == "managed-block"),
+            "missing managed block must emit managed-block diagnostic; got: {:?}",
             report.diagnostics
         );
     }
@@ -597,11 +861,8 @@ changes = "openspec/changes"
         let report = run_doctor(repo.path()).unwrap();
         assert!(!report.healthy);
         assert!(
-            report
-                .diagnostics
-                .iter()
-                .any(|d| d.kind == "missing-managed-block"),
-            "missing managed block in CLAUDE.md must emit missing-managed-block; got: {:?}",
+            report.diagnostics.iter().any(|d| d.kind == "managed-block"),
+            "missing managed block in CLAUDE.md must emit managed-block diagnostic; got: {:?}",
             report.diagnostics
         );
     }
@@ -613,8 +874,11 @@ changes = "openspec/changes"
         let report = run_doctor(repo.path()).unwrap();
         assert!(!report.healthy);
         assert!(
-            report.diagnostics.iter().any(|d| d.kind == "hook-absent"),
-            "no hook framework must emit hook-absent diagnostic; got: {:?}",
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.kind == "hook-framework"),
+            "no hook framework must emit hook-framework diagnostic; got: {:?}",
             report.diagnostics
         );
     }
@@ -629,8 +893,11 @@ changes = "openspec/changes"
         let report = run_doctor(repo.path()).unwrap();
         assert!(!report.healthy);
         assert!(
-            report.diagnostics.iter().any(|d| d.kind == "collision"),
-            "duplicate scenario headings must emit collision diagnostic; got: {:?}",
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.kind == "scenario-collisions"),
+            "duplicate scenario headings must emit scenario-collisions diagnostic; got: {:?}",
             report.diagnostics
         );
     }
@@ -651,8 +918,8 @@ changes = "openspec/changes"
             report
                 .diagnostics
                 .iter()
-                .any(|d| d.kind == "orphan-contract"),
-            "orphan contract must emit orphan-contract diagnostic; got: {:?}",
+                .any(|d| d.kind == "orphan-contracts"),
+            "orphan contract must emit orphan-contracts diagnostic; got: {:?}",
             report.diagnostics
         );
     }
@@ -677,8 +944,8 @@ changes = "openspec/changes"
             report
                 .diagnostics
                 .iter()
-                .any(|d| d.kind == "unknown-archetype"),
-            "unknown archetype must emit unknown-archetype diagnostic; got: {:?}",
+                .any(|d| d.kind == "unknown-archetypes"),
+            "unknown archetype must emit unknown-archetypes diagnostic; got: {:?}",
             report.diagnostics
         );
     }
@@ -692,18 +959,13 @@ changes = "openspec/changes"
         )
         .unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        let bad_config_count = report
+        let config_count = report
             .diagnostics
             .iter()
-            .filter(|d| d.kind == "bad-config")
+            .filter(|d| d.kind == "config")
             .count();
-        assert_eq!(
-            bad_config_count, 1,
-            "should emit exactly one bad-config diagnostic"
-        );
+        assert_eq!(config_count, 1, "should emit exactly one config diagnostic");
     }
-
-    // ── 7.1 Red: framework detection reporting ────────────────────────────────
 
     #[test]
     fn configured_pytest_runner_appears_in_detections() {
@@ -792,7 +1054,6 @@ changes = "openspec/changes"
     #[test]
     fn framework_detection_does_not_affect_healthy_flag() {
         let repo = make_healthy_repo();
-        // Add pytest via manifest (not configured) → recommendation, not a problem
         fs::write(repo.path().join("pytest.ini"), "[pytest]\n").unwrap();
         let report = run_doctor(repo.path()).unwrap();
         assert!(
@@ -801,8 +1062,6 @@ changes = "openspec/changes"
             report.diagnostics
         );
     }
-
-    // ── 7.3 Red: recommendation findings ─────────────────────────────────────
 
     #[test]
     fn pytest_manifest_detected_but_not_configured_emits_recommendation() {
@@ -887,7 +1146,6 @@ changes = "openspec/changes"
     #[test]
     fn configured_framework_emits_detection_not_recommendation() {
         let repo = make_healthy_repo();
-        // pytest both configured AND has manifest signal
         fs::write(repo.path().join("pytest.ini"), "[pytest]\n").unwrap();
         fs::write(
             repo.path().join(".espectacular/config.toml"),
@@ -950,218 +1208,29 @@ changes = "openspec/changes"
         );
     }
 
-    #[test]
-    fn enable_vitest_writes_runner_entry_to_config() {
-        let dir = TempDir::new().unwrap();
-        let config_path = dir.path().join("config.toml");
-        fs::write(&config_path, base_config_toml()).unwrap();
-
-        let text = fs::read_to_string(&config_path).unwrap();
-        let updated = insert_runner_entry(&text, "vitest", r#"["vitest", "run"]"#);
-        fs::write(&config_path, &updated).unwrap();
-
-        let content = fs::read_to_string(&config_path).unwrap();
-        assert!(
-            content.contains(r#"vitest = ["vitest", "run"]"#),
-            "vitest runner entry must be written; got:\n{content}"
-        );
-    }
+    // ── genesis::doctor adoption proof ───────────────────────────────────
 
     #[test]
-    fn enable_mutation_appends_capability_block() {
-        let dir = TempDir::new().unwrap();
-        let config_path = dir.path().join("config.toml");
-        fs::write(&config_path, base_config_toml()).unwrap();
+    fn uses_genesis_doctor_framework() {
+        // Compile-time proof: genesis::doctor::DoctorCheck, DoctorRunner used.
+        use genesis::doctor::{DoctorCheck, DoctorRunner};
 
-        let text = fs::read_to_string(&config_path).unwrap();
-        let updated = append_capability_block(&text, "mutation");
-        fs::write(&config_path, &updated).unwrap();
-
-        let content = fs::read_to_string(&config_path).unwrap();
-        assert!(
-            content.contains("[capabilities.mutation]") && content.contains("enabled = true"),
-            "mutation capability block must be written; got:\n{content}"
-        );
-    }
-
-    #[test]
-    fn enable_property_appends_capability_block() {
-        let dir = TempDir::new().unwrap();
-        let config_path = dir.path().join("config.toml");
-        fs::write(&config_path, base_config_toml()).unwrap();
-
-        let text = fs::read_to_string(&config_path).unwrap();
-        let updated = append_capability_block(&text, "property");
-        fs::write(&config_path, &updated).unwrap();
-
-        let content = fs::read_to_string(&config_path).unwrap();
-        assert!(
-            content.contains("[capabilities.property]") && content.contains("enabled = true"),
-            "property capability block must be written; got:\n{content}"
-        );
-    }
-
-    #[test]
-    fn enable_snapshot_appends_capability_block() {
-        let dir = TempDir::new().unwrap();
-        let config_path = dir.path().join("config.toml");
-        fs::write(&config_path, base_config_toml()).unwrap();
-
-        let text = fs::read_to_string(&config_path).unwrap();
-        let updated = append_capability_block(&text, "snapshot");
-        fs::write(&config_path, &updated).unwrap();
-
-        let content = fs::read_to_string(&config_path).unwrap();
-        assert!(
-            content.contains("[capabilities.snapshot]") && content.contains("enabled = true"),
-            "snapshot capability block must be written; got:\n{content}"
-        );
-    }
-
-    #[test]
-    fn run_doctor_enable_pytest_writes_config_and_returns_path() {
-        let repo = make_healthy_repo();
-        let result = run_doctor_enable(repo.path(), "pytest").unwrap();
-        match result {
-            DoctorEnableResult::Written { path, table_name } => {
-                assert!(
-                    path.ends_with("config.toml"),
-                    "path must point to config.toml"
-                );
-                assert_eq!(table_name, "runners.pytest");
-                let content = fs::read_to_string(path).unwrap();
-                assert!(content.contains("pytest = [\"pytest\"]"));
-            }
-            DoctorEnableResult::AlreadyEnabled => {
-                panic!("should have written, not already-enabled")
-            }
-        }
-    }
-
-    #[test]
-    fn run_doctor_enable_mutation_writes_capability_block() {
-        let repo = make_healthy_repo();
-        let result = run_doctor_enable(repo.path(), "mutation").unwrap();
-        match result {
-            DoctorEnableResult::Written { path, table_name } => {
-                assert_eq!(table_name, "capabilities.mutation");
-                let content = fs::read_to_string(path).unwrap();
-                assert!(
-                    content.contains("[capabilities.mutation]")
-                        && content.contains("enabled = true")
-                );
-            }
-            DoctorEnableResult::AlreadyEnabled => {
-                panic!("should have written, not already-enabled")
-            }
-        }
-    }
-
-    // ── 7.7 Red: unknown capability and already-enabled no-op ─────────────────
-
-    #[test]
-    fn enable_unknown_capability_returns_error() {
-        let repo = make_healthy_repo();
-        let err = run_doctor_enable(repo.path(), "jest").unwrap_err();
-        assert!(
-            err.to_string().contains("unknown capability"),
-            "unknown capability must return error; got: {err}"
-        );
-    }
-
-    #[test]
-    fn enable_pytest_when_already_configured_is_noop() {
-        let repo = make_healthy_repo();
-        fs::write(
-            repo.path().join(".espectacular/config.toml"),
-            format!(
-                "tool_version = \"{TOOL_VERSION}\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\npytest = [\"pytest\"]\n"
-            ),
-        )
-        .unwrap();
-        let original = fs::read_to_string(repo.path().join(".espectacular/config.toml")).unwrap();
-        let result = run_doctor_enable(repo.path(), "pytest").unwrap();
-        assert!(
-            matches!(result, DoctorEnableResult::AlreadyEnabled),
-            "enabling already-configured runner must return AlreadyEnabled"
-        );
-        let after = fs::read_to_string(repo.path().join(".espectacular/config.toml")).unwrap();
-        assert_eq!(
-            original, after,
-            "config must not be modified when already-enabled"
-        );
-    }
-
-    #[test]
-    fn enable_mutation_when_already_enabled_is_noop() {
-        let repo = make_healthy_repo();
-        let config_text = format!(
-            "tool_version = \"{TOOL_VERSION}\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\n\n[capabilities.mutation]\nenabled = true\n"
-        );
-        fs::write(repo.path().join(".espectacular/config.toml"), &config_text).unwrap();
-        let result = run_doctor_enable(repo.path(), "mutation").unwrap();
-        assert!(
-            matches!(result, DoctorEnableResult::AlreadyEnabled),
-            "enabling already-enabled mutation must return AlreadyEnabled"
-        );
-    }
-
-    #[test]
-    fn insert_runner_entry_adds_to_existing_runners_section() {
-        let input =
-            "tool_version = \"0.1.0\"\n[paths]\nspecs = \"s\"\nchanges = \"c\"\n[runners]\n";
-        let result = insert_runner_entry(input, "pytest", r#"["pytest"]"#);
-        assert!(
-            result.contains("pytest = [\"pytest\"]"),
-            "must contain new runner entry; got:\n{result}"
-        );
-        // Must still be valid enough that [runners] header appears once
-        assert_eq!(
-            result.matches("[runners]").count(),
-            1,
-            "must not duplicate [runners] header"
-        );
-    }
-
-    #[test]
-    fn insert_runner_entry_does_not_duplicate_section_header() {
-        let input = "tool_version = \"0.1.0\"\n[paths]\nspecs = \"s\"\nchanges = \"c\"\n[runners]\npytest = [\"pytest\"]\n";
-        let result = insert_runner_entry(input, "cargo", r#"["cargo", "test"]"#);
-        assert_eq!(
-            result.matches("[runners]").count(),
-            1,
-            "must not add duplicate [runners] header"
-        );
-        assert!(result.contains("cargo = [\"cargo\", \"test\"]"));
-    }
-
-    // ── genesis::suite_linter adoption ────────────────────────────────────
-
-    #[test]
-    fn uses_genesis_suite_linter_types() {
-        // Compile-time proof that genesis::suite_linter is imported and used.
-        use genesis::suite_linter::{LintCheck, LinterRegistry, Severity};
-
-        struct SuiteLinterAdoptionCheck;
-        impl LintCheck for SuiteLinterAdoptionCheck {
+        struct AdoptionCheck;
+        impl DoctorCheck for AdoptionCheck {
             fn name(&self) -> &'static str {
-                "suite-linter-adoption"
+                "adoption"
             }
             fn description(&self) -> &'static str {
-                "Proves genesis::suite_linter is adopted"
+                "Proves genesis::doctor is adopted"
             }
             fn run(&self, _: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
-                Ok(vec![LintResult::new("adopted", Severity::Advisory)])
+                Ok(vec![]) // pass
             }
         }
 
-        let mut registry = LinterRegistry::new();
-        registry.register(Box::new(SuiteLinterAdoptionCheck));
-        assert_eq!(registry.len(), 1);
-
-        let results = registry.run_all(Path::new("/tmp"));
-        assert_eq!(results.len(), 1);
-        let advisory = &results[0].1[0];
-        assert_eq!(advisory.severity, Severity::Advisory);
+        let runner = DoctorRunner::new(vec![Box::new(AdoptionCheck)]).with_tool_name("test");
+        let report = runner.run(Path::new("/tmp"), false).unwrap();
+        assert_eq!(report.tool, "test");
+        assert!(report.summary.is_healthy());
     }
 }

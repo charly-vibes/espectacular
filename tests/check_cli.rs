@@ -63,7 +63,7 @@ fn ah_doctor_bad_config_exits_nonzero() {
         .arg("doctor")
         .assert()
         .failure()
-        .stderr(predicates::str::contains("bad-config"));
+        .stderr(predicates::str::contains("config: bad config"));
 }
 
 fn assert_schema_valid(instance: &Value) {
