@@ -1,6 +1,7 @@
 use crate::fsutil::write_text;
 use crate::openspec;
 use anyhow::Context;
+use genesis::discovery;
 use genesis::managed_block::{BlockDef, BlockInjector, BlockRegistry};
 use std::fs;
 use std::path::Path;
@@ -198,6 +199,18 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
                     .into(),
             );
         }
+    }
+
+    // Register in .genesis/tools.toml for cross-tool discovery
+    match discovery::register(
+        repo_root,
+        "espectacular",
+        "Spec-test correspondence enforcer",
+        "directory",
+        ".espectacular",
+    ) {
+        Ok(()) => {}
+        Err(e) => result.concerns.push(format!(".genesis/tools.toml: {e}")),
     }
 
     Ok(result)
