@@ -52,3 +52,5 @@
 # - linear.api-key
 # - github.org
 # - github.repo
+
+sync.remote: "git+ssh://git@cv/charly-vibes/espectacular.git"
