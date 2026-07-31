@@ -9,7 +9,7 @@ fn create_simple_repo() -> tempfile::TempDir {
     fs::create_dir_all(root.join(".espectacular")).unwrap();
     fs::write(
         root.join(".espectacular/config.toml"),
-        r#"tool_version = "0.3.0"
+        r#"tool_version = "0.4.0"
 [paths]
 specs = "openspec/specs"
 changes = "openspec/changes"

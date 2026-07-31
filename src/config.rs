@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn loads_valid_config() {
         let config = load(Path::new(VALID_REPO)).unwrap();
-        assert_eq!(config.tool_version, "0.3.0");
+        assert_eq!(config.tool_version, "0.4.0");
     }
 
     #[test]
@@ -229,7 +229,7 @@ mod tests {
         std::fs::write(
             &config_path,
             r#"
-tool_version = "0.3.0"
+tool_version = "0.4.0"
 [paths]
 specs = "openspec/specs"
 changes = "openspec/changes"

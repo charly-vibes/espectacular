@@ -63,7 +63,7 @@ const ESPECTACULAR_AGENTS_CONTENT: &str =
 canonical remediation steps. Use `ah explain <topic>` to look up the playbook for any \
 finding kind.\n";
 
-const DEFAULT_CONFIG_TOML: &str = r#"tool_version = "0.3.0"
+const DEFAULT_CONFIG_TOML: &str = r#"tool_version = "0.4.0"
 
 [paths]
 specs = "openspec/specs"
