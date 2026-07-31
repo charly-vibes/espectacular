@@ -3,6 +3,7 @@ use crate::openspec;
 use anyhow::Context;
 use genesis::discovery;
 use genesis::managed_block::{BlockDef, BlockInjector, BlockRegistry};
+use genesis::scaffold::Scaffold;
 use std::fs;
 use std::path::Path;
 
@@ -134,18 +135,23 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
         stubbed_contracts: Vec::new(),
     };
 
-    // Create .espectacular/
-    let espectacular_dir = repo_root.join(".espectacular");
-    fs::create_dir_all(&espectacular_dir).context("cannot create .espectacular/")?;
-
-    // config.toml — only if missing
-    let config_path = espectacular_dir.join("config.toml");
-    if !config_path.exists() {
-        write_text(&config_path, DEFAULT_CONFIG_TOML)?;
-        result.created.push(".espectacular/config.toml".into());
+    // Create .espectacular/ directory and default config.toml via genesis::scaffold
+    let scaffold_result = Scaffold::new(repo_root)
+        .dir(".espectacular")
+        .default_config(".espectacular/config.toml", DEFAULT_CONFIG_TOML)
+        .build()
+        .context("cannot scaffold .espectacular/")?;
+    for path in &scaffold_result.created {
+        let display = path
+            .strip_prefix(repo_root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .to_string();
+        result.created.push(display);
     }
 
     // .espectacular/AGENTS.md — always refresh
+    let espectacular_dir = repo_root.join(".espectacular");
     let espectacular_agents = espectacular_dir.join("AGENTS.md");
     let agents_existed = espectacular_agents.exists();
     write_text(&espectacular_agents, ESPECTACULAR_AGENTS_CONTENT)?;
