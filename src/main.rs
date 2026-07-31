@@ -18,6 +18,7 @@ mod upgrade;
 
 use anyhow::Context;
 use clap::{CommandFactory, Parser, Subcommand};
+use genesis::cli::{generate_completions, maybe_print_version_json};
 use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::Guide;
 use std::fs;
@@ -187,36 +188,9 @@ impl std::fmt::Debug for FormattedError {
 impl std::error::Error for FormattedError {}
 
 fn main() {
-    // Handle --version --json before clap processes it
-    let args: Vec<String> = std::env::args().collect();
-    let has_version = args.iter().any(|a| {
-        a == "--version"
-            || a == "-V"
-            || (a.starts_with("-") && !a.starts_with("--") && a.contains('V') && !a.contains('h'))
-    });
-    if has_version
-        && !args
-            .iter()
-            .any(|a| a == "--help" || a == "-h" || a == "-jh")
-    {
-        let has_json = args.iter().any(|a| {
-            a == "--json"
-                || a == "-j"
-                || (a.starts_with("-j") && !a.starts_with("--") && !a.contains('h'))
-        });
-        if has_json {
-            let env = Envelope::success(
-                EnvelopeKind::Version,
-                serde_json::json!({
-                    "name": "ah",
-                    "version": env!("CARGO_PKG_VERSION")
-                }),
-                vec![],
-                vec![],
-            );
-            println!("{}", serde_json::to_string(&env).unwrap());
-            return;
-        }
+    // Delegate --version --json handling to genesis::cli
+    if maybe_print_version_json("ah", env!("CARGO_PKG_VERSION")) {
+        return;
     }
 
     let guide = build_guide();
@@ -526,9 +500,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
         }
         Command::Completions { shell } => {
             let mut cmd = Cli::command();
-            let name = cmd.get_name().to_string();
-            clap_complete::generate(shell, &mut cmd, &name, &mut std::io::stdout());
-            Ok(())
+            generate_completions(&mut cmd, shell).map_err(|e| anyhow::anyhow!("{}", e))
         }
         Command::Upgrade => {
             let report = upgrade::run_upgrade(&std::env::current_dir()?)?;

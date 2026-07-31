@@ -21,7 +21,7 @@ serde_json = "1"
 toml = "0.8"
 jsonschema = "0.18"
 anyhow = "1"
-genesis-vibes = "0.2"
+genesis-vibes = "0.4"
 
 [dev-dependencies]
 assert_cmd = "2"
