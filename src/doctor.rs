@@ -3,6 +3,7 @@ use crate::archetypes;
 use crate::init::{ah_block_injector, detect_hook_framework, HookFramework};
 use crate::openspec;
 use crate::{config, contracts};
+use genesis::status::StatusSection;
 use genesis::suite_linter::{LintResult, Severity};
 use serde::Serialize;
 use std::collections::HashSet;
@@ -316,6 +317,43 @@ pub fn doctor_to_json(report: &DoctorReport) -> DoctorJsonOutput {
         })
         .collect();
     DoctorJsonOutput { findings }
+}
+
+/// Build a genesis StatusSection from a doctor run.
+///
+/// Adopts genesis::status for cross-tool status dashboards.
+#[allow(dead_code)]
+pub fn status_section(repo_root: &Path) -> Result<StatusSection, String> {
+    let report = run_doctor(repo_root).map_err(|e| e.to_string())?;
+    let summary = if report.healthy {
+        format!("all checks passed ({} detections)", report.detections.len())
+    } else {
+        format!(
+            "{} issue(s) found",
+            report.diagnostics.len() + report.recommendations.len()
+        )
+    };
+    Ok(StatusSection::with_items(
+        "espectacular",
+        summary,
+        report
+            .diagnostics
+            .into_iter()
+            .map(|d| d.into_lint_result())
+            .map(|lr| {
+                let level = match lr.severity {
+                    Severity::Error => genesis::status::StatusLevel::Error,
+                    Severity::Warning => genesis::status::StatusLevel::Warning,
+                    Severity::Advisory => genesis::status::StatusLevel::Healthy,
+                };
+                genesis::status::StatusItem {
+                    label: lr.message.clone(),
+                    value: String::new(),
+                    level,
+                }
+            })
+            .collect(),
+    ))
 }
 
 pub fn run_doctor_enable(repo_root: &Path, capability: &str) -> anyhow::Result<DoctorEnableResult> {
