@@ -31,7 +31,16 @@ Canonical agent instructions: `.dont/AGENTS.md`.
 Edits inside this managed block will be overwritten by `dont doctor --fix`.
 <!-- DONT:END -->
 
-<!-- WAI:START --># Workflow Tools
+<!-- WAI:START -->
+## PRIMARY OBJECTIVE
+
+Build and maintain **espectacular** — the behavioral verification layer that
+compiles openspec specifications into executable assertions and detects drift
+between specs and code. Every action should trace back to: does this make
+espectacular more reliable at detecting drift, better at integrating with
+openspec, or easier to adopt in a new project?
+
+# Workflow Tools
 
 This project uses **wai** to track the *why* behind decisions — research,
 reasoning, and design choices that shaped the code. Run `wai status` first
@@ -59,18 +68,7 @@ When context reaches ~40%: stop and tell the user — responses degrade past
 this point. Recommend `wai close` then `/clear` to resume cleanly.
 Do NOT skip `wai close` — it enables resume detection.
 
-## Autonomous Work Policy
 
-Proceed without routine confirmation when the next step is clear.
-Do not ask to continue, fix, or commit — just do it.
-
-**Stop and ask** only when:
-- Conflicting requirements or ambiguous intent
-- Destructive actions (data loss, force-push, drop table)
-- Credentials, secrets, or external services not yet authorized
-- Unresolved test failures after two attempts
-- Push, deploy, or release — always get explicit authorization
-- Context approaching 40% — recommend `wai close` then `/clear`
 
 ## Detailed Instructions
 
@@ -78,9 +76,66 @@ Full workflow reference — session lifecycle, capturing work, command cheat
 sheets, cross-tool sync, and PARA structure — lives in **`.wai/AGENTS.md`**.
 Read it at the start of your first session or when you need detailed guidance.
 
+## PRIMARY OBJECTIVE (echo)
+
+Build and maintain **espectacular** — the behavioral verification layer that
+compiles openspec specifications into executable assertions and detects drift
+between specs and code. Every action should trace back to: does this make
+espectacular more reliable at detecting drift, better at integrating with
+openspec, or easier to adopt in a new project?
+
 Keep this managed block so `wai init` can refresh the instructions.
 
 <!-- WAI:END -->
+
+## Behavioral Constraints
+
+These constraints are **persistent** — they live outside the WAI managed
+block so they survive `wai init`. Do not remove or edit them without
+deliberate intent.
+
+### Prohibited (DON'T)
+
+- **DON'T** change the scenario contract format or JSON Schema IR without an openspec proposal
+- **DON'T** push directly to main — all changes go through feature branches with PR review
+- **DON'T** skip `ah check` before committing — spec-test correspondence is espectacular's reason to exist
+- **DON'T** break backward compatibility of emitted test archetypes without a deprecation cycle
+- **DON'T** modify managed blocks (`<!-- WAI: -->`, `<!-- OPENSPEC: -->`, `<!-- DONT: -->`, `<!-- ah:managed: -->`)
+- **DON'T** introduce new parallel types for patterns that genesis already provides — file a genesis change first
+- **DON'T** commit generated artifacts or `.espectacular/` state files that are tool-managed
+
+### Stop and Ask
+
+Pause and request human input when any of these triggers fire:
+1. **Ambiguity** — the ticket text itself is contradictory or underspecified
+2. **Scope uncertainty** — the ticket is clear but the change naturally touches code or features not mentioned in it
+3. **Irreversibility** — breaking changes to scenario contracts, existing adapter APIs
+4. **Secrets/credentials** — any external service, API key, or credential not yet authorized
+5. **Test failure persistence** — unresolved test failure after two repair attempts, or the same failure across 3 different approaches
+6. **Push/release** — pushing to remote, creating a release, or deploying
+7. **Context saturation** — context approaching ~40%; recommend `wai close` then `/clear`
+
+### Minimal Footprint
+
+- Prefer small, focused changes over large refactors — one ticket, one concern
+- Delete unused code, don't leave commented-out code behind
+- Keep PRs under 400 lines changed. If you cannot, split the work into multiple PRs before proceeding.
+- Use existing abstractions (genesis, wai patterns) before introducing new ones
+- espectacular is a verification tool — prefer compile-time guarantees over runtime checks
+
+### Drift Detection
+
+Proceed without routine confirmation when the next step is clear.
+Do not ask to continue, fix, or commit — just do it. After each major
+action (edit, test run, commit), pause and self-check:
+1. **ALIGNMENT** — does this still serve detecting spec-code drift?
+2. **SCOPE** — did I stay within the ticket scope or did I expand into unticketed work?
+3. **FOOTPRINT** — did I leave dead code, debug prints, or unnecessary changes?
+4. **GOVERNANCE** — did I follow openspec workflow for spec changes?
+
+If any check fails: undo the last change (`git checkout -- <files>` for
+uncommitted edits, `git revert HEAD` for committed) before proceeding,
+or open a follow-up ticket.
 
 <!-- WAI:REFLECT:REF:START -->
 ## Accumulated Project Patterns
