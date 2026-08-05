@@ -657,6 +657,8 @@ fn ah_check_quality_mutation_finding_present_in_output() {
 
     let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
     let data = data_from_envelope(&output);
+    // Schema must validate even when quality_findings are present
+    assert_schema_valid(&output);
     let qf = &data["quality_findings"];
     assert!(qf.is_array(), "quality_findings must be an array");
     assert_eq!(qf.as_array().unwrap().len(), 1);

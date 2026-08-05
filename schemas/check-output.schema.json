@@ -29,7 +29,11 @@
         }
       }
     },
-    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "quality_findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/qualityFinding" }
+    }
   },
   "$defs": {
     "finding": {
@@ -47,7 +51,7 @@
           "type": "string",
           "pattern": "^ah explain [A-Za-z0-9_-]+$"
         },
-        "category": { "enum": ["structural", "execution"] },
+        "category": { "enum": ["structural", "execution", "quality"] },
         "spec": { "type": "string" },
         "spec_path": { "type": "string" },
         "scenario": { "$ref": "#/$defs/scenario" },
@@ -64,6 +68,20 @@
         "id": { "type": "string" },
         "title": { "type": "string" },
         "body_markdown": { "type": "string" }
+      }
+    },
+    "qualityFinding": {
+      "type": "object",
+      "required": ["kind", "category", "suggested_action", "playbook_command", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string" },
+        "category": { "enum": ["quality"] },
+        "kill_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "threshold": { "type": "number", "minimum": 0 },
+        "suggested_action": { "type": "string" },
+        "playbook_command": { "type": "string" },
+        "message": { "type": "string" }
       }
     },
     "testResult": {
