@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::contracts::TestEntry;
 use serde::{Deserialize, Serialize};
+#[cfg(unix)]
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -79,8 +80,11 @@ pub fn execute_command(repo_root: &Path, planned: &PlannedCommand) -> anyhow::Re
         .current_dir(repo_root)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .process_group(0); // isolate in its own process group
+        .stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        command.process_group(0); // isolate in its own process group
+    }
 
     let mut child = command.spawn()?;
     let started = Instant::now();
@@ -92,8 +96,11 @@ pub fn execute_command(repo_root: &Path, planned: &PlannedCommand) -> anyhow::Re
         if started.elapsed() >= timeout {
             // Kill the entire process group so grandchild processes
             // holding inherited pipes also die.
-            let pgid = child.id() as i32;
-            unsafe { libc::killpg(pgid, libc::SIGTERM) };
+            #[cfg(unix)]
+            {
+                let pgid = child.id() as i32;
+                unsafe { libc::killpg(pgid, libc::SIGTERM) };
+            }
             child.kill()?;
             break true;
         }
@@ -148,6 +155,7 @@ mod tests {
     use crate::contracts::TestEntry;
     use std::collections::HashMap;
     use std::fs;
+    #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
     fn config_with_runner(test_type: &str, runner: Vec<&str>) -> Config {
@@ -171,9 +179,12 @@ mod tests {
     fn write_helper(repo_root: &Path, body: &str) -> std::path::PathBuf {
         let path = repo_root.join("helper.sh");
         fs::write(&path, format!("#!/bin/sh\nset -eu\n{body}\n")).unwrap();
-        let mut perms = fs::metadata(&path).unwrap().permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&path, perms).unwrap();
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&path).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&path, perms).unwrap();
+        }
         path
     }
 
