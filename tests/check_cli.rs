@@ -809,3 +809,111 @@ fn ah_report_table_output_has_header() {
         "table output should contain spec names"
     );
 }
+
+fn report_archetype_repo() -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = dir.path();
+    fs::create_dir_all(repo.join("openspec/specs/compiler")).unwrap();
+    fs::create_dir_all(repo.join(".espectacular/compiler")).unwrap();
+    fs::write(
+        repo.join("openspec/specs/compiler/spec.md"),
+        "# Capability: compiler\n\n#### Scenario: Green path\n- **WHEN** it runs\n- **THEN** it passes\n\n#### Scenario: Uncontracted path\n- **WHEN** it runs\n- **THEN** nothing declares it\n",
+    )
+    .unwrap();
+    fs::write(
+        repo.join(".espectacular/config.toml"),
+        "tool_version = \"0.4.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n",
+    )
+    .unwrap();
+    fs::write(
+        repo.join(".espectacular/compiler/green-path.toml"),
+        "id = \"green-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"ok\"\n",
+    )
+    .unwrap();
+    write_executable(&repo.join("runner.sh"), "exit 0");
+    dir
+}
+
+#[test]
+fn ah_report_json_attributes_scenarios_to_contract_archetype() {
+    let repo = report_archetype_repo();
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["report", "--json"])
+        .assert()
+        .code(1);
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
+    let matrix = data["matrix"].as_array().expect("expected matrix array");
+
+    // The PF contract scenario is attributed to the PF row with real counts.
+    let pf_row = matrix
+        .iter()
+        .find(|r| r["spec"] == "compiler" && r["archetype"] == "PF")
+        .expect("expected PF row");
+    assert_eq!(pf_row["covered"], 1);
+    assert_eq!(pf_row["missing"], 0);
+    assert_eq!(pf_row["failing"], 0);
+    assert_eq!(pf_row["total"], 1);
+
+    // The uncontracted scenario remains under an explicit empty archetype.
+    let blank_row = matrix
+        .iter()
+        .find(|r| r["spec"] == "compiler" && r["archetype"] == "")
+        .expect("expected blank archetype row");
+    assert_eq!(blank_row["covered"], 0);
+    assert_eq!(blank_row["missing"], 1);
+    assert_eq!(blank_row["total"], 1);
+
+    // No other rows exist for compiler.
+    let compiler_rows: Vec<_> = matrix.iter().filter(|r| r["spec"] == "compiler").collect();
+    assert_eq!(compiler_rows.len(), 2);
+}
+
+fn report_failing_repo() -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = dir.path();
+    fs::create_dir_all(repo.join("openspec/specs/compiler")).unwrap();
+    fs::create_dir_all(repo.join(".espectacular/compiler")).unwrap();
+    fs::write(
+        repo.join("openspec/specs/compiler/spec.md"),
+        "# Capability: compiler\n\n#### Scenario: Failing path\n- **WHEN** it runs\n- **THEN** it fails\n",
+    )
+    .unwrap();
+    fs::write(
+        repo.join(".espectacular/config.toml"),
+        "tool_version = \"0.4.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n",
+    )
+    .unwrap();
+    fs::write(
+        repo.join(".espectacular/compiler/failing-path.toml"),
+        "id = \"failing-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"fail\"\n",
+    )
+    .unwrap();
+    write_executable(&repo.join("runner.sh"), "exit 1");
+    dir
+}
+
+#[test]
+fn ah_report_json_emits_failing_counts() {
+    let repo = report_failing_repo();
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["report", "--json"])
+        .assert()
+        .code(1);
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
+    let matrix = data["matrix"].as_array().expect("expected matrix array");
+    let compiler_row = matrix
+        .iter()
+        .find(|r| r["spec"] == "compiler")
+        .expect("expected compiler row");
+    assert_eq!(compiler_row["covered"], 0);
+    assert_eq!(compiler_row["missing"], 0);
+    assert_eq!(compiler_row["failing"], 1);
+    assert_eq!(compiler_row["total"], 1);
+    assert_eq!(data["summary"]["failing"], 1);
+}
