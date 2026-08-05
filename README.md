@@ -15,7 +15,7 @@ Behavioral verification layer for the charly AI development ecosystem.
 cargo install espectacular
 ```
 
-Installs the `ah` and `espectacular` binaries.
+Installs the `ah` binary.
 
 ### Homebrew (macOS & Linux)
 
