@@ -82,8 +82,10 @@ dont prime --plain
 | `ah init` | Create or refresh `.espectacular/` files and hook integration |
 | `ah doctor` | Detect configured frameworks and diagnose config, path, hook, collision, orphan, and archetype issues |
 | `ah doctor --enable <capability>` | Write the config block for a detected-but-unconfigured capability (`pytest`, `cargo`, `vitest`, `mutation`, `property`, `snapshot`) |
-| `ah check` | Validate deployed specs and run declared tests |
+| `ah check` | Run fast structural analysis (spec/contract correspondence); use `--run-tests` to execute declared tests |
+| `ah check --run-tests` | Run structural analysis plus declared contract tests |
 | `ah check --changes <id>` | Validate deployed specs plus one or more staged change overlays |
+| `ah report` | Generate a spec-to-contract coverage matrix (covered/missing/failing per spec) |
 | `ah explain [topic]` | Print guidance for a finding kind or suggested action; omit topic for a list |
 | `ah explain --list` | List all explainable topics |
 | `ah explain --json` | Emit the topic list as JSON |
@@ -93,6 +95,8 @@ dont prime --plain
 | `ah scenario new <change> <spec> --requirement "<requirement>" "<heading>"` | Append a new scenario and stage its TOML contract |
 | `ah scenario supersede <spec> <old-id> --with=<new-id> --in-change=<change>` | Stage a supersession update for an existing contract |
 | `ah archive <change>` | Move staged change contracts into deployed `.espectacular/` locations |
+| `ah feedback <kind>` | File an issue against the upstream repo via `gh` (`--dry-run` to preview) |
+| `ah completions <shell>` | Generate shell completions (bash, zsh, fish, powershell, elvish) |
 | `ah upgrade` | Report tool-version drift and update `.espectacular/config.toml` only |
 
 `ah upgrade` exits non-zero when it detects drift, even after rewriting `tool_version`, so automation can notice compatibility changes.
