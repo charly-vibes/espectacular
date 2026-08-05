@@ -85,11 +85,27 @@ impl ConfigFile for Config {
                 "paths.specs",
                 "paths.specs must be non-empty",
             ));
+        } else if self.paths.specs.starts_with('/') || self.paths.specs.contains("..") {
+            results.push(ConfigValidation::error(
+                "paths.specs",
+                format!(
+                    "paths.specs must not be absolute or contain '..': {}",
+                    self.paths.specs
+                ),
+            ));
         }
         if self.paths.changes.is_empty() {
             results.push(ConfigValidation::error(
                 "paths.changes",
                 "paths.changes must be non-empty",
+            ));
+        } else if self.paths.changes.starts_with('/') || self.paths.changes.contains("..") {
+            results.push(ConfigValidation::error(
+                "paths.changes",
+                format!(
+                    "paths.changes must not be absolute or contain '..': {}",
+                    self.paths.changes
+                ),
             ));
         }
         for (name, argv) in &self.runners {
