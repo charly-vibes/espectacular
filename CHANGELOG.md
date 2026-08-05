@@ -7,6 +7,60 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.5.0] — 2026-08-05
+
+### Added
+
+- **Suite-trio quality signals** — `quality-composability` (vampiro),
+  `quality-cost` (crua), `quality-boundary-coverage` (livin) finding kinds
+  with `[quality.*]` config blocks. Each tool emits a custom-runner JSON
+  envelope; findings are informational only.
+- **Config path traversal validation** — `paths.specs` and `paths.changes`
+  now reject absolute (`/`) or `..`-containing paths.
+
+### Changed
+
+- **genesis v0.6.0** — adopt breaking envelope API: `cli_version` is now
+  caller-supplied (`env!("CARGO_PKG_VERSION")`) in all `Envelope::success`
+  and `Envelope::error` calls.
+- **Remove local doctor types** — `DoctorReport`, `DoctorDiagnostic`,
+  `DoctorRecommendation` replaced with `genesis::doctor` equivalents.
+  JSON output now routes through `genesis::envelope::Envelope`. Domain-
+  specific `CapabilitySuggestion` retained for framework recommendations.
+
+### Fixed
+
+- `ah --help` now shows descriptions for all subcommands (was blank for
+  check, doctor, init, report, archive, type, explain, upgrade, scenario).
+- `ah init` stubs use `CARGO_PKG_VERSION` instead of hardcoded `"0.1.0"`.
+- README no longer falsely claims an `espectacular` binary.
+- README commands table now includes `ah check --run-tests`, `ah report`,
+  `ah feedback`, `ah completions`.
+- AGENTS.md version string updated from 0.3.0 to 0.4.0.
+- 3 pre-existing clippy warnings removed (unused imports).
+- 9 bugs from previous session: zero_tests_ran false-positive, report
+  archetype attribution + failing counts, configured specs root,
+  quality_findings schema, process group timeout, README/docs JSON
+  envelope, doctor --enable mutation writes, `{}` placeholder substitution
+  in mutation runner.
+
+---
+
+## [0.4.0] — 2026-07-31
+
+### Added
+
+- `ah doctor --json` — emit structured recommendation findings
+- `ah report` — display a conformance coverage matrix
+- genesis v0.4.0 modules: doctor, feedback, cli, status, scaffold
+- Behavioral guardrails in AGENTS.md
+
+### Changed
+
+- `ah doctor` output now routes through `genesis::envelope`
+
+---
+
 ## [0.3.0] — 2026-07-21
 
 ### Added
@@ -117,6 +171,10 @@ Initial stable release. Covers two deployed change proposals:
 
 ---
 
-[Unreleased]: https://github.com/charly-vibes/espectacular/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/charly-vibes/espectacular/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/charly-vibes/espectacular/releases/tag/v0.5.0
+[0.4.0]: https://github.com/charly-vibes/espectacular/releases/tag/v0.4.0
+[0.3.0]: https://github.com/charly-vibes/espectacular/releases/tag/v0.3.0
+[0.2.2]: https://github.com/charly-vibes/espectacular/releases/tag/v0.2.2
 [0.2.0]: https://github.com/charly-vibes/espectacular/releases/tag/v0.2.0
 [0.1.0]: https://github.com/charly-vibes/espectacular/releases/tag/v0.1.0

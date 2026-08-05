@@ -287,7 +287,7 @@ mod tests {
         assert!(text.contains("description = \"\""), "description wrong");
         assert!(text.contains("archetype = \"\""), "archetype wrong");
         assert!(
-            text.contains("authored_with = \"0.4.0\""),
+            text.contains("authored_with = \"0.5.0\""),
             "authored_with wrong"
         );
     }

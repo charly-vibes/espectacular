@@ -63,14 +63,19 @@ const ESPECTACULAR_AGENTS_CONTENT: &str =
 canonical remediation steps. Use `ah explain <topic>` to look up the playbook for any \
 finding kind.\n";
 
-const DEFAULT_CONFIG_TOML: &str = r#"tool_version = "0.4.0"
+fn default_config_toml() -> String {
+    format!(
+        r#"tool_version = "{}"
 
 [paths]
 specs = "openspec/specs"
 changes = "openspec/changes"
 
 [runners]
-"#;
+"#,
+        env!("CARGO_PKG_VERSION")
+    )
+}
 
 // ── config text helpers (shared with doctor --enable) ────────────────────────
 
@@ -138,7 +143,7 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
     // Create .espectacular/ directory and default config.toml via genesis::scaffold
     let scaffold_result = Scaffold::new(repo_root)
         .dir(".espectacular")
-        .default_config(".espectacular/config.toml", DEFAULT_CONFIG_TOML)
+        .default_config(".espectacular/config.toml", &default_config_toml())
         .build()
         .context("cannot scaffold .espectacular/")?;
     for path in &scaffold_result.created {

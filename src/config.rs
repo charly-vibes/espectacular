@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn loads_valid_config() {
         let config = load(Path::new(VALID_REPO)).unwrap();
-        assert_eq!(config.tool_version, "0.4.0");
+        assert_eq!(config.tool_version, "0.5.0");
     }
 
     #[test]

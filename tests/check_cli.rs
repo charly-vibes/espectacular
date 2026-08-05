@@ -17,7 +17,7 @@ fn make_healthy_doctor_repo() -> tempfile::TempDir {
     fs::create_dir_all(root.join(".espectacular")).unwrap();
     fs::write(
         root.join(".espectacular/config.toml"),
-        "tool_version = \"0.4.0\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\n",
+        "tool_version = \"0.5.0\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\n",
     ).unwrap();
     fs::write(
         root.join("AGENTS.md"),
@@ -121,7 +121,7 @@ fn base_repo() -> tempfile::TempDir {
     .unwrap();
     fs::write(
         repo.join(".espectacular/config.toml"),
-        "tool_version = \"0.4.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n",
+        "tool_version = \"0.5.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n",
     )
     .unwrap();
     fs::write(
@@ -257,7 +257,7 @@ fn ah_check_pytest_contract_uses_adapter_dispatch() {
     fs::write(repo.join("pytest.ini"), "[pytest]\n").unwrap();
     fs::write(
         repo.join(".espectacular/config.toml"),
-        "tool_version = \"0.4.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\npytest = [\"/bin/sh\", \"pytest.sh\"]\n",
+        "tool_version = \"0.5.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\npytest = [\"/bin/sh\", \"pytest.sh\"]\n",
     )
     .unwrap();
     fs::write(
@@ -294,7 +294,7 @@ fn ah_check_pytest_failure_emits_execution_details() {
     fs::write(repo.join("pytest.ini"), "[pytest]\n").unwrap();
     fs::write(
         repo.join(".espectacular/config.toml"),
-        "tool_version = \"0.4.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\npytest = [\"/bin/sh\", \"pytest.sh\"]\n",
+        "tool_version = \"0.5.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\npytest = [\"/bin/sh\", \"pytest.sh\"]\n",
     )
     .unwrap();
     fs::write(
@@ -340,7 +340,7 @@ fn write_pytest_repo(
     fs::write(repo.join("pytest.ini"), "[pytest]\n").unwrap();
     fs::write(
         repo.join(".espectacular/config.toml"),
-        "tool_version = \"0.4.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\npytest = [\"/bin/sh\", \"pytest.sh\"]\n",
+        "tool_version = \"0.5.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\npytest = [\"/bin/sh\", \"pytest.sh\"]\n",
     )
     .unwrap();
     fs::write(
@@ -498,7 +498,7 @@ fn ah_check_python_pytest_e2e_zero_findings() {
     fs::write(repo.join("pytest.ini"), "[pytest]\n").unwrap();
     fs::write(
         repo.join(".espectacular/config.toml"),
-        "tool_version = \"0.4.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\npytest = [\"/bin/sh\", \"pytest.sh\"]\n",
+        "tool_version = \"0.5.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\npytest = [\"/bin/sh\", \"pytest.sh\"]\n",
     ).unwrap();
     fs::write(
         repo.join(".espectacular/app/pytest-green.toml"),
@@ -538,7 +538,7 @@ fn ah_check_rust_cargo_e2e_zero_findings() {
     .unwrap();
     fs::write(
         repo.join(".espectacular/config.toml"),
-        "tool_version = \"0.4.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\ncargo = [\"/bin/sh\", \"cargo.sh\"]\n",
+        "tool_version = \"0.5.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\ncargo = [\"/bin/sh\", \"cargo.sh\"]\n",
     ).unwrap();
     fs::write(
         repo.join(".espectacular/lib/cargo-green.toml"),
@@ -578,7 +578,7 @@ fn ah_check_typescript_vitest_e2e_zero_findings() {
     .unwrap();
     fs::write(
         repo.join(".espectacular/config.toml"),
-        "tool_version = \"0.4.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nvitest = [\"/bin/sh\", \"vitest.sh\"]\n",
+        "tool_version = \"0.5.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nvitest = [\"/bin/sh\", \"vitest.sh\"]\n",
     ).unwrap();
     fs::write(
         repo.join(".espectacular/ui/vitest-green.toml"),
@@ -618,7 +618,7 @@ fn make_mutation_repo() -> (tempfile::TempDir, tempfile::TempDir) {
     fs::write(
         root.join(".espectacular/config.toml"),
         format!(
-            "tool_version = \"0.4.0\"\n\
+            "tool_version = \"0.5.0\"\n\
              [paths]\n\
              specs = \"openspec/specs\"\n\
              changes = \"openspec/changes\"\n\
@@ -708,7 +708,7 @@ fn report_full_coverage_repo() -> tempfile::TempDir {
     .unwrap();
     fs::write(
         repo.join(".espectacular/config.toml"),
-        "tool_version = \"0.4.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n",
+        "tool_version = \"0.5.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n",
     )
     .unwrap();
     // Two specs, both with PF archetype, both covered
@@ -824,7 +824,7 @@ fn report_archetype_repo() -> tempfile::TempDir {
     .unwrap();
     fs::write(
         repo.join(".espectacular/config.toml"),
-        "tool_version = \"0.4.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n",
+        "tool_version = \"0.5.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n",
     )
     .unwrap();
     fs::write(
@@ -885,7 +885,7 @@ fn report_failing_repo() -> tempfile::TempDir {
     .unwrap();
     fs::write(
         repo.join(".espectacular/config.toml"),
-        "tool_version = \"0.4.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n",
+        "tool_version = \"0.5.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n",
     )
     .unwrap();
     fs::write(
