@@ -66,6 +66,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Validate spec-test correspondence (structural analysis by default, execution with --run-tests)
     Check {
         #[arg(long = "changes")]
         changes: Vec<String>,
@@ -75,24 +76,28 @@ enum Command {
         #[arg(long = "run-tests")]
         run_tests: bool,
     },
+    /// Run diagnostic checks or enable a capability
     Doctor {
         #[arg(long)]
         enable: Option<String>,
     },
+    /// Initialize espectacular in the project
     Init,
+    /// Generate a coverage report (spec-to-contract matrix)
     Report {},
-    Archive {
-        change: String,
-    },
-    Type {
-        name: Option<String>,
-    },
+    /// Archive a deployed change into specs
+    Archive { change: String },
+    /// Look up archetype definitions
+    Type { name: Option<String> },
+    /// Explain capabilities, archetypes, or list available topics
     Explain {
         topic: Option<String>,
         #[arg(long)]
         list: bool,
     },
+    /// Update tool_version in config to match binary
     Upgrade,
+    /// Manage scenarios (new, supersede)
     Scenario {
         #[command(subcommand)]
         command: ScenarioCommand,
@@ -116,6 +121,7 @@ enum Command {
 
 #[derive(Subcommand)]
 enum ScenarioCommand {
+    /// Create a new scenario under a change
     New {
         change: String,
         spec: String,
@@ -123,6 +129,7 @@ enum ScenarioCommand {
         requirement: String,
         heading: String,
     },
+    /// Supersede an old scenario with a new one
     Supersede {
         spec: String,
         old_id: String,
