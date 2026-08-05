@@ -715,8 +715,28 @@ fn report_finding(
 }
 
 fn zero_tests_ran(result: &TestResult) -> bool {
-    result.stdout_tail.contains("test result: ok. 0 passed")
-        || result.stderr_tail.contains("test result: ok. 0 passed")
+    let has_zero_line = result.stdout_tail.contains("test result: ok. 0 passed")
+        || result.stderr_tail.contains("test result: ok. 0 passed");
+    if !has_zero_line {
+        return false;
+    }
+    // Check that no "N passed" (N > 0) line appears anywhere in the output.
+    // This handles `cargo test` running multiple binaries — the last binary
+    // may print "0 passed" even though earlier binaries ran tests successfully.
+    !has_positive_passed(&result.stdout_tail) && !has_positive_passed(&result.stderr_tail)
+}
+
+fn has_positive_passed(output: &str) -> bool {
+    output.lines().any(|line| {
+        if let Some(rest) = line.strip_prefix("test result: ok. ") {
+            if let Some(num_str) = rest.split(' ').next() {
+                if let Ok(n) = num_str.parse::<u64>() {
+                    return n > 0;
+                }
+            }
+        }
+        false
+    })
 }
 
 fn no_tests_ran_report(scenario: &Scenario, specs_root: &Path, test: TestResult) -> ReportFinding {
@@ -1241,6 +1261,20 @@ mod tests {
         assert!(
             !output.findings.iter().any(|f| f.kind == "no-tests-ran"),
             "unexpected no-tests-ran finding"
+        );
+        assert_eq!(output.summary.passed, 1);
+    }
+
+    #[test]
+    fn shell_multiple_binaries_no_false_positive_no_tests_ran() {
+        let dir = shell_check_repo(
+            "printf 'test result: ok. 3 passed; 0 failed\\ntest result: ok. 0 passed; 0 failed\\n'",
+        );
+        let output = run_check(dir.path(), &[], true).unwrap();
+        assert!(
+            !output.findings.iter().any(|f| f.kind == "no-tests-ran"),
+            "multi-binary output with 3 passed then 0 passed must not emit no-tests-ran; got: {:?}",
+            output.findings
         );
         assert_eq!(output.summary.passed, 1);
     }
