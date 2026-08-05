@@ -64,13 +64,13 @@ fn doctor_json_emits_recommendation_findings() {
     let stdout = std::str::from_utf8(&output.get_output().stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(stdout).unwrap();
     let data = &json["data"];
-    let findings = data["findings"]
+    let suggestions = data["suggestions"]
         .as_array()
-        .expect("expected a findings array");
-    let rec = findings
+        .expect("expected a suggestions array");
+    let rec = suggestions
         .iter()
         .find(|f| f["kind"] == "recommendation")
-        .expect("expected a recommendation finding");
+        .expect("expected a recommendation suggestion");
     assert_eq!(rec["playbook_command"], "ah explain enable_capability");
     assert!(!rec["suggested_action"].as_str().unwrap_or("").is_empty());
     assert_eq!(rec["apply_command"], "ah doctor --enable pytest");

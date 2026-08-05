@@ -6,7 +6,6 @@ use crate::{config, contracts};
 use genesis::doctor::DoctorCheck;
 use genesis::status::StatusSection;
 use genesis::suite_linter::{LintResult, Severity};
-use serde::Serialize;
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
@@ -19,37 +18,23 @@ pub struct FrameworkDetection {
     pub detection_source: DetectionSource,
 }
 
+/// A suggestion to enable a detected-but-unconfigured capability.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct DoctorRecommendation {
+pub struct CapabilitySuggestion {
     pub capability: String,
     pub detail: String,
     pub apply_command: String,
 }
 
+/// Outcome of a doctor run: genesis report + domain-specific detections and suggestions.
 #[derive(Debug)]
-pub struct DoctorReport {
-    pub healthy: bool,
-    pub diagnostics: Vec<DoctorDiagnostic>,
+pub struct DoctorOutcome {
+    /// The genesis doctor report with all check results.
+    pub genesis_report: genesis::doctor::DoctorReport,
+    /// Framework detections (domain-specific, not in genesis).
     pub detections: Vec<FrameworkDetection>,
-    pub recommendations: Vec<DoctorRecommendation>,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct DoctorDiagnostic {
-    pub kind: String,
-    pub detail: String,
-    pub severity: Severity,
-}
-
-impl DoctorDiagnostic {
-    #[allow(dead_code)]
-    pub fn error(kind: impl Into<String>, detail: impl Into<String>) -> Self {
-        Self {
-            kind: kind.into(),
-            detail: detail.into(),
-            severity: Severity::Error,
-        }
-    }
+    /// Capability suggestions (domain-specific, not in genesis).
+    pub suggestions: Vec<CapabilitySuggestion>,
 }
 
 #[derive(Debug)]
@@ -62,6 +47,20 @@ const TOOL_VERSION: &str = env!("CARGO_PKG_VERSION");
 const KNOWN_CAPABILITIES: &[&str] = &[
     "pytest", "cargo", "vitest", "mutation", "property", "snapshot",
 ];
+
+/// Map a `genesis::doctor::CheckEntry` to a `StatusSection` item.
+fn check_entry_to_status_item(entry: genesis::doctor::CheckEntry) -> genesis::status::StatusItem {
+    let level = match entry.status {
+        genesis::doctor::CheckStatus::Fail => genesis::status::StatusLevel::Error,
+        genesis::doctor::CheckStatus::Warn => genesis::status::StatusLevel::Warning,
+        genesis::doctor::CheckStatus::Pass => genesis::status::StatusLevel::Healthy,
+    };
+    genesis::status::StatusItem {
+        label: entry.message,
+        value: String::new(),
+        level,
+    }
+}
 
 // ── DoctorCheck implementations ───────────────────────────────────────
 
@@ -365,7 +364,7 @@ fn framework_result(
     framework: &str,
     repo_root: &Path,
     cfg: &config::Config,
-) -> (Option<FrameworkDetection>, Option<DoctorRecommendation>) {
+) -> (Option<FrameworkDetection>, Option<CapabilitySuggestion>) {
     match adapters::detect(repo_root, cfg, framework) {
         Some(DetectionSource::Configured) => (
             Some(FrameworkDetection {
@@ -376,7 +375,7 @@ fn framework_result(
         ),
         Some(source) => (
             None,
-            Some(DoctorRecommendation {
+            Some(CapabilitySuggestion {
                 capability: framework.to_string(),
                 detail: format!("{framework} detected via {}", source_label(source)),
                 apply_command: format!("ah doctor --enable {framework}"),
@@ -389,7 +388,7 @@ fn framework_result(
 fn property_result(
     repo_root: &Path,
     cfg: &config::Config,
-) -> (Option<FrameworkDetection>, Option<DoctorRecommendation>) {
+) -> (Option<FrameworkDetection>, Option<CapabilitySuggestion>) {
     match detect_property(repo_root, cfg) {
         Some(DetectionSource::Configured) => (
             Some(FrameworkDetection {
@@ -400,7 +399,7 @@ fn property_result(
         ),
         Some(source) => (
             None,
-            Some(DoctorRecommendation {
+            Some(CapabilitySuggestion {
                 capability: "property".to_string(),
                 detail: format!(
                     "property-based testing framework detected via {}",
@@ -489,32 +488,16 @@ fn build_checks(repo_root: &Path) -> Vec<Box<dyn DoctorCheck>> {
 
 // ── Public API ────────────────────────────────────────────────────────
 
-pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
+pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorOutcome> {
     let checks = build_checks(repo_root);
     let mut detections: Vec<FrameworkDetection> = Vec::new();
-    let mut recommendations: Vec<DoctorRecommendation> = Vec::new();
+    let mut suggestions: Vec<CapabilitySuggestion> = Vec::new();
 
     // Run genesis doctor framework
     let runner = genesis::doctor::DoctorRunner::new(checks).with_tool_name("ah");
     let genesis_report = runner
         .run(repo_root, false)
         .map_err(|e| anyhow::anyhow!("{}", e))?;
-
-    // Map CheckEntry status to diagnostics
-    let diagnostics: Vec<DoctorDiagnostic> = genesis_report
-        .checks
-        .iter()
-        .filter(|c| c.status != genesis::doctor::CheckStatus::Pass)
-        .map(|c| DoctorDiagnostic {
-            kind: c.name.clone(),
-            detail: c.message.clone(),
-            severity: match c.status {
-                genesis::doctor::CheckStatus::Fail => Severity::Error,
-                genesis::doctor::CheckStatus::Warn => Severity::Warning,
-                _ => Severity::Advisory,
-            },
-        })
-        .collect();
 
     // Framework detection (domain-specific, not in genesis)
     if let Ok(cfg) = config::load(repo_root) {
@@ -524,7 +507,7 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
                 detections.push(d);
             }
             if let Some(r) = rec {
-                recommendations.push(r);
+                suggestions.push(r);
             }
         }
         let (det, rec) = property_result(repo_root, &cfg);
@@ -532,85 +515,83 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorReport> {
             detections.push(d);
         }
         if let Some(r) = rec {
-            recommendations.push(r);
+            suggestions.push(r);
         }
     }
 
-    let healthy = diagnostics.is_empty();
-    Ok(DoctorReport {
-        healthy,
-        diagnostics,
+    Ok(DoctorOutcome {
+        genesis_report,
         detections,
-        recommendations,
+        suggestions,
     })
 }
 
-// ── JSON output ───────────────────────────────────────────────────────
-
-#[derive(Debug, Serialize, PartialEq, Eq)]
-pub struct DoctorJsonOutput {
-    pub findings: Vec<DoctorFinding>,
-}
-
-#[derive(Debug, Serialize, PartialEq, Eq)]
-pub struct DoctorFinding {
-    pub kind: String,
-    pub suggested_action: String,
-    pub playbook_command: String,
-    pub apply_command: String,
-    pub detail: String,
-    pub capability: String,
-}
-
-pub fn doctor_to_json(report: &DoctorReport) -> DoctorJsonOutput {
-    let findings: Vec<DoctorFinding> = report
-        .recommendations
+/// Serialize a doctor outcome to a JSON envelope.
+///
+/// The envelope data contains both the genesis doctor report (checks, summary, tool)
+/// and the domain-specific suggestions as a `suggestions` array.
+pub fn doctor_to_envelope(outcome: &DoctorOutcome) -> serde_json::Value {
+    let suggestions_json: Vec<serde_json::Value> = outcome
+        .suggestions
         .iter()
-        .map(|rec| DoctorFinding {
-            kind: "recommendation".to_string(),
-            suggested_action: "enable_capability".to_string(),
-            playbook_command: "ah explain enable_capability".to_string(),
-            apply_command: rec.apply_command.clone(),
-            detail: rec.detail.clone(),
-            capability: rec.capability.clone(),
+        .map(|s| {
+            serde_json::json!({
+                "kind": "recommendation",
+                "suggested_action": "enable_capability",
+                "playbook_command": "ah explain enable_capability",
+                "apply_command": s.apply_command,
+                "detail": s.detail,
+                "capability": s.capability,
+            })
         })
         .collect();
-    DoctorJsonOutput { findings }
+
+    let data = serde_json::json!({
+        "tool": outcome.genesis_report.tool,
+        "checks": outcome.genesis_report.checks,
+        "summary": outcome.genesis_report.summary,
+        "suggestions": suggestions_json,
+    });
+
+    let envelope = genesis::envelope::Envelope::success(
+        genesis::envelope::EnvelopeKind::Doctor,
+        &data,
+        vec![],
+        vec![],
+    );
+    serde_json::to_value(&envelope).expect("envelope serialization")
 }
 
 // ── Status section ────────────────────────────────────────────────────
 
 #[allow(dead_code)]
 pub fn status_section(repo_root: &Path) -> Result<StatusSection, String> {
-    let report = run_doctor(repo_root).map_err(|e| e.to_string())?;
-    let summary = if report.healthy {
-        format!("all checks passed ({} detections)", report.detections.len())
-    } else {
+    let outcome = run_doctor(repo_root).map_err(|e| e.to_string())?;
+    let genesis_report = &outcome.genesis_report;
+
+    let summary = if genesis_report.is_healthy() {
         format!(
-            "{} issue(s) found",
-            report.diagnostics.len() + report.recommendations.len()
+            "all checks passed ({} detections)",
+            outcome.detections.len()
         )
+    } else {
+        let issues: Vec<_> = genesis_report
+            .checks
+            .iter()
+            .filter(|c| c.status.is_issue())
+            .collect();
+        format!("{} issue(s) found", issues.len())
     };
-    Ok(StatusSection::with_items(
-        "espectacular",
-        summary,
-        report
-            .diagnostics
-            .into_iter()
-            .map(|d| {
-                let level = match d.severity {
-                    Severity::Error => genesis::status::StatusLevel::Error,
-                    Severity::Warning => genesis::status::StatusLevel::Warning,
-                    Severity::Advisory => genesis::status::StatusLevel::Healthy,
-                };
-                genesis::status::StatusItem {
-                    label: d.detail,
-                    value: String::new(),
-                    level,
-                }
-            })
-            .collect(),
-    ))
+
+    let items: Vec<genesis::status::StatusItem> = genesis_report
+        .checks
+        .iter()
+        .filter(|c| !c.status.is_pass())
+        .cloned()
+        .map(check_entry_to_status_item)
+        .collect();
+
+    Ok(StatusSection::with_items("espectacular", summary, items))
 }
 
 // ── Enable capability ─────────────────────────────────────────────────
@@ -752,19 +733,33 @@ changes = "openspec/changes"
         )
     }
 
+    /// Checks that did not pass, in the genesis report.
+    fn issues(outcome: &DoctorOutcome) -> Vec<&genesis::doctor::CheckEntry> {
+        outcome
+            .genesis_report
+            .checks
+            .iter()
+            .filter(|c| !c.status.is_pass())
+            .collect()
+    }
+
+    fn has_issue(outcome: &DoctorOutcome, kind: &str) -> bool {
+        issues(outcome).iter().any(|c| c.name == kind)
+    }
+
     #[test]
     fn healthy_repo_exits_zero_with_no_diagnostics() {
         let repo = make_healthy_repo();
         let report = run_doctor(repo.path()).unwrap();
         assert!(
-            report.healthy,
+            report.genesis_report.is_healthy(),
             "healthy repo must report healthy=true; diagnostics: {:?}",
-            report.diagnostics
+            issues(&report)
         );
         assert!(
-            report.diagnostics.is_empty(),
+            issues(&report).is_empty(),
             "healthy repo must have no diagnostics; got: {:?}",
-            report.diagnostics
+            issues(&report)
         );
     }
 
@@ -777,11 +772,11 @@ changes = "openspec/changes"
         )
         .unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        assert!(!report.healthy);
+        assert!(!report.genesis_report.is_healthy());
         assert!(
-            report.diagnostics.iter().any(|d| d.kind == "config"),
+            has_issue(&report, "config"),
             "bad config must emit config diagnostic; got: {:?}",
-            report.diagnostics
+            issues(&report)
         );
     }
 
@@ -790,14 +785,11 @@ changes = "openspec/changes"
         let repo = make_healthy_repo();
         fs::remove_dir_all(repo.path().join("openspec/specs")).unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        assert!(!report.healthy);
+        assert!(!report.genesis_report.is_healthy());
         assert!(
-            report
-                .diagnostics
-                .iter()
-                .any(|d| d.kind == "missing-specs-dir"),
+            has_issue(&report, "missing-specs-dir"),
             "missing specs dir must emit missing-specs-dir diagnostic; got: {:?}",
-            report.diagnostics
+            issues(&report)
         );
     }
 
@@ -806,14 +798,11 @@ changes = "openspec/changes"
         let repo = make_healthy_repo();
         fs::remove_dir_all(repo.path().join("openspec/changes")).unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        assert!(!report.healthy);
+        assert!(!report.genesis_report.is_healthy());
         assert!(
-            report
-                .diagnostics
-                .iter()
-                .any(|d| d.kind == "missing-changes-dir"),
+            has_issue(&report, "missing-changes-dir"),
             "missing changes dir must emit missing-changes-dir diagnostic; got: {:?}",
-            report.diagnostics
+            issues(&report)
         );
     }
 
@@ -831,11 +820,11 @@ changes = "openspec/changes"
         )
         .unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        assert!(!report.healthy);
+        assert!(!report.genesis_report.is_healthy());
         assert!(
-            report.diagnostics.iter().any(|d| d.kind == "version-drift"),
+            has_issue(&report, "version-drift"),
             "version mismatch must emit version-drift diagnostic; got: {:?}",
-            report.diagnostics
+            issues(&report)
         );
     }
 
@@ -848,11 +837,11 @@ changes = "openspec/changes"
         )
         .unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        assert!(!report.healthy);
+        assert!(!report.genesis_report.is_healthy());
         assert!(
-            report.diagnostics.iter().any(|d| d.kind == "managed-block"),
+            has_issue(&report, "managed-block"),
             "missing managed block must emit managed-block diagnostic; got: {:?}",
-            report.diagnostics
+            issues(&report)
         );
     }
 
@@ -865,11 +854,11 @@ changes = "openspec/changes"
         )
         .unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        assert!(!report.healthy);
+        assert!(!report.genesis_report.is_healthy());
         assert!(
-            report.diagnostics.iter().any(|d| d.kind == "managed-block"),
+            has_issue(&report, "managed-block"),
             "missing managed block in CLAUDE.md must emit managed-block diagnostic; got: {:?}",
-            report.diagnostics
+            issues(&report)
         );
     }
 
@@ -878,14 +867,11 @@ changes = "openspec/changes"
         let repo = make_healthy_repo();
         fs::remove_file(repo.path().join("lefthook.yml")).unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        assert!(!report.healthy);
+        assert!(!report.genesis_report.is_healthy());
         assert!(
-            report
-                .diagnostics
-                .iter()
-                .any(|d| d.kind == "hook-framework"),
+            has_issue(&report, "hook-framework"),
             "no hook framework must emit hook-framework diagnostic; got: {:?}",
-            report.diagnostics
+            issues(&report)
         );
     }
 
@@ -897,14 +883,11 @@ changes = "openspec/changes"
         let content = "# Capability: compiler\n\n## DEPLOYED Requirements\n\n### Requirement: R\n\n#### Scenario: Empty input rejected\n- **GIVEN** x\n- **WHEN** y\n- **THEN** z\n\n#### Scenario: Empty input rejected\n- **GIVEN** x\n- **WHEN** y\n- **THEN** z\n";
         fs::write(spec_dir.join("spec.md"), content).unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        assert!(!report.healthy);
+        assert!(!report.genesis_report.is_healthy());
         assert!(
-            report
-                .diagnostics
-                .iter()
-                .any(|d| d.kind == "scenario-collisions"),
+            has_issue(&report, "scenario-collisions"),
             "duplicate scenario headings must emit scenario-collisions diagnostic; got: {:?}",
-            report.diagnostics
+            issues(&report)
         );
     }
 
@@ -919,14 +902,11 @@ changes = "openspec/changes"
         )
         .unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        assert!(!report.healthy);
+        assert!(!report.genesis_report.is_healthy());
         assert!(
-            report
-                .diagnostics
-                .iter()
-                .any(|d| d.kind == "orphan-contracts"),
+            has_issue(&report, "orphan-contracts"),
             "orphan contract must emit orphan-contracts diagnostic; got: {:?}",
-            report.diagnostics
+            issues(&report)
         );
     }
 
@@ -945,14 +925,11 @@ changes = "openspec/changes"
         )
         .unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        assert!(!report.healthy);
+        assert!(!report.genesis_report.is_healthy());
         assert!(
-            report
-                .diagnostics
-                .iter()
-                .any(|d| d.kind == "unknown-archetypes"),
+            has_issue(&report, "unknown-archetypes"),
             "unknown archetype must emit unknown-archetypes diagnostic; got: {:?}",
-            report.diagnostics
+            issues(&report)
         );
     }
 
@@ -965,10 +942,9 @@ changes = "openspec/changes"
         )
         .unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        let config_count = report
-            .diagnostics
+        let config_count = issues(&report)
             .iter()
-            .filter(|d| d.kind == "config")
+            .filter(|c| c.name == "config")
             .count();
         assert_eq!(config_count, 1, "should emit exactly one config diagnostic");
     }
@@ -1063,9 +1039,9 @@ changes = "openspec/changes"
         fs::write(repo.path().join("pytest.ini"), "[pytest]\n").unwrap();
         let report = run_doctor(repo.path()).unwrap();
         assert!(
-            report.healthy,
+            report.genesis_report.is_healthy(),
             "recommendations must not make healthy=false; diagnostics: {:?}",
-            report.diagnostics
+            issues(&report)
         );
     }
 
@@ -1074,14 +1050,11 @@ changes = "openspec/changes"
         let repo = make_healthy_repo();
         fs::write(repo.path().join("pytest.ini"), "[pytest]\n").unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        let rec = report
-            .recommendations
-            .iter()
-            .find(|r| r.capability == "pytest");
+        let rec = report.suggestions.iter().find(|r| r.capability == "pytest");
         assert!(
             rec.is_some(),
             "pytest detected via manifest must emit recommendation; got: {:?}",
-            report.recommendations
+            report.suggestions
         );
         let rec = rec.unwrap();
         assert_eq!(
@@ -1095,14 +1068,11 @@ changes = "openspec/changes"
         let repo = make_healthy_repo();
         fs::write(repo.path().join("Cargo.toml"), "[package]\nname = \"x\"\n").unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        let rec = report
-            .recommendations
-            .iter()
-            .find(|r| r.capability == "cargo");
+        let rec = report.suggestions.iter().find(|r| r.capability == "cargo");
         assert!(
             rec.is_some(),
             "cargo detected via manifest must emit recommendation; got: {:?}",
-            report.recommendations
+            report.suggestions
         );
         assert_eq!(rec.unwrap().apply_command, "ah doctor --enable cargo");
     }
@@ -1116,14 +1086,11 @@ changes = "openspec/changes"
         )
         .unwrap();
         let report = run_doctor(repo.path()).unwrap();
-        let rec = report
-            .recommendations
-            .iter()
-            .find(|r| r.capability == "vitest");
+        let rec = report.suggestions.iter().find(|r| r.capability == "vitest");
         assert!(
             rec.is_some(),
             "vitest detected via manifest must emit recommendation; got: {:?}",
-            report.recommendations
+            report.suggestions
         );
         assert_eq!(rec.unwrap().apply_command, "ah doctor --enable vitest");
     }
@@ -1138,13 +1105,13 @@ changes = "openspec/changes"
         .unwrap();
         let report = run_doctor(repo.path()).unwrap();
         let rec = report
-            .recommendations
+            .suggestions
             .iter()
             .find(|r| r.capability == "property");
         assert!(
             rec.is_some(),
             "hypothesis in pyproject must emit property recommendation; got: {:?}",
-            report.recommendations
+            report.suggestions
         );
         assert_eq!(rec.unwrap().apply_command, "ah doctor --enable property");
     }
@@ -1169,12 +1136,9 @@ changes = "openspec/changes"
             "configured pytest should be in detections"
         );
         assert!(
-            !report
-                .recommendations
-                .iter()
-                .any(|r| r.capability == "pytest"),
+            !report.suggestions.iter().any(|r| r.capability == "pytest"),
             "configured pytest must NOT be in recommendations; got: {:?}",
-            report.recommendations
+            report.suggestions
         );
     }
 

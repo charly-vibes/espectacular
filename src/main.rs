@@ -259,8 +259,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
         Command::Doctor { enable } => {
             if cli.json {
                 let report = doctor::run_doctor(&std::env::current_dir()?)?;
-                let output = doctor::doctor_to_json(&report);
-                println!("{}", to_json_envelope(EnvelopeKind::Doctor, &output));
+                println!("{}", doctor::doctor_to_envelope(&report));
                 return Ok(());
             }
             if let Some(capability) = enable {
@@ -282,17 +281,22 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                     crate::adapters::detection_source_label(det.detection_source)
                 );
             }
-            for rec in &report.recommendations {
+            for rec in &report.suggestions {
                 println!(
                     "recommendation: {} — run: {}",
                     rec.detail, rec.apply_command
                 );
             }
-            if report.healthy {
+            if report.genesis_report.is_healthy() {
                 println!("healthy: all checks passed");
             } else {
-                for d in &report.diagnostics {
-                    eprintln!("{}: {}", d.kind, d.detail);
+                for entry in report
+                    .genesis_report
+                    .checks
+                    .iter()
+                    .filter(|c| !c.status.is_pass())
+                {
+                    eprintln!("{}: {}", entry.name, entry.message);
                 }
                 std::process::exit(1);
             }
