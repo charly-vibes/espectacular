@@ -100,8 +100,8 @@ fn trio_finding(
                 category: "quality".to_string(),
                 kill_rate: None,
                 threshold: None,
-                suggested_action: format!("enable_capability"),
-                playbook_command: format!("ah explain enable_capability"),
+                suggested_action: "enable_capability".to_string(),
+                playbook_command: "ah explain enable_capability".to_string(),
                 message: format!("{kind} tool reported {finding_count} finding(s)"),
             }))
         }
