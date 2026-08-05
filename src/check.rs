@@ -123,10 +123,12 @@ pub fn structural_findings(specs_dir: &str, contracts_dir: &str) -> anyhow::Resu
         })
         .collect();
     let contract_files = collect_base_contract_files(Path::new(contracts_dir));
-    Ok(collect_structural_findings(&resolved, &contract_files)
-        .into_iter()
-        .map(|finding| Finding::structural(&finding.spec, &finding.scenario.id, &finding.kind))
-        .collect())
+    Ok(
+        collect_structural_findings(&resolved, &contract_files, Path::new(specs_dir))
+            .into_iter()
+            .map(|finding| Finding::structural(&finding.spec, &finding.scenario.id, &finding.kind))
+            .collect(),
+    )
 }
 
 fn resolve_scope(
@@ -261,6 +263,7 @@ fn evaluate_scope(
     findings.extend(collect_structural_findings(
         &scope.scenarios,
         &scope.contract_files,
+        specs_root,
     ));
 
     let blocked = blocked_scenarios(&findings);
@@ -425,6 +428,7 @@ fn evaluate_scope(
 fn collect_structural_findings(
     scenarios: &[ResolvedScenario],
     contract_files: &[(String, String, PathBuf)],
+    specs_root: &Path,
 ) -> Vec<ReportFinding> {
     let mut findings = Vec::new();
     let bare_scenarios: Vec<_> = scenarios
@@ -448,7 +452,7 @@ fn collect_structural_findings(
         if let Some(resolved) = scenario_map.get(&(spec.clone(), id.clone())) {
             findings.push(structural_report(
                 &resolved.scenario,
-                spec_path_root(&resolved.scenario),
+                specs_root,
                 "slug-collision",
                 None,
             ));
@@ -480,31 +484,21 @@ fn collect_structural_findings(
         }
 
         if !resolved.contract_path.exists() {
-            findings.push(structural_report(
-                scenario,
-                spec_path_root(scenario),
-                "no-toml",
-                None,
-            ));
+            findings.push(structural_report(scenario, specs_root, "no-toml", None));
             continue;
         }
 
         match contracts::load_contract(resolved.contract_path.to_str().unwrap()) {
             Ok(contract) => {
                 if contract.id != scenario.id {
-                    findings.push(structural_report(
-                        scenario,
-                        spec_path_root(scenario),
-                        "id-mismatch",
-                        None,
-                    ));
+                    findings.push(structural_report(scenario, specs_root, "id-mismatch", None));
                 }
                 if contract.tests.is_empty()
                     || contract.tests.values().all(|entries| entries.is_empty())
                 {
                     findings.push(structural_report(
                         scenario,
-                        spec_path_root(scenario),
+                        specs_root,
                         "no-tests-declared",
                         None,
                     ));
@@ -515,7 +509,7 @@ fn collect_structural_findings(
                 {
                     findings.push(structural_report(
                         scenario,
-                        spec_path_root(scenario),
+                        specs_root,
                         "missing-replacement",
                         Some(format!(
                             "replacement scenario '{}' is absent from scope",
@@ -527,7 +521,7 @@ fn collect_structural_findings(
             Err(error) => {
                 findings.push(structural_report(
                     scenario,
-                    spec_path_root(scenario),
+                    specs_root,
                     "malformed-contract",
                     Some(error.to_string()),
                 ));
@@ -535,7 +529,7 @@ fn collect_structural_findings(
         }
     }
 
-    findings.extend(orphan_reports(contract_files, &scenario_map));
+    findings.extend(orphan_reports(contract_files, &scenario_map, specs_root));
     findings.sort_by(report_finding_cmp);
     findings
 }
@@ -543,6 +537,7 @@ fn collect_structural_findings(
 fn orphan_reports(
     contract_files: &[(String, String, PathBuf)],
     scenarios: &BTreeMap<(String, String), &ResolvedScenario>,
+    specs_root: &Path,
 ) -> Vec<ReportFinding> {
     let mut findings = Vec::new();
     let mut seen = HashSet::new();
@@ -558,8 +553,8 @@ fn orphan_reports(
             "structural",
             spec.clone(),
             path.parent()
-                .map(|_| format!("openspec/specs/{spec}/spec.md"))
-                .unwrap_or_else(|| format!("openspec/specs/{spec}/spec.md")),
+                .map(|_| spec_markdown_path(specs_root, spec))
+                .unwrap_or_else(|| spec_markdown_path(specs_root, spec)),
             ScenarioContext {
                 id: id.clone(),
                 title: String::new(),
@@ -811,14 +806,6 @@ fn spec_markdown_path(specs_root: &Path, spec: &str) -> String {
         .join("spec.md")
         .to_string_lossy()
         .into_owned()
-}
-
-fn spec_path_root(scenario: &Scenario) -> &Path {
-    if scenario.spec_path.contains('/') {
-        Path::new("")
-    } else {
-        Path::new("openspec/specs")
-    }
 }
 
 #[cfg(test)]
@@ -1305,5 +1292,43 @@ mod tests {
             .findings
             .iter()
             .any(|f| f.kind == "missing-replacement"));
+    }
+
+    #[test]
+    fn configured_specs_path_used_in_structural_findings() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        // Use a non-default specs root
+        fs::create_dir_all(repo.join("myspecs/compiler")).unwrap();
+        fs::create_dir_all(repo.join(".espectacular/compiler")).unwrap();
+        fs::write(
+            repo.join("myspecs/compiler/spec.md"),
+            "# Capability: compiler\n\n#### Scenario: Green path\n- **WHEN** it runs\n- **THEN** it passes\n",
+        )
+        .unwrap();
+        fs::write(
+            repo.join(".espectacular/config.toml"),
+            "tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"myspecs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n",
+        )
+        .unwrap();
+        // No contract for this scenario — triggers a no-toml structural finding
+        write_executable(&repo.join("runner.sh"), "exit 0");
+
+        let output = run_check(dir.path(), &[], false).unwrap();
+        let no_toml = output
+            .findings
+            .iter()
+            .find(|f| f.kind == "no-toml")
+            .expect("expected no-toml finding");
+        assert!(
+            no_toml.spec_path.contains("myspecs/"),
+            "spec_path should use configured specs root 'myspecs', got: {}",
+            no_toml.spec_path
+        );
+        assert!(
+            !no_toml.spec_path.contains("openspec/specs"),
+            "spec_path should not contain default 'openspec/specs', got: {}",
+            no_toml.spec_path
+        );
     }
 }
