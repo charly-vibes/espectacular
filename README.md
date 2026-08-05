@@ -268,6 +268,9 @@ Each finding includes:
 | `overlay-conflict` | structural | selected changes define conflicting staged scenarios or staged contract updates |
 | `test-failing` | execution | a declared test timed out or exited non-zero |
 | `quality-mutation` | quality | mutation testing score meets or exceeds threshold |
+| `quality-composability` | quality | composability tool (vampiro) reported findings |
+| `quality-cost` | quality | cost analysis tool (crua) reported findings |
+| `quality-boundary-coverage` | quality | boundary coverage tool (livin) reported findings |
 | `quality-property` | quality | property-based testing is active and passing |
 | `quality-snapshot` | quality | snapshot testing is active and passing |
 
@@ -345,6 +348,30 @@ command = ["/bin/sh", "{}"]
 ```
 
 `{}` in `command` is replaced with a generated runner script path. When the mutation score meets or exceeds `threshold`, a `quality-mutation` finding appears. If the tool exits non-zero, a `test-failing` finding is emitted instead.
+
+### Suite-trio quality signals (vampiro / crua / livin)
+
+```toml
+[quality.composability]
+enabled = true
+command = ["vampiro", "check", "--format", "json"]
+
+[quality.cost]
+enabled = true
+command = ["crua", "check", "--format", "json"]
+
+[quality.boundary-coverage]
+enabled = true
+command = ["livin", "check", "--format", "json"]
+```
+
+Each tool must emit a custom-runner JSON envelope on stdout with an optional
+`findings` array. When findings are present, a `quality-*` finding is emitted.
+If the tool exits non-zero, a tool error is reported. These signals are
+informational only (do not cause `ah check` to exit non-zero).
+
+Absence of these tools is a graceful no-op — no error is raised when the
+config section is missing.
 
 ### Property-based testing
 

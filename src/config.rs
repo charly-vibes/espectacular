@@ -35,6 +35,15 @@ pub struct Config {
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct QualityConfig {
     pub mutation: Option<MutationConfig>,
+    pub composability: Option<QualityToolConfig>,
+    pub cost: Option<QualityToolConfig>,
+    pub boundary_coverage: Option<QualityToolConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct QualityToolConfig {
+    pub enabled: bool,
+    pub command: Vec<String>,
 }
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
