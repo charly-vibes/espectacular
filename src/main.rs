@@ -26,7 +26,7 @@ use std::io::Write;
 
 /// Wrap any serializable data in a shared genesis envelope.
 fn to_json_envelope<T: serde::Serialize>(kind: EnvelopeKind, data: T) -> String {
-    let env: Envelope<T> = Envelope::success(kind, data, vec![], vec![]);
+    let env: Envelope<T> = Envelope::success(env!("CARGO_PKG_VERSION"), kind, data, vec![], vec![]);
     serde_json::to_string(&env).expect("envelope serialization")
 }
 

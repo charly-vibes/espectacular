@@ -417,9 +417,9 @@ dependencies = [
 
 [[package]]
 name = "genesis-vibes"
-version = "0.4.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f486c1c0b7b9611e9dfb701ad97ea6a0d71e95f66c90a323d67920b2883d8c22"
+checksum = "1e47f71a1abbe88e179a99f0358d429f4b2c0cd897e5c6eb4c2014feb8004cff"
 dependencies = [
  "clap",
  "clap_complete",

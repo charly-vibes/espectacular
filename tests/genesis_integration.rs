@@ -9,7 +9,13 @@ use genesis::{
 #[test]
 fn genesis_modules_are_resolvable() {
     // ── Envelope ──────────────────────────────────────────────────────
-    let _env: Envelope<&str> = Envelope::success(EnvelopeKind::Ok, "hello", vec![], vec![]);
+    let _env: Envelope<&str> = Envelope::success(
+        env!("CARGO_PKG_VERSION"),
+        EnvelopeKind::Ok,
+        "hello",
+        vec![],
+        vec![],
+    );
     assert!(_env.ok);
     assert_eq!(_env.envelope_kind, EnvelopeKind::Ok);
     assert_eq!(_env.data, "hello");
@@ -27,7 +33,7 @@ fn genesis_modules_are_resolvable() {
         }],
     )
     .unwrap();
-    let _err_env = Envelope::error(err, vec![]);
+    let _err_env = Envelope::error(env!("CARGO_PKG_VERSION"), err, vec![]);
     assert!(!_err_env.ok);
 
     // ── Suggestions ───────────────────────────────────────────────────

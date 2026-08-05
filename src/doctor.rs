@@ -554,6 +554,7 @@ pub fn doctor_to_envelope(outcome: &DoctorOutcome) -> serde_json::Value {
     });
 
     let envelope = genesis::envelope::Envelope::success(
+        env!("CARGO_PKG_VERSION"),
         genesis::envelope::EnvelopeKind::Doctor,
         &data,
         vec![],
@@ -676,7 +677,7 @@ pub fn run_doctor_enable(repo_root: &Path, capability: &str) -> anyhow::Result<D
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::init::{append_capability_block, insert_runner_entry};
+    use crate::init::insert_runner_entry;
     use std::fs;
     use tempfile::TempDir;
 
