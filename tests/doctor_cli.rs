@@ -111,7 +111,7 @@ fn doctor_enable_vitest_writes_runner_and_reports_table() {
 }
 
 #[test]
-fn doctor_enable_mutation_writes_capability_block() {
+fn doctor_enable_mutation_writes_quality_mutation_config() {
     let repo = make_minimal_repo();
     Command::cargo_bin("ah")
         .unwrap()
@@ -119,11 +119,19 @@ fn doctor_enable_mutation_writes_capability_block() {
         .args(["doctor", "--enable", "mutation"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("capabilities.mutation"));
+        .stdout(predicates::str::contains("quality.mutation"));
     let config = fs::read_to_string(repo.path().join(".espectacular/config.toml")).unwrap();
     assert!(
-        config.contains("[capabilities.mutation]") && config.contains("enabled = true"),
-        "mutation capability block must be in config; got:\n{config}"
+        config.contains("[quality.mutation]") && config.contains("enabled = true"),
+        "mutation quality block must be in config; got:\n{config}"
+    );
+    assert!(
+        config.contains("threshold = 0.80"),
+        "must include default threshold; got:\n{config}"
+    );
+    assert!(
+        config.contains("command = [\"\"]"),
+        "must include command placeholder; got:\n{config}"
     );
 }
 

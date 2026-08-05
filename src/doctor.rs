@@ -648,15 +648,18 @@ pub fn run_doctor_enable(repo_root: &Path, capability: &str) -> anyhow::Result<D
             })
         }
         "mutation" => {
-            if cfg.capabilities.mutation.is_some() {
+            if cfg.quality.mutation.is_some() {
                 return Ok(DoctorEnableResult::AlreadyEnabled);
             }
             let text = fs::read_to_string(&config_path)?;
-            let updated = append_capability_block(&text, "mutation");
+            let trimmed = text.trim_end();
+            let updated = format!(
+                "{trimmed}\n\n[quality.mutation]\nenabled = true\nthreshold = 0.80\ncommand = [\"\"]\n"
+            );
             fs::write(&config_path, &updated)?;
             Ok(DoctorEnableResult::Written {
                 path: config_path.to_string_lossy().into_owned(),
-                table_name: "capabilities.mutation".to_string(),
+                table_name: "quality.mutation".to_string(),
             })
         }
         "property" => {
