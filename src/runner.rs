@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::contracts::TestEntry;
 use serde::{Deserialize, Serialize};
+use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::thread;
@@ -78,7 +79,8 @@ pub fn execute_command(repo_root: &Path, planned: &PlannedCommand) -> anyhow::Re
         .current_dir(repo_root)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .stderr(Stdio::piped())
+        .process_group(0); // isolate in its own process group
 
     let mut child = command.spawn()?;
     let started = Instant::now();
@@ -88,6 +90,10 @@ pub fn execute_command(repo_root: &Path, planned: &PlannedCommand) -> anyhow::Re
             break false;
         }
         if started.elapsed() >= timeout {
+            // Kill the entire process group so grandchild processes
+            // holding inherited pipes also die.
+            let pgid = child.id() as i32;
+            unsafe { libc::killpg(pgid, libc::SIGTERM) };
             child.kill()?;
             break true;
         }
@@ -239,6 +245,34 @@ mod tests {
         let result = execute_command(dir.path(), &planned).unwrap();
 
         assert!(result.timed_out);
+    }
+
+    #[test]
+    fn timeout_kills_process_group_children() {
+        let dir = tempfile::tempdir().unwrap();
+        // Child runs a long command AND backgrounds a grandchild that holds
+        // stdout open. Without process-group kill, child.kill() kills only
+        // the direct child but wait_with_output blocks until the grandchild
+        // closes the inherited pipe.
+        let helper = write_helper(dir.path(), "(sleep 20) &\nsleep 10");
+        let config = config_with_runner("unit", vec!["/bin/sh", helper.to_str().unwrap()]);
+        let entry = TestEntry {
+            flags: Some("flag".to_string()),
+            command: None,
+            timeout_seconds: Some(1),
+        };
+
+        let planned = compose_command(&config, "unit", &entry).unwrap();
+        let started = std::time::Instant::now();
+        let result = execute_command(dir.path(), &planned).unwrap();
+        let elapsed = started.elapsed();
+
+        assert!(result.timed_out, "expected timed_out=true");
+        // Must return near the 1s deadline, not block for 10s
+        assert!(
+            elapsed < std::time::Duration::from_secs(3),
+            "took {elapsed:?} — grandchild process not killed"
+        );
     }
 
     #[test]

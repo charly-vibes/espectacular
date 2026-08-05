@@ -313,6 +313,7 @@ dependencies = [
  "clap_complete",
  "genesis-vibes",
  "jsonschema",
+ "libc",
  "predicates",
  "serde",
  "serde_json",
