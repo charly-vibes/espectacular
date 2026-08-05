@@ -143,7 +143,7 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
     // Create .espectacular/ directory and default config.toml via genesis::scaffold
     let scaffold_result = Scaffold::new(repo_root)
         .dir(".espectacular")
-        .default_config(".espectacular/config.toml", &default_config_toml())
+        .default_config(".espectacular/config.toml", default_config_toml())
         .build()
         .context("cannot scaffold .espectacular/")?;
     for path in &scaffold_result.created {
