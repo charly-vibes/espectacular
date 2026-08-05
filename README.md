@@ -212,17 +212,26 @@ Requirement targeting is explicit: `ah scenario new` appends under the named `##
 
 `ah check` always prints a stable JSON envelope to stdout.
 
-Success shape:
+Success shape (envelope wrapper shown; examples below show the `data` field only):
 
 ```json
 {
-  "scope": { "deployed": true, "changes": [] },
-  "summary": { "structural": 0, "execution": 0, "passed": 1, "counts_by_kind": {} },
-  "findings": []
+  "ok": true,
+  "envelope_version": "0.1",
+  "cli_version": "0.4.0",
+  "envelope_kind": "ok",
+  "data": {
+    "scope": { "deployed": true, "changes": [] },
+    "summary": { "structural": 0, "execution": 0, "passed": 1, "counts_by_kind": {} },
+    "findings": []
+  },
+  "warnings": [],
+  "hints": [],
+  "meta": { "duration_ms": 0, "tx": null, "request_id": null, "author": null }
 }
 ```
 
-Top-level fields:
+`data` fields:
 
 - `scope.deployed`: always `true` in v1
 - `scope.changes`: selected change ids, sorted and deduplicated

@@ -34,6 +34,8 @@ ah check [--changes <id>]
 
 **Exit codes:** 0 when `findings` contains no structural or execution findings; 1 otherwise. Quality findings (`quality-*`) never cause a non-zero exit.
 
+**Note:** All JSON examples below show the `data` field of the genesis envelope — actual output wraps these fields in `{ok, envelope_version, cli_version, envelope_kind, data, warnings, hints, meta}`.
+
 **Example — clean run:**
 
 ```bash
@@ -42,9 +44,18 @@ ah check
 
 ```json
 {
-  "scope": { "deployed": true, "changes": [] },
-  "summary": { "structural": 0, "execution": 0, "passed": 3, "counts_by_kind": {} },
-  "findings": []
+  "ok": true,
+  "envelope_version": "0.1",
+  "cli_version": "0.4.0",
+  "envelope_kind": "ok",
+  "data": {
+    "scope": { "deployed": true, "changes": [] },
+    "summary": { "structural": 0, "execution": 0, "passed": 3, "counts_by_kind": {} },
+    "findings": []
+  },
+  "warnings": [],
+  "hints": [],
+  "meta": { "duration_ms": 0, "tx": null, "request_id": null, "author": null }
 }
 ```
 
