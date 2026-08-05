@@ -295,8 +295,9 @@ fn stub_contract_if_missing(
         .with_context(|| format!("cannot create {}", contract_dir.display()))?;
 
     let stub = format!(
-        "id = \"{id}\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n",
-        id = scenario.id
+        "id = \"{id}\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"{version}\"\n",
+        id = scenario.id,
+        version = env!("CARGO_PKG_VERSION")
     );
     write_text(&contract_path, stub)?;
 
