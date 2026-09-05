@@ -7,7 +7,7 @@
 ## 2. Test fixtures
 
 - [ ] 2.1 Write fixture spec files covering each check: one "defective" fixture triggering the finding and one "clean" fixture that should pass silently
-- [ ] 2.2 Write failing unit tests for each check (six tests, one per kind) against the fixtures from 2.1
+- [ ] 2.2 Write failing unit tests for each check (seven tests, one per kind) against the fixtures from 2.1
 - [ ] 2.3 Write failing integration test: `ah lint` on defective fixture produces expected finding kinds
 - [ ] 2.4 Write failing integration test: `ah lint` on clean fixture produces zero findings
 - [ ] 2.5 Write failing integration test: `ah lint --json` emits valid JSON matching the finding schema
@@ -22,6 +22,7 @@ Implement each check to make the corresponding failing tests pass.
 - [ ] 3.4 `missing-negative-scenario`: flag requirements with no scenario testing an error, rejection, or boundary violation
 - [ ] 3.5 `missing-non-goals`: flag spec files that lack a Non-Goals or Out-of-Scope section at the capability level
 - [ ] 3.6 `unresolved-ambiguity`: flag requirements or scenarios containing `[NEEDS CLARIFICATION` markers
+- [ ] 3.7 `entangled-spec`: flag scenarios with contract archetype `PF` or `SA` whose text references presentation primitives; matcher list excludes domain-legitimate terms (e.g., "event routing")
 
 ## 4. CLI integration
 
@@ -37,4 +38,4 @@ Implement each check to make the corresponding failing tests pass.
 
 ## 6. Explain topics
 
-- [ ] 6.1 Add `ah explain` topics for each lint finding kind (6 topics)
+- [ ] 6.1 Add `ah explain` topics for each lint finding kind (7 topics)

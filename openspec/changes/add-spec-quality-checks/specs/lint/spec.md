@@ -111,6 +111,25 @@ The system SHALL flag requirements and scenarios that contain `[NEEDS CLARIFICAT
 - **WHEN** `ah lint` runs
 - **THEN** no `unresolved-ambiguity` finding is emitted for that requirement
 
+### Requirement: Entangled Specification Detection
+The system SHALL flag scenarios whose contract archetype is `PF` or `SA` but whose text references presentation-layer primitives (buttons, modals, colors, CSS selectors, component names, client routes), since the archetype declares the scenario belongs to a layer where UI mechanics must not appear. The same text in a `BP` scenario is not flagged, as transport mechanics are legitimate at a boundary seam.
+
+#### Scenario: Flag UI primitive in PF scenario
+- **GIVEN** a scenario with contract archetype `PF` whose THEN step contains "a green notification banner is displayed"
+- **WHEN** `ah lint` runs
+- **THEN** the command emits an `entangled-spec` finding
+- **AND** the finding suggests specifying the domain event or state instead of the visual primitive
+
+#### Scenario: Do not flag transport mechanics in BP scenario
+- **GIVEN** a scenario with contract archetype `BP` whose WHEN step contains "navigates to /dashboard/settings"
+- **WHEN** `ah lint` runs
+- **THEN** no `entangled-spec` finding is emitted for that scenario
+
+#### Scenario: Do not flag domain language resembling UI terms
+- **GIVEN** a scenario with contract archetype `SA` whose text contains "the event routing layer delivers the message"
+- **WHEN** `ah lint` runs
+- **THEN** no `entangled-spec` finding is emitted, as the matcher list excludes domain-legitimate uses of superficially similar terms
+
 ### Requirement: Lint Finding Schema
 The system SHALL emit lint findings using the same stable JSON envelope as `ah check`, enabling agent harnesses to consume both without separate parsing logic.
 
@@ -121,7 +140,7 @@ The system SHALL emit lint findings using the same stable JSON envelope as `ah c
 - **AND** findings that reference a specific scenario also contain `scenario_id` and `scenario_title`
 
 #### Scenario: Lint findings are warning severity by default
-- **GIVEN** `ah lint` produces findings for any of the six check categories
+- **GIVEN** `ah lint` produces warning-severity findings for any lint check category
 - **WHEN** the JSON output is inspected
 - **THEN** every finding has `severity = "warning"`
 

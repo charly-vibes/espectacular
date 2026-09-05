@@ -12,7 +12,8 @@ Depends on: `add-spec-assertions` and `add-quality-measurement-and-adapters` bei
 
 - Add `ah lint` command that statically analyzes OpenSpec scenario files for quality findings.
 - Emit findings in the same stable JSON schema as `ah check`, making them agent-consumable without a new parsing surface.
-- Cover six check categories derived from research: `vague-qualifier`, `imperative-step`, `conjunctive-bloat`, `missing-negative-scenario`, `missing-non-goals`, and `unresolved-ambiguity`.
+- Cover seven check categories derived from research: `vague-qualifier`, `imperative-step`, `conjunctive-bloat`, `missing-negative-scenario`, `missing-non-goals`, `unresolved-ambiguity`, and `entangled-spec`.
+- `entangled-spec` is archetype-gated (added from follow-up research, 2026-09-05): UI primitives are flagged in `PF`/`SA` scenarios only, since the archetype declares the expected layer — transport and UI mechanics are legitimate in `BP` scenarios but not in pure-functional or stateful-API ones. Findings remain advisory (`warning` severity), so no per-finding waiver mechanism is needed in v1.
 - All lint findings are `warning` severity in v1; `ah lint` exits non-zero only when findings with `severity = error` exist (structural issues such as malformed spec files).
 - Integrate `ah lint` into `ah doctor` as a suggested step, not as a gate blocker.
 
