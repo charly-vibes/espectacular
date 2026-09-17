@@ -56,7 +56,7 @@ jobs:
           cp target/x86_64-unknown-linux-gnu/release/ah bins/linux_amd64/ah
           cp target/aarch64-unknown-linux-gnu/release/ah bins/linux_arm64/ah
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: bins-linux
           path: bins/
@@ -88,7 +88,7 @@ jobs:
           cp target/x86_64-apple-darwin/release/ah bins/darwin_amd64/ah
           cp target/aarch64-apple-darwin/release/ah bins/darwin_arm64/ah
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: bins-darwin
           path: bins/
@@ -117,7 +117,7 @@ jobs:
           mkdir -p bins/windows_amd64
           cp target/x86_64-pc-windows-msvc/release/ah.exe bins/windows_amd64/ah.exe
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: bins-windows
           path: bins/
