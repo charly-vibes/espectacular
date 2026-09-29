@@ -1,5 +1,7 @@
 # Proposal: adopt-dual-format-specs
 
+Status: approved (2026-09-29)
+
 ## Why
 
 espectacular consumes openspec `spec.md` files but treats them as unstructured
