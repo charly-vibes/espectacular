@@ -526,15 +526,20 @@ mod tests {
         )
         .unwrap();
         run_init(repo.path()).unwrap();
-        let once = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
-        run_init(repo.path()).unwrap();
         let twice = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
+        run_init(repo.path()).unwrap();
+        let twice_after = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
         assert_eq!(
             once_matches(&twice, "ah:managed:start"),
             1,
+            "first init injects exactly one managed block"
+        );
+        assert_eq!(
+            once_matches(&twice_after, "ah:managed:start"),
+            1,
             "second init must not duplicate the managed block"
         );
-        assert!(twice.contains("ah check"));
+        assert!(twice_after.contains("ah check"));
     }
 
     #[test]
