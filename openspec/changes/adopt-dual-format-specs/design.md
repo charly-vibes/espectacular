@@ -69,13 +69,15 @@ gate-model gap (openspec MODIFIED requirements are inexpressible), filed as
 beads `espectacular-hct`; this change works around it by documenting the
 expected residue in task 2.4 rather than expanding scope.
 
-## Open question: archive round-trip
+## Resolved: archive round-trip
 
-`openspec archive` merges deltas into deployed specs. Whether it preserves
-frontmatter and the four-layer tables verbatim is unverified; task 4.1
-covers verifying (or documenting) the round-trip before archiving this
-change. If archiving strips the specodelic half, C-tables-inert makes the
-deployed result harmless.
+Verified 2026-09-29 in a scratch repo: `openspec archive` merges the openspec
+half correctly (all 5 scenarios of the MODIFIED requirement, no duplicates)
+but **strips the specodelic half** — frontmatter and four-layer tables do not
+survive into the deployed spec. Deployed specs are therefore plain openspec
+post-archive; C-tables-inert makes this harmless (discovery never reads the
+specodelic layers anyway). Dual-format authoring is a change-delta and
+source-repo practice, not a deployed-spec artifact.
 
 ## Non-goals
 

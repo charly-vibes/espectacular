@@ -1,5 +1,5 @@
 id = "reject-duplicate-scenario-ids"
-description = "Repo-local proof contract for gate/reject-duplicate-scenario-ids."
+description = "Repo-local proof contract for gate/reject-duplicate-scenario-ids. Since adopt-dual-format-specs, collisions mean the same slugified id with DIFFERENT bodies; identical bodies are section-sync mirrors and dedupe instead."
 archetype = "PF"
 status = "active"
 superseded_by = ""

@@ -1,0 +1,10 @@
+id = "plain-openspec-specs-remain-valid"
+description = "A spec file with no frontmatter and no specodelic tables discovers scenarios identically to pre-change behavior (opt-in enforcement of the dual format)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.6.0"
+
+[[tests.shell]]
+command = "cargo test -q openspec::tests::plain_openspec_discovery_unchanged -- --exact"
+timeout_seconds = 60
