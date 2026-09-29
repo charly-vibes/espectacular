@@ -39,3 +39,11 @@ Implement each check to make the corresponding failing tests pass.
 ## 6. Explain topics
 
 - [ ] 6.1 Add `ah explain` topics for each lint finding kind (7 topics)
+
+## 7. Dual-format lint bridge (resolves beads espectacular-9ov)
+
+- [ ] 7.1 RED: dual-format fixture file (with `id: spec` frontmatter) → `ah lint` emits both a prose-check finding and a relayed `spk.<rule_id>` finding
+- [ ] 7.2 RED: plain openspec fixture → `ah lint` output byte-identical to pre-bridge behavior (bridge inert)
+- [ ] 7.3 RED: `spk` absent from PATH → single advisory `spk-unavailable` finding, exit code unchanged
+- [ ] 7.4 RED: `spk` reports lint errors on the file → relayed findings, all `severity = "warning"`, exit still warning-only
+- [ ] 7.5 GREEN: implement bridge — detect dual-format frontmatter, invoke `spk lint --json` (or best available flag), parse envelope, map to `kind = "spk.<rule_id>"` with `severity = "warning"`, merge into findings; advisory finding on invocation/parse failure

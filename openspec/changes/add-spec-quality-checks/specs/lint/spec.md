@@ -149,3 +149,32 @@ The system SHALL emit lint findings using the same stable JSON envelope as `ah c
 - **WHEN** `ah lint` runs
 - **THEN** the command emits a finding with `severity = "error"`
 - **AND** exits non-zero
+
+### Requirement: Dual-Format Lint Bridge
+The system SHALL relay specodelic lint findings for dual-format spec files into the shared lint finding schema by invoking `spk lint`, without reimplementing specodelic rules.
+
+#### Scenario: Relay specodelic findings for dual-format files
+- **GIVEN** a spec file carries `id: spec` frontmatter (dual-format)
+- **AND** `spk lint` reports findings for that file
+- **WHEN** `ah lint` runs
+- **THEN** each specodelic finding appears in the output with `kind = "spk.<rule_id>"`
+- **AND** every relayed finding has `severity = "warning"`
+
+#### Scenario: Bridge is inert for plain openspec files
+- **GIVEN** a spec file contains no dual-format frontmatter
+- **WHEN** `ah lint` runs
+- **THEN** no specodelic invocation occurs and the output is identical to pre-bridge behavior
+
+#### Scenario: Missing spk binary is advisory only
+- **GIVEN** a dual-format spec file
+- **AND** the `spk` binary is not available on PATH
+- **WHEN** `ah lint` runs
+- **THEN** the command emits a single advisory `spk-unavailable` finding
+- **AND** the exit code is unchanged relative to a successful warning-only lint run
+
+#### Scenario: Specodelic invocation failure does not hard-fail
+- **GIVEN** a dual-format spec file
+- **AND** `spk lint` exits with a non-envelope error or unparseable output
+- **WHEN** `ah lint` runs
+- **THEN** the command emits a single advisory finding describing the failure
+- **AND** continues linting the remaining spec files

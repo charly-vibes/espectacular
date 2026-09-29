@@ -14,6 +14,7 @@ Depends on: `add-spec-assertions` and `add-quality-measurement-and-adapters` bei
 - Emit findings in the same stable JSON schema as `ah check`, making them agent-consumable without a new parsing surface.
 - Cover seven check categories derived from research: `vague-qualifier`, `imperative-step`, `conjunctive-bloat`, `missing-negative-scenario`, `missing-non-goals`, `unresolved-ambiguity`, and `entangled-spec`.
 - `entangled-spec` is archetype-gated (added from follow-up research, 2026-09-05): UI primitives are flagged in `PF`/`SA` scenarios only, since the archetype declares the expected layer — transport and UI mechanics are legitimate in `BP` scenarios but not in pure-functional or stateful-API ones. Findings remain advisory (`warning` severity), so no per-finding waiver mechanism is needed in v1.
+- **Dual-format lint bridge**: when a spec file is dual-format (carries `id: spec` frontmatter), `ah lint` invokes `spk lint` on it and relays specodelic findings into the shared finding schema (`kind = "spk.<rule_id>"`, always `warning` in v1). Invocation only — `ah` never reimplements specodelic rules; a missing `spk` binary yields a single advisory finding and never hard-fails. This resolves the evaluation question filed as beads `espectacular-9ov`: `spk lint` is surfaced *through* `ah lint` rather than as a parallel surface, keeping the one-stop authoring-feedback promise for dual-format repos. Plain openspec files are unaffected (bridge inert).
 - All lint findings are `warning` severity in v1; `ah lint` exits non-zero only when findings with `severity = error` exist (structural issues such as malformed spec files).
 - Integrate `ah lint` into `ah doctor` as a suggested step, not as a gate blocker.
 
@@ -28,7 +29,7 @@ Depends on: `add-spec-assertions` and `add-quality-measurement-and-adapters` bei
 ## Impact
 
 - Affected specs: `cli` (new `ah lint` requirement)
-- New specs: `lint` (quality check capability and finding catalog)
+- New specs: `lint` (quality check capability and finding catalog, including the Dual-Format Lint Bridge requirement)
 - No gate spec changes: `ah lint` is a static authoring tool and does not affect gate evaluation behavior.
 - Affected code: `src/lint.rs`, `src/lint/checks/` module tree, finding schema (new `lint-*` kinds), `schemas/check-output.schema.json`
 - **BREAKING**: none. `ah lint` is additive; existing `ah check` behavior is unchanged.
