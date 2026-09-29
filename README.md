@@ -71,7 +71,7 @@ dont prime --plain
 
 ### Local pre-commit vs CI
 
-- Local hooks are a convenience layer. `ah init` installs `ah check` into supported pre-commit frameworks when it finds `lefthook.yml` or `.prek`.
+- Local hooks are a convenience layer. `ah init` installs `ah check` into the lefthook `pre-commit` **and** `pre-push` stages when it finds `lefthook.yml`; for `prek.toml` it appends the `ah check` integration. Husky repos get a manual-wiring concern (detection only, wiring is lefthook-only).
 - CI is the enforcement gate. Run `ah check` in CI and fail the job on any non-zero exit.
 - `ah doctor` helps explain setup drift; it is not the enforcement command.
 
@@ -409,6 +409,7 @@ Otherwise it exits non-zero and emits diagnostics such as:
 - `unknown-archetype`
 - `missing-managed-block`
 - `hook-absent`
+- `hook-wired` (lefthook detected but a stage does not run `ah check`)
 
 ## Archetypes
 

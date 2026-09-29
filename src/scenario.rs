@@ -287,7 +287,10 @@ mod tests {
         assert!(text.contains("description = \"\""), "description wrong");
         assert!(text.contains("archetype = \"\""), "archetype wrong");
         assert!(
-            text.contains("authored_with = \"0.5.0\""),
+            text.contains(&format!(
+                "authored_with = \"{}\"",
+                env!("CARGO_PKG_VERSION")
+            )),
             "authored_with wrong"
         );
     }
