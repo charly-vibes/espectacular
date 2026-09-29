@@ -1,3 +1,7 @@
+> Tracker of record: beads (espectacular-9xq → rty/aar → 6fp → eia/zlw; task 4.1
+> routed via 9xq, §5–6 via eia). Tick checkboxes here at change-archive time,
+> not per-ticket — tickets carry the live status.
+
 ## 1. Lint engine foundation
 
 - [ ] 1.1 Add `lint` feature flag and `src/lint.rs` module entry point
