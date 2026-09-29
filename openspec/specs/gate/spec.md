@@ -4,7 +4,7 @@
 TBD - created by archiving change add-spec-assertions. Update Purpose after archive.
 ## Requirements
 ### Requirement: Scenario Discovery
-The system SHALL discover OpenSpec scenarios from `#### Scenario:` headings in `spec.md` files.
+The system SHALL discover OpenSpec scenarios from `#### Scenario:` headings in `spec.md` files, including dual-format files that additionally carry the specodelic four-layer grammar, deduplicating section-sync mirrors and ignoring structured layers.
 
 #### Scenario: Discover deployed scenario
 - **GIVEN** `openspec/specs/compiler/spec.md` contains `#### Scenario: Empty input rejected`
@@ -13,10 +13,27 @@ The system SHALL discover OpenSpec scenarios from `#### Scenario:` headings in `
 - **AND** associates it with the `compiler` spec
 
 #### Scenario: Reject duplicate scenario ids
-- **GIVEN** two scenarios in the same spec slugify to the same id
+- **GIVEN** two scenarios in the same spec slugify to the same id **and have different bodies**
 - **WHEN** `ah check` validates the spec
 - **THEN** it emits a structural finding for the slug collision
 - **AND** exits non-zero
+
+#### Scenario: Deduplicate mirrored delta sections
+- **GIVEN** a change delta carries identical `#### Scenario:` headings with identical bodies in both `## ADDED Requirements` and the mirrored `## Requirements` section
+- **WHEN** a user runs `ah check --changes <change-id>`
+- **THEN** each mirrored scenario is discovered exactly once
+- **AND** the gate emits no slug-collision finding for the mirror
+
+#### Scenario: Parse dual-format deployed spec
+- **GIVEN** a deployed spec under `openspec/specs/` carries YAML frontmatter and specodelic tables in addition to its `## Requirements` section
+- **WHEN** `ah check` scans deployed specs
+- **THEN** scenarios are discovered from the `#### Scenario:` headings exactly as before
+- **AND** frontmatter, constraint rows, model states and transitions, and property rows contribute no scenarios
+
+#### Scenario: Plain openspec specs remain valid
+- **GIVEN** a spec file contains no frontmatter and no specodelic tables
+- **WHEN** `ah check` scans the spec
+- **THEN** discovery behaves identically to before this change
 
 ### Requirement: Sidecar Contract Correspondence
 The system SHALL require exactly one TOML sidecar contract for each discovered scenario in scope.
@@ -172,6 +189,20 @@ The system SHALL support checking selected OpenSpec changes as overlays on deplo
 - **AND** deployed spec `compiler` contains scenario `old-behavior`
 - **WHEN** a user runs `ah check --changes add-parser`
 - **THEN** the command validates the staged contract as the active contract for `old-behavior` in the overlay
+
+#### Scenario: Apply modified scenario text from change overlay
+- **GIVEN** a change delta defines scenario `old-behavior` for spec `compiler`, which exists in the deployed specs, with different body text
+- **AND** the change stages a contract at `.espectacular/changes/<change>/compiler/old-behavior.toml`
+- **WHEN** a user runs `ah check --changes <change>`
+- **THEN** the overlay scenario text replaces the deployed scenario text in scope
+- **AND** no `overlay-conflict` finding is emitted
+
+#### Scenario: Reject unsignaled scenario redefinition
+- **GIVEN** a change delta defines scenario `old-behavior` for spec `compiler`, which exists in the deployed specs, with different body text
+- **AND** the change stages no contract for `old-behavior`
+- **WHEN** a user runs `ah check --changes <change>`
+- **THEN** the command emits an `overlay-conflict` structural finding
+- **AND** exits non-zero
 
 #### Scenario: Reject supersession with missing replacement
 - **GIVEN** `.espectacular/changes/add-parser/compiler/old-behavior.toml` has `status = "superseded"`
