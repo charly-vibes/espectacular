@@ -1,9 +1,10 @@
 use crate::adapters::{self, DetectionSource};
 use crate::archetypes;
-use crate::init::{ah_block_injector, detect_hook_framework, HookFramework};
+use crate::init::ah_block_injector;
 use crate::openspec;
 use crate::{config, contracts};
 use genesis::doctor::DoctorCheck;
+use genesis::git_hooks;
 use genesis::status::StatusSection;
 use genesis::suite_linter::{LintResult, Severity};
 use std::collections::HashSet;
@@ -348,8 +349,10 @@ impl DoctorCheck for HookCheck {
         "Check that a supported pre-commit hook framework is installed"
     }
     fn run(&self, repo_root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
-        match detect_hook_framework(repo_root) {
-            HookFramework::None => Ok(vec![LintResult::new(
+        // genesis::git_hooks is the canonical detector (espectacular-6ye);
+        // Husky counts as detected (present), wiring remains lefthook-only.
+        match git_hooks::framework(repo_root) {
+            git_hooks::Framework::None => Ok(vec![LintResult::new(
                 "no supported pre-commit hook framework detected (lefthook or prek)",
                 Severity::Error,
             )]),
@@ -872,6 +875,37 @@ changes = "openspec/changes"
         assert!(
             has_issue(&report, "hook-framework"),
             "no hook framework must emit hook-framework diagnostic; got: {:?}",
+            issues(&report)
+        );
+    }
+
+    #[test]
+    fn hook_prek_toml_is_supported_framework() {
+        // RED (espectacular-6ye R1): genesis::git_hooks detects `prek.toml`;
+        // the legacy detector only knew .prek/prek.yml, so a prek.toml repo
+        // wrongly got a hook-framework Error diagnostic.
+        let repo = make_healthy_repo();
+        fs::remove_file(repo.path().join("lefthook.yml")).unwrap();
+        fs::write(repo.path().join("prek.toml"), "[hooks]\n").unwrap();
+        let report = run_doctor(repo.path()).unwrap();
+        assert!(
+            !has_issue(&report, "hook-framework"),
+            "prek.toml repo must not emit hook-framework diagnostic; got: {:?}",
+            issues(&report)
+        );
+    }
+
+    #[test]
+    fn hook_prek_dotfile_is_no_longer_a_detection_signal() {
+        // BEHAVIORAL DRIFT accepted (6ye): genesis detects prek via prek.toml
+        // only; the legacy .prek/prek.yml signals are dropped with it.
+        let repo = make_healthy_repo();
+        fs::remove_file(repo.path().join("lefthook.yml")).unwrap();
+        fs::write(repo.path().join(".prek"), "").unwrap();
+        let report = run_doctor(repo.path()).unwrap();
+        assert!(
+            has_issue(&report, "hook-framework"),
+            ".prek alone must not count as a supported framework; got: {:?}",
             issues(&report)
         );
     }
