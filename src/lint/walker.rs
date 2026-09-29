@@ -24,6 +24,9 @@ pub struct SpecFile {
     /// Capability directory name, e.g. `"auth"` (mirrors `Scenario::spec_path`).
     pub spec_path: String,
     pub requirements: Vec<RequirementUnit>,
+    /// Raw spec markdown — spec-file-level checks (missing-non-goals) scan
+    /// headings outside any requirement unit.
+    pub raw: String,
 }
 
 /// A `### Requirement:` block and every scenario declared under it.
@@ -46,6 +49,11 @@ pub struct ScenarioBlock {
     pub body: String,
     /// 1-based line number of the scenario heading.
     pub source_line: usize,
+    /// Contract archetype (`"PF"`, `"SA"`, `"BP"`, …) loaded from the
+    /// scenario's `.espectacular/<spec>/<slug>.toml`, when one exists.
+    /// `None` for scenarios without a contract or when the contract cannot
+    /// be read (lint is advisory and must not hard-fail on contract state).
+    pub archetype: Option<String>,
 }
 
 /// Walk every `<specs_dir>/<capability>/spec.md` and parse it into units.
@@ -59,10 +67,42 @@ pub fn walk_specs(specs_dir: &Path) -> anyhow::Result<Vec<SpecFile>> {
             continue;
         }
         let content = fs::read_to_string(&spec_file)?;
-        specs.push(parse_spec(&content, &spec_name));
+        let mut spec = parse_spec(&content, &spec_name);
+        load_archetypes(&mut spec, contracts_root_for(specs_dir));
+        specs.push(spec);
     }
     specs.sort_by(|a, b| a.spec_path.cmp(&b.spec_path));
     Ok(specs)
+}
+
+/// Nearest ancestor of `specs_dir` carrying an `.espectacular` contracts
+/// directory, if any. Mirrors `lint_config_for`'s ancestor walk.
+fn contracts_root_for(specs_dir: &Path) -> Option<std::path::PathBuf> {
+    specs_dir
+        .ancestors()
+        .find(|d| d.join(".espectacular").is_dir())
+        .map(|d| d.join(".espectacular"))
+}
+
+/// Populate each scenario's `archetype` from its contract file
+/// `<contracts_root>/<spec_path>/<scenario_id>.toml`. Missing or unreadable
+/// contracts leave `None` — advisory lint never fails on contract state
+/// (contract validity is `ah check`'s job).
+fn load_archetypes(spec: &mut SpecFile, contracts_root: Option<std::path::PathBuf>) {
+    let Some(root) = contracts_root else {
+        return;
+    };
+    for req in &mut spec.requirements {
+        for scenario in &mut req.scenarios {
+            let toml_path = root
+                .join(&spec.spec_path)
+                .join(format!("{}.toml", scenario.id));
+            scenario.archetype = fs::read_to_string(&toml_path)
+                .ok()
+                .and_then(|text| toml::from_str::<crate::contracts::Contract>(&text).ok())
+                .map(|c| c.archetype);
+        }
+    }
 }
 
 /// Parse one spec file's content into units. `pub(crate)` so check modules
@@ -101,6 +141,7 @@ pub(crate) fn parse_spec(content: &str, spec_name: &str) -> SpecFile {
                 heading: heading.to_string(),
                 body,
                 source_line: i + 1,
+                archetype: None,
             };
             let idx = match current_req {
                 Some(idx) => idx,
@@ -137,6 +178,7 @@ pub(crate) fn parse_spec(content: &str, spec_name: &str) -> SpecFile {
     SpecFile {
         spec_path: spec_name.to_string(),
         requirements,
+        raw: content.to_string(),
     }
 }
 

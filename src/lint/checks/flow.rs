@@ -18,6 +18,7 @@
 //! they shape findings per the delta spec
 //! `openspec/changes/add-spec-quality-checks/specs/lint/spec.md`.
 
+use crate::lint::checks::line_contains_term;
 use crate::lint::walker::{RequirementUnit, ScenarioBlock, SpecFile};
 use crate::lint::{LintCheck, LintFinding};
 
@@ -56,26 +57,6 @@ const NEGATIVE_MARKERS: &[&str] = &[
     "violation",
     "exceed",
 ];
-
-/// Lowercase tokenization that keeps hyphenated terms (`user-friendly`)
-/// intact and strips punctuation (`fast.` → `fast`).
-fn tokens(line: &str) -> impl Iterator<Item = String> {
-    line.split(|c: char| !(c.is_alphanumeric() || c == '-'))
-        .filter(|t| !t.is_empty())
-        .map(|t| t.to_lowercase())
-        .collect::<Vec<_>>()
-        .into_iter()
-}
-
-fn line_contains_term(line: &str, term: &str) -> bool {
-    let lower = line.to_lowercase();
-    if term.contains('-') || term.contains(' ') {
-        // Multi-word / hyphenated markers: substring match on the lowercased
-        // line is unambiguous enough for advisory heuristics.
-        return lower.contains(term);
-    }
-    tokens(line).any(|t| t == term)
-}
 
 /// Bullet-step marker of a scenario body line: `"- **WHEN** ..."` → `"WHEN"`.
 fn step_marker(line: &str) -> Option<&str> {

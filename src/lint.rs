@@ -99,6 +99,9 @@ pub(crate) fn checks(cfg: &crate::config::LintConfig) -> Vec<Box<dyn LintCheck>>
             max_and_steps: cfg.max_and_steps,
         }),
         Box::new(checks::flow::MissingNegativeScenarioCheck),
+        Box::new(checks::shape::MissingNonGoalsCheck),
+        Box::new(checks::shape::UnresolvedAmbiguityCheck),
+        Box::new(checks::shape::EntangledSpecCheck),
     ]
 }
 
@@ -298,11 +301,11 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
-    // RED tests: one per check kind. Each asserts the kind fires on the
-    // defective fixture and stays silent on the clean fixture. They stay
-    // `#[ignore]`d here because the checks themselves land in
-    // espectacular-rty (scenario-flow) and espectacular-aar (spec-shape);
-    // un-ignore the test in the ticket that implements the check.
+    // RED→GREEN tests: one per check kind. Each asserts the kind fires on
+    // the defective fixture and stays silent on the clean fixture. They
+    // were `#[ignore]`d at tracer-bullet scope; each was un-ignored in the
+    // ticket that implemented its check (rty: scenario-flow, aar:
+    // spec-shape).
     // ------------------------------------------------------------------
 
     #[test]
@@ -352,7 +355,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "RED: missing-non-goals check lands in espectacular-aar (task 3.5)"]
     fn missing_non_goals_fires_on_defective_fixture() {
         let output = run_lint(&defective_specs()).unwrap();
         assert!(output
@@ -366,7 +368,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "RED: unresolved-ambiguity check lands in espectacular-aar (task 3.6)"]
     fn unresolved_ambiguity_fires_on_defective_fixture() {
         let output = run_lint(&defective_specs()).unwrap();
         assert!(output
@@ -380,7 +381,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "RED: entangled-spec check lands in espectacular-aar (task 3.7)"]
     fn entangled_spec_fires_on_defective_fixture() {
         let output = run_lint(&defective_specs()).unwrap();
         assert!(output.findings.iter().any(|f| f.kind == "entangled-spec"));
