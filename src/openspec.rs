@@ -62,16 +62,28 @@ fn extract_body(lines: &[&str], after: usize) -> String {
 }
 
 fn parse_scenarios_from_spec(content: &str, spec_name: &str) -> Vec<Scenario> {
+    use std::collections::HashSet;
+
     let mut scenarios = Vec::new();
+    // Section-sync mirrors (same slugified id AND identical body, e.g. the
+    // `## ADDED Requirements` / `## Requirements` pair in a dual-format delta)
+    // are one logical scenario. Same id with a different body still passes
+    // through and collides in detect_slug_collisions.
+    let mut seen: HashSet<(String, String)> = HashSet::new();
     let lines: Vec<&str> = content.lines().collect();
     for (i, &line) in lines.iter().enumerate() {
         if let Some(heading) = extract_scenario_heading(line) {
+            let id = slugify(heading);
+            let body = extract_body(&lines, i + 1);
+            if !seen.insert((id.clone(), body.clone())) {
+                continue;
+            }
             scenarios.push(Scenario {
-                id: slugify(heading),
+                id,
                 heading: heading.to_string(),
                 spec_path: spec_name.to_string(),
                 source_line: i + 1,
-                body: extract_body(&lines, i + 1),
+                body,
             });
         }
     }
@@ -218,5 +230,131 @@ mod tests {
         let (spec, id, _heading) = &collisions[0];
         assert_eq!(spec, "compiler");
         assert_eq!(id, "empty-input-rejected");
+    }
+
+    // adopt-dual-format-specs 1.1 RED: mirror deduplication
+    #[test]
+    fn mirror_identical_id_and_body_yields_one_scenario() {
+        let content = "\
+## ADDED Requirements
+
+### Requirement: Sample
+#### Scenario: Empty input rejected
+- **GIVEN** empty input
+- **WHEN** submitted
+- **THEN** rejected
+
+## Requirements
+
+### Requirement: Sample
+#### Scenario: Empty input rejected
+- **GIVEN** empty input
+- **WHEN** submitted
+- **THEN** rejected
+";
+        let scenarios = parse_scenarios_from_spec(content, "compiler");
+        assert_eq!(
+            scenarios.len(),
+            1,
+            "mirrored identical (id, body) must dedupe"
+        );
+        assert_eq!(scenarios[0].id, "empty-input-rejected");
+    }
+
+    #[test]
+    fn mirror_dedupe_keeps_first_occurrence_source_line() {
+        let content = "\
+## ADDED Requirements
+
+#### Scenario: Empty input rejected
+- **GIVEN** empty input
+- **WHEN** submitted
+- **THEN** rejected
+
+## Requirements
+
+#### Scenario: Empty input rejected
+- **GIVEN** empty input
+- **WHEN** submitted
+- **THEN** rejected
+";
+        let scenarios = parse_scenarios_from_spec(content, "compiler");
+        assert_eq!(scenarios.len(), 1);
+        // heading is on line 3 (first occurrence)
+        assert_eq!(scenarios[0].source_line, 3);
+    }
+
+    #[test]
+    fn same_id_different_body_still_collides() {
+        let content = "\
+#### Scenario: Empty input rejected
+- **GIVEN** empty input
+- **WHEN** submitted
+- **THEN** rejected
+
+#### Scenario: Empty input rejected
+- **GIVEN** null bytes
+- **WHEN** submitted
+- **THEN** rejected
+";
+        let scenarios = parse_scenarios_from_spec(content, "compiler");
+        assert_eq!(scenarios.len(), 2, "distinct bodies are distinct scenarios");
+        let collisions = detect_slug_collisions(&scenarios);
+        assert_eq!(
+            collisions.len(),
+            2,
+            "both sides of a distinct-body collision are flagged"
+        );
+    }
+
+    #[test]
+    fn frontmatter_and_table_rows_never_yield_scenarios() {
+        let content = "\
+---
+id: spec
+statement: \"#### Scenario: not-a-scenario\"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| C1 | invariant | #### Scenario: table-row-fake | |
+
+## Requirements
+
+#### Scenario: Empty input rejected
+- **GIVEN** empty input
+- **WHEN** submitted
+- **THEN** rejected
+";
+        let scenarios = parse_scenarios_from_spec(content, "compiler");
+        let ids: Vec<&str> = scenarios.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec!["empty-input-rejected"],
+            "only real headings count"
+        );
+    }
+
+    #[test]
+    fn plain_openspec_discovery_unchanged() {
+        // P-optin: a file with no frontmatter and no specodelic tables parses
+        // exactly as before (both scenarios discovered).
+        let content = "\
+## Requirements
+
+#### Scenario: Empty input rejected
+- **GIVEN** empty input
+- **WHEN** submitted
+- **THEN** rejected
+
+#### Scenario: Null bytes rejected
+- **GIVEN** null bytes
+- **WHEN** submitted
+- **THEN** rejected
+";
+        let scenarios = parse_scenarios_from_spec(content, "compiler");
+        assert_eq!(scenarios.len(), 2);
     }
 }

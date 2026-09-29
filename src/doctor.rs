@@ -983,7 +983,9 @@ changes = "openspec/changes"
         let repo = make_healthy_repo();
         let spec_dir = repo.path().join("openspec/specs/compiler");
         fs::create_dir_all(&spec_dir).unwrap();
-        let content = "# Capability: compiler\n\n## DEPLOYED Requirements\n\n### Requirement: R\n\n#### Scenario: Empty input rejected\n- **GIVEN** x\n- **WHEN** y\n- **THEN** z\n\n#### Scenario: Empty input rejected\n- **GIVEN** x\n- **WHEN** y\n- **THEN** z\n";
+        // adopt-dual-format-specs: collisions now mean same id AND different
+        // bodies; identical bodies are section-sync mirrors and dedupe.
+        let content = "# Capability: compiler\n\n## DEPLOYED Requirements\n\n### Requirement: R\n\n#### Scenario: Empty input rejected\n- **GIVEN** x\n- **WHEN** y\n- **THEN** z\n\n#### Scenario: Empty input rejected\n- **GIVEN** null bytes\n- **WHEN** y\n- **THEN** z\n";
         fs::write(spec_dir.join("spec.md"), content).unwrap();
         let report = run_doctor(repo.path()).unwrap();
         assert!(!report.genesis_report.is_healthy());
