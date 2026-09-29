@@ -8,6 +8,7 @@ mod doctor;
 mod explain;
 mod fsutil;
 mod init;
+mod lint;
 mod openspec;
 mod quality;
 mod report;
@@ -83,6 +84,11 @@ enum Command {
     },
     /// Initialize espectacular in the project
     Init,
+    /// Statically analyze spec files for authoring-quality findings
+    Lint {
+        /// Optional repo root to lint (defaults to the current directory)
+        root: Option<String>,
+    },
     /// Generate a coverage report (spec-to-contract matrix)
     Report {},
     /// Archive a deployed change into specs
@@ -146,6 +152,7 @@ const AH_COMMANDS: &[&str] = &[
     "check",
     "doctor",
     "init",
+    "lint",
     "report",
     "archive",
     "type",
@@ -337,6 +344,29 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             }
             let has_gaps = report.summary.missing > 0 || report.summary.failing > 0;
             std::process::exit(if has_gaps { 1 } else { 0 });
+        }
+        Command::Lint { root } => {
+            let cwd = std::env::current_dir()?;
+            let repo_root = match &root {
+                Some(path) => cwd.join(path),
+                None => cwd,
+            };
+            let specs_dir = lint::specs_dir_for(&repo_root)?;
+            let output = lint::run_lint(&specs_dir)?;
+            if cli.json {
+                println!(
+                    "{}",
+                    to_json_envelope(genesis::envelope::EnvelopeKind::Warning, &output)
+                );
+            } else {
+                lint::print_report(&output);
+            }
+            std::io::stdout().flush().unwrap_or_default();
+            let has_errors = output
+                .findings
+                .iter()
+                .any(|f| f.severity == lint::Severity::Error);
+            std::process::exit(if has_errors { 1 } else { 0 });
         }
         Command::Init => {
             let result = init::run_init(&std::env::current_dir()?)?;
