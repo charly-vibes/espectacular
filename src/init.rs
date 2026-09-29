@@ -2,6 +2,7 @@ use crate::fsutil::write_text;
 use crate::openspec;
 use anyhow::Context;
 use genesis::discovery;
+use genesis::git_hooks;
 use genesis::managed_block::{BlockDef, BlockInjector, BlockRegistry};
 use genesis::scaffold::Scaffold;
 use std::fs;
@@ -109,23 +110,6 @@ fn find_section_start(text: &str, header: &str) -> Option<usize> {
     text.find(&needle).map(|pos| pos + 1)
 }
 
-#[derive(Debug, PartialEq)]
-pub enum HookFramework {
-    Lefthook,
-    Prek,
-    None,
-}
-
-pub fn detect_hook_framework(repo_root: &Path) -> HookFramework {
-    if repo_root.join("lefthook.yml").exists() || repo_root.join("lefthook.yaml").exists() {
-        return HookFramework::Lefthook;
-    }
-    if repo_root.join(".prek").exists() || repo_root.join("prek.yml").exists() {
-        return HookFramework::Prek;
-    }
-    HookFramework::None
-}
-
 pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
     anyhow::ensure!(
         repo_root.join("openspec").exists(),
@@ -195,15 +179,23 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
         }
     }
 
-    // Hook integration
-    match detect_hook_framework(repo_root) {
-        HookFramework::Lefthook => {
+    // Hook integration (espectacular-6ye R2: genesis::git_hooks detection)
+    match git_hooks::framework(repo_root) {
+        git_hooks::Framework::Lefthook => {
             install_lefthook(repo_root, &mut result)?;
         }
-        HookFramework::Prek => {
+        git_hooks::Framework::Prek => {
             install_prek(repo_root, &mut result)?;
         }
-        HookFramework::None => {
+        git_hooks::Framework::Husky => {
+            result.concerns.push(
+                "Husky detected but not wirable by ah (lefthook only). \
+                 Add `ah check` to your husky pre-commit hook manually to run \
+                 spec-test correspondence before commits."
+                    .into(),
+            );
+        }
+        git_hooks::Framework::None => {
             result.concerns.push(
                 "No supported pre-commit hook framework detected (lefthook or prek). \
                 Please set up pre-commit integration manually to run `ah check` before commits."
@@ -242,39 +234,31 @@ fn update_managed_file(path: &Path, result: &mut InitResult) -> anyhow::Result<(
     Ok(())
 }
 
-const LEFTHOOK_AH_BLOCK: &str = r#"
-# ah:managed:start
-  ah-check:
-    run: ah check
-# ah:managed:end
-"#;
+const LEFTHOOK_AH_COMMAND: &str = "  ah-check:\n    run: ah check\n";
 
 fn install_lefthook(repo_root: &Path, result: &mut InitResult) -> anyhow::Result<()> {
-    let path = if repo_root.join("lefthook.yml").exists() {
-        repo_root.join("lefthook.yml")
-    } else {
-        repo_root.join("lefthook.yaml")
-    };
-
-    let existing =
-        fs::read_to_string(&path).with_context(|| format!("cannot read {}", path.display()))?;
-
-    if existing.contains("ah check") {
-        return Ok(());
+    // Managed block wired through genesis::git_hooks::lefthook::ensure_wired
+    // (espectacular-6ye R2): column-0 anchor injection + file-level idempotence,
+    // replacing the hand-rolled find/split injection.
+    let block = BlockDef::with_markers("ah:managed", "# ah:managed:start", "# ah:managed:end");
+    let stages = [
+        genesis::git_hooks::lefthook::Stage::PreCommit,
+        genesis::git_hooks::lefthook::Stage::PrePush,
+    ];
+    for stage in stages {
+        match genesis::git_hooks::lefthook::ensure_wired(
+            repo_root,
+            stage,
+            &block,
+            LEFTHOOK_AH_COMMAND,
+        ) {
+            Ok(git_hooks::lefthook::WiredOutcome::Injected) => {
+                result.refreshed.push("lefthook.yml".to_string());
+            }
+            Ok(git_hooks::lefthook::WiredOutcome::AlreadyWired) => {}
+            Err(e) => return Err(e).with_context(|| "failed to wire ah check into lefthook.yml"),
+        }
     }
-
-    // Inject into pre-commit block or append
-    let new_content = if existing.contains("pre-commit:") {
-        let insert_at = existing.find("pre-commit:").unwrap() + "pre-commit:".len();
-        let (before, after) = existing.split_at(insert_at);
-        format!("{}{}{}", before, LEFTHOOK_AH_BLOCK, after)
-    } else {
-        format!("{}pre-commit:\n  commands:{}", existing, LEFTHOOK_AH_BLOCK)
-    };
-
-    write_text(&path, new_content)?;
-    let name = path.file_name().unwrap().to_string_lossy().to_string();
-    result.refreshed.push(name);
     Ok(())
 }
 
@@ -313,12 +297,7 @@ fn stub_contract_if_missing(
 }
 
 fn install_prek(repo_root: &Path, result: &mut InitResult) -> anyhow::Result<()> {
-    let path = if repo_root.join(".prek").exists() {
-        repo_root.join(".prek")
-    } else {
-        repo_root.join("prek.yml")
-    };
-
+    let path = repo_root.join("prek.toml");
     let existing =
         fs::read_to_string(&path).with_context(|| format!("cannot read {}", path.display()))?;
 
@@ -473,44 +452,6 @@ mod tests {
         );
     }
 
-    // 4.5 RED: hook detection precedence
-
-    #[test]
-    fn hook_detection_returns_none_when_no_framework() {
-        let repo = make_repo(true);
-        assert_eq!(detect_hook_framework(repo.path()), HookFramework::None);
-    }
-
-    #[test]
-    fn hook_detection_returns_lefthook_when_lefthook_yml_present() {
-        let repo = make_repo(true);
-        fs::write(
-            repo.path().join("lefthook.yml"),
-            "pre-commit:\n  commands:\n",
-        )
-        .unwrap();
-        assert_eq!(detect_hook_framework(repo.path()), HookFramework::Lefthook);
-    }
-
-    #[test]
-    fn hook_detection_returns_prek_when_prek_config_present() {
-        let repo = make_repo(true);
-        fs::write(repo.path().join(".prek"), "").unwrap();
-        assert_eq!(detect_hook_framework(repo.path()), HookFramework::Prek);
-    }
-
-    #[test]
-    fn hook_detection_prefers_lefthook_over_prek() {
-        let repo = make_repo(true);
-        fs::write(repo.path().join("lefthook.yml"), "").unwrap();
-        fs::write(repo.path().join(".prek"), "").unwrap();
-        assert_eq!(
-            detect_hook_framework(repo.path()),
-            HookFramework::Lefthook,
-            "lefthook must win over prek"
-        );
-    }
-
     #[test]
     fn init_reports_concern_when_no_hook_framework() {
         let repo = make_repo(true);
@@ -554,16 +495,113 @@ mod tests {
         );
     }
 
+    fn once_matches(haystack: &str, needle: &str) -> usize {
+        haystack.matches(needle).count()
+    }
+
     #[test]
-    fn init_installs_prek_integration_when_only_prek_present() {
+    fn init_wires_ah_check_into_prepush_stage() {
+        // RED (espectacular-6ye R4): init must wire ah check into the
+        // pre-push stage too — hooks that only gate pre-commit stay decorative
+        // for the push-time trust gate.
         let repo = make_repo(true);
-        fs::write(repo.path().join(".prek"), "").unwrap();
+        fs::write(
+            repo.path().join("lefthook.yml"),
+            "pre-commit:\n  commands:\n",
+        )
+        .unwrap();
+        run_init(repo.path()).unwrap();
+        let content = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
+        assert!(
+            content.contains("pre-push:"),
+            "init must create a pre-push stage"
+        );
+        let push_section = &content[content.find("pre-push:").unwrap()..];
+        assert!(
+            push_section.contains("ah check"),
+            "pre-push stage must run ah check"
+        );
+    }
+
+    #[test]
+    fn init_wires_lefthook_managed_block_via_genesis() {
+        // RED (espectacular-6ye R2): injection must go through
+        // genesis::git_hooks::lefthook::ensure_wired — managed markers +
+        // ah-check command land under the column-0 pre-commit anchor.
+        let repo = make_repo(true);
+        fs::write(
+            repo.path().join("lefthook.yml"),
+            "pre-commit:\n  commands:\n    lint:\n      run: echo lint\n",
+        )
+        .unwrap();
+        run_init(repo.path()).unwrap();
+        let content = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
+        assert!(
+            content.contains("ah:managed:start") && content.contains("ah:managed:end"),
+            "injected block must carry ah:managed markers; got:\n{content}"
+        );
+        assert!(content.contains("ah check"));
+        assert!(
+            content.contains("lint"),
+            "existing commands must be preserved"
+        );
+    }
+
+    #[test]
+    fn init_lefthook_wiring_is_idempotent() {
+        let repo = make_repo(true);
+        fs::write(
+            repo.path().join("lefthook.yml"),
+            "pre-commit:\n  commands:\n",
+        )
+        .unwrap();
+        run_init(repo.path()).unwrap();
+        let twice = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
+        run_init(repo.path()).unwrap();
+        let twice_after = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
+        assert_eq!(
+            once_matches(&twice, "ah:managed:start"),
+            2,
+            "first init injects one managed block per stage (pre-commit + pre-push)"
+        );
+        assert_eq!(
+            once_matches(&twice_after, "ah:managed:start"),
+            2,
+            "second init must not duplicate the managed blocks"
+        );
+        assert!(twice_after.contains("ah check"));
+    }
+
+    #[test]
+    fn init_installs_prek_integration_when_prek_toml_present() {
+        // BEHAVIORAL DRIFT accepted (6ye): prek signal follows genesis's
+        // prek.toml; the legacy .prek/prek.yml signals are dropped.
+        let repo = make_repo(true);
+        fs::write(repo.path().join("prek.toml"), "[hooks]\n").unwrap();
         let result = run_init(repo.path()).unwrap();
-        let prek_content = fs::read_to_string(repo.path().join(".prek")).unwrap();
+        let prek_content = fs::read_to_string(repo.path().join("prek.toml")).unwrap();
         assert!(
             prek_content.contains("ah check")
                 || result.refreshed.iter().any(|s| s.contains("prek")),
-            ".prek should include ah check integration"
+            "prek.toml should include ah check integration"
+        );
+    }
+
+    #[test]
+    fn init_reports_concern_for_legacy_prek_dotfile_only() {
+        // BEHAVIORAL DRIFT accepted (6ye): .prek is no longer a prek signal —
+        // genesis detects prek.toml. A repo with only .prek gets a concern,
+        // not a config write.
+        let repo = make_repo(true);
+        fs::write(repo.path().join(".prek"), "").unwrap();
+        let result = run_init(repo.path()).unwrap();
+        assert!(
+            !result.concerns.is_empty(),
+            ".prek alone must surface a concern now that prek.toml is the prek signal"
+        );
+        assert!(
+            !result.refreshed.iter().any(|s| s.contains("prek")),
+            "must not write to .prek"
         );
     }
 

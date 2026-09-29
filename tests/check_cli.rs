@@ -31,7 +31,7 @@ fn make_healthy_doctor_repo() -> tempfile::TempDir {
     .unwrap();
     fs::write(
         root.join("lefthook.yml"),
-        "pre-commit:\n  commands:\n    ah-check:\n      run: ah check\n",
+        "pre-commit:\n  commands:\n    ah-check:\n      run: ah check\npre-push:\n  commands:\n    ah-check:\n      run: ah check\n",
     )
     .unwrap();
     dir

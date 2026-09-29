@@ -1,9 +1,10 @@
 use crate::adapters::{self, DetectionSource};
 use crate::archetypes;
-use crate::init::{ah_block_injector, detect_hook_framework, HookFramework};
+use crate::init::ah_block_injector;
 use crate::openspec;
 use crate::{config, contracts};
 use genesis::doctor::DoctorCheck;
+use genesis::git_hooks;
 use genesis::status::StatusSection;
 use genesis::suite_linter::{LintResult, Severity};
 use std::collections::HashSet;
@@ -348,13 +349,48 @@ impl DoctorCheck for HookCheck {
         "Check that a supported pre-commit hook framework is installed"
     }
     fn run(&self, repo_root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
-        match detect_hook_framework(repo_root) {
-            HookFramework::None => Ok(vec![LintResult::new(
+        // genesis::git_hooks is the canonical detector (espectacular-6ye);
+        // Husky counts as detected (present), wiring remains lefthook-only.
+        match git_hooks::framework(repo_root) {
+            git_hooks::Framework::None => Ok(vec![LintResult::new(
                 "no supported pre-commit hook framework detected (lefthook or prek)",
                 Severity::Error,
             )]),
             _ => Ok(vec![]),
         }
+    }
+}
+
+/// Stage-scoped wiring check (espectacular-6ye R4): a lefthook repo must have
+/// `ah check` in the pre-commit stage, and should have it in pre-push too —
+/// a framework that is detected but not wired is decorative.
+struct HookWiredCheck;
+impl DoctorCheck for HookWiredCheck {
+    fn name(&self) -> &'static str {
+        "hook-wired"
+    }
+    fn description(&self) -> &'static str {
+        "Check that ah check is wired into the lefthook pre-commit and pre-push stages"
+    }
+    fn run(&self, repo_root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
+        use genesis::git_hooks::lefthook::{is_wired, Stage};
+        if git_hooks::framework(repo_root) != git_hooks::Framework::Lefthook {
+            return Ok(vec![]);
+        }
+        let _results: Vec<LintResult> = Vec::new();
+        if !is_wired(repo_root, git_hooks::lefthook::Stage::PreCommit, "ah check") {
+            return Ok(vec![LintResult::new(
+                "lefthook pre-commit stage does not run `ah check` — run `ah init` to wire it",
+                Severity::Error,
+            )]);
+        }
+        if !is_wired(repo_root, Stage::PrePush, "ah check") {
+            return Ok(vec![LintResult::new(
+                "lefthook pre-push stage does not run `ah check` — run `ah init` to wire it",
+                Severity::Error,
+            )]);
+        }
+        Ok(vec![])
     }
 }
 
@@ -452,6 +488,7 @@ fn build_checks(repo_root: &Path) -> Vec<Box<dyn DoctorCheck>> {
     // Config-independent checks
     checks.push(Box::new(ConfigCheck));
     checks.push(Box::new(HookCheck));
+    checks.push(Box::new(HookWiredCheck));
     for &filename in &["AGENTS.md", "CLAUDE.md"] {
         checks.push(Box::new(ManagedBlockCheck { filename }));
     }
@@ -720,7 +757,7 @@ changes = "openspec/changes"
         .unwrap();
         fs::write(
             root.join("lefthook.yml"),
-            "pre-commit:\n  commands:\n    ah-check:\n      run: ah check\n",
+            "pre-commit:\n  commands:\n    ah-check:\n      run: ah check\npre-push:\n  commands:\n    ah-check:\n      run: ah check\n",
         )
         .unwrap();
 
@@ -872,6 +909,71 @@ changes = "openspec/changes"
         assert!(
             has_issue(&report, "hook-framework"),
             "no hook framework must emit hook-framework diagnostic; got: {:?}",
+            issues(&report)
+        );
+    }
+
+    #[test]
+    fn hook_prek_toml_is_supported_framework() {
+        // RED (espectacular-6ye R1): genesis::git_hooks detects `prek.toml`;
+        // the legacy detector only knew .prek/prek.yml, so a prek.toml repo
+        // wrongly got a hook-framework Error diagnostic.
+        let repo = make_healthy_repo();
+        fs::remove_file(repo.path().join("lefthook.yml")).unwrap();
+        fs::write(repo.path().join("prek.toml"), "[hooks]\n").unwrap();
+        let report = run_doctor(repo.path()).unwrap();
+        assert!(
+            !has_issue(&report, "hook-framework"),
+            "prek.toml repo must not emit hook-framework diagnostic; got: {:?}",
+            issues(&report)
+        );
+    }
+
+    #[test]
+    fn hook_prek_dotfile_is_no_longer_a_detection_signal() {
+        // BEHAVIORAL DRIFT accepted (6ye): genesis detects prek via prek.toml
+        // only; the legacy .prek/prek.yml signals are dropped with it.
+        let repo = make_healthy_repo();
+        fs::remove_file(repo.path().join("lefthook.yml")).unwrap();
+        fs::write(repo.path().join(".prek"), "").unwrap();
+        let report = run_doctor(repo.path()).unwrap();
+        assert!(
+            has_issue(&report, "hook-framework"),
+            ".prek alone must not count as a supported framework; got: {:?}",
+            issues(&report)
+        );
+    }
+
+    #[test]
+    fn hook_wired_missing_in_prepush_emits_hook_wired_diagnostic() {
+        // RED (espectacular-6ye R4): lefthook present but ah check not wired
+        // into the pre-push stage → hook-wired diagnostic.
+        let repo = make_healthy_repo();
+        fs::write(
+            repo.path().join("lefthook.yml"),
+            "pre-commit:\n  commands:\n    ah-check:\n      run: ah check\n",
+        )
+        .unwrap();
+        let report = run_doctor(repo.path()).unwrap();
+        assert!(
+            has_issue(&report, "hook-wired"),
+            "lefthook without pre-push ah check must emit hook-wired; got: {:?}",
+            issues(&report)
+        );
+    }
+
+    #[test]
+    fn hook_wired_both_stages_passes() {
+        let repo = make_healthy_repo();
+        fs::write(
+            repo.path().join("lefthook.yml"),
+            "pre-commit:\n  commands:\n    ah-check:\n      run: ah check\npre-push:\n  commands:\n    ah-check:\n      run: ah check\n",
+        )
+        .unwrap();
+        let report = run_doctor(repo.path()).unwrap();
+        assert!(
+            !has_issue(&report, "hook-wired"),
+            "both stages wired must pass; got: {:?}",
             issues(&report)
         );
     }
