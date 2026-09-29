@@ -241,17 +241,23 @@ fn install_lefthook(repo_root: &Path, result: &mut InitResult) -> anyhow::Result
     // (espectacular-6ye R2): column-0 anchor injection + file-level idempotence,
     // replacing the hand-rolled find/split injection.
     let block = BlockDef::with_markers("ah:managed", "# ah:managed:start", "# ah:managed:end");
-    match genesis::git_hooks::lefthook::ensure_wired(
-        repo_root,
+    let stages = [
         genesis::git_hooks::lefthook::Stage::PreCommit,
-        &block,
-        LEFTHOOK_AH_COMMAND,
-    ) {
-        Ok(git_hooks::lefthook::WiredOutcome::Injected) => {
-            result.refreshed.push("lefthook.yml".to_string());
+        genesis::git_hooks::lefthook::Stage::PrePush,
+    ];
+    for stage in stages {
+        match genesis::git_hooks::lefthook::ensure_wired(
+            repo_root,
+            stage,
+            &block,
+            LEFTHOOK_AH_COMMAND,
+        ) {
+            Ok(git_hooks::lefthook::WiredOutcome::Injected) => {
+                result.refreshed.push("lefthook.yml".to_string());
+            }
+            Ok(git_hooks::lefthook::WiredOutcome::AlreadyWired) => {}
+            Err(e) => return Err(e).with_context(|| "failed to wire ah check into lefthook.yml"),
         }
-        Ok(git_hooks::lefthook::WiredOutcome::AlreadyWired) => {}
-        Err(e) => return Err(e).with_context(|| "failed to wire ah check into lefthook.yml"),
     }
     Ok(())
 }
@@ -494,6 +500,30 @@ mod tests {
     }
 
     #[test]
+    fn init_wires_ah_check_into_prepush_stage() {
+        // RED (espectacular-6ye R4): init must wire ah check into the
+        // pre-push stage too — hooks that only gate pre-commit stay decorative
+        // for the push-time trust gate.
+        let repo = make_repo(true);
+        fs::write(
+            repo.path().join("lefthook.yml"),
+            "pre-commit:\n  commands:\n",
+        )
+        .unwrap();
+        run_init(repo.path()).unwrap();
+        let content = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
+        assert!(
+            content.contains("pre-push:"),
+            "init must create a pre-push stage"
+        );
+        let push_section = &content[content.find("pre-push:").unwrap()..];
+        assert!(
+            push_section.contains("ah check"),
+            "pre-push stage must run ah check"
+        );
+    }
+
+    #[test]
     fn init_wires_lefthook_managed_block_via_genesis() {
         // RED (espectacular-6ye R2): injection must go through
         // genesis::git_hooks::lefthook::ensure_wired — managed markers +
@@ -531,13 +561,13 @@ mod tests {
         let twice_after = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
         assert_eq!(
             once_matches(&twice, "ah:managed:start"),
-            1,
-            "first init injects exactly one managed block"
+            2,
+            "first init injects one managed block per stage (pre-commit + pre-push)"
         );
         assert_eq!(
             once_matches(&twice_after, "ah:managed:start"),
-            1,
-            "second init must not duplicate the managed block"
+            2,
+            "second init must not duplicate the managed blocks"
         );
         assert!(twice_after.contains("ah check"));
     }
