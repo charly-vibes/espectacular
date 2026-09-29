@@ -72,6 +72,10 @@ impl MissingNonGoalsCheck {
 }
 
 impl LintCheck for MissingNonGoalsCheck {
+    fn kind(&self) -> &'static str {
+        "missing-non-goals"
+    }
+
     fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>) {
         if Self::has_non_goals(spec) {
             return;
@@ -101,6 +105,10 @@ fn scan_ambiguity(line: &str) -> Option<String> {
 }
 
 impl LintCheck for UnresolvedAmbiguityCheck {
+    fn kind(&self) -> &'static str {
+        "unresolved-ambiguity"
+    }
+
     fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>) {
         let mut push = |spec: &SpecFile, scenario_id: &str, marker: String| {
             findings.push(LintFinding::warning(
@@ -159,6 +167,10 @@ impl EntangledSpecCheck {
 }
 
 impl LintCheck for EntangledSpecCheck {
+    fn kind(&self) -> &'static str {
+        "entangled-spec"
+    }
+
     fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>) {
         for req in &spec.requirements {
             for scenario in &req.scenarios {
@@ -233,7 +245,7 @@ mod tests {
     fn missing_non_goals_ignores_prose_mention() {
         // The term in prose (not a heading) does not satisfy the section.
         let md = "# Capability: auth\n\nThis spec has no non-goals section yet.\n";
-        assert_eq!(run(&MissingNonGoalsCheck, &md).len(), 1);
+        assert_eq!(run(&MissingNonGoalsCheck, md).len(), 1);
     }
 
     #[test]

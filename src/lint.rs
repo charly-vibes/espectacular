@@ -86,6 +86,8 @@ pub struct LintOutput {
 /// Implementations live in `src/lint/checks/` (espectacular-rty/aar) and are
 /// registered in [`checks`]. Advisory-only: emit `Severity::Warning`.
 pub trait LintCheck: Send + Sync {
+    /// Stable check kind — matches finding `kind` values and `--check` args.
+    fn kind(&self) -> &'static str;
     fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>);
 }
 
@@ -117,10 +119,85 @@ fn lint_config_for(specs_dir: &Path) -> anyhow::Result<crate::config::LintConfig
     Ok(crate::config::LintConfig::default())
 }
 
-/// Run the registered checks over the specs under `specs_dir`.
-pub fn run_lint(specs_dir: &Path) -> anyhow::Result<LintOutput> {
+/// Registered checks, optionally filtered to a single kind (`--check`).
+/// An unknown kind is a hard error listing the valid kinds.
+pub(crate) fn select_checks(
+    cfg: &crate::config::LintConfig,
+    check: Option<&str>,
+) -> anyhow::Result<Vec<Box<dyn LintCheck>>> {
+    let all = checks(cfg);
+    let Some(kind) = check else {
+        return Ok(all);
+    };
+    if !all.iter().any(|c| c.kind() == kind) {
+        let valid = all.iter().map(|c| c.kind()).collect::<Vec<_>>().join(", ");
+        anyhow::bail!("unknown check kind '{kind}' — valid kinds: {valid}");
+    }
+    Ok(all.into_iter().filter(|c| c.kind() == kind).collect())
+}
+
+/// Run lint with an optional single-kind filter (`--check <kind>`).
+pub fn run_lint_query(specs_dir: &Path, check: Option<&str>) -> anyhow::Result<LintOutput> {
     let cfg = lint_config_for(specs_dir)?;
-    run_lint_with(specs_dir, &checks(&cfg))
+    let registered = select_checks(&cfg, check)?;
+    run_lint_with(specs_dir, &registered)
+}
+
+/// Resolve the changes directory for a repo root (mirrors `specs_dir_for`).
+pub fn changes_dir_for(repo_root: &Path) -> anyhow::Result<std::path::PathBuf> {
+    if repo_root.join(crate::config::CONFIG_MARKER).exists() {
+        let cfg = crate::config::load(repo_root)?;
+        return Ok(repo_root.join(&cfg.paths.changes));
+    }
+    Ok(repo_root.join("openspec/changes"))
+}
+
+/// Lint one change overlay (`--changes <id>`): the change's spec directory
+/// (`<changes>/<id>/specs/<capability>/spec.md`) is walked with the same
+/// walker and checks as deployed specs. A missing change directory is a hard
+/// error (typo protection, mirroring `archive`).
+pub fn run_change_overlay(
+    repo_root: &Path,
+    change: &str,
+    check: Option<&str>,
+) -> anyhow::Result<LintOutput> {
+    let overlay_specs = changes_dir_for(repo_root)?.join(change).join("specs");
+    anyhow::ensure!(
+        overlay_specs.is_dir(),
+        "no change spec overlay found for '{change}' (expected {})",
+        overlay_specs.display()
+    );
+    run_lint_query(&overlay_specs, check)
+}
+
+/// Merge deployed and overlay lint outputs: findings concatenate (deployed
+/// first), per-kind counts sum.
+pub fn merge_outputs(deployed: LintOutput, overlay: LintOutput) -> LintOutput {
+    let mut findings = deployed.findings;
+    findings.extend(overlay.findings);
+    let mut counts_by_kind = deployed.counts_by_kind;
+    for (kind, n) in overlay.counts_by_kind {
+        *counts_by_kind.entry(kind).or_insert(0) += n;
+    }
+    LintOutput {
+        findings,
+        counts_by_kind,
+    }
+}
+
+/// Exit-code semantics (task 4.5): zero on warning-only or empty findings;
+/// non-zero only when error-severity findings are present. Warning findings
+/// never gate (v1 advisory).
+pub fn exit_code(output: &LintOutput) -> i32 {
+    if output
+        .findings
+        .iter()
+        .any(|f| f.severity == Severity::Error)
+    {
+        1
+    } else {
+        0
+    }
 }
 
 /// Run explicit checks over the specs under `specs_dir` (test seam).
@@ -212,6 +289,9 @@ mod tests {
     }
 
     impl LintCheck for StubCheck {
+        fn kind(&self) -> &'static str {
+            self.kind
+        }
         fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>) {
             findings.push(LintFinding::warning(
                 self.kind,
@@ -264,7 +344,7 @@ mod tests {
 
     #[test]
     fn clean_fixture_produces_zero_findings() {
-        let output = run_lint(&clean_specs()).unwrap();
+        let output = run_lint_query(&clean_specs(), None).unwrap();
         assert!(output.findings.is_empty());
         assert!(output.counts_by_kind.is_empty());
     }
@@ -284,6 +364,126 @@ mod tests {
             dir,
             PathBuf::from("tests/fixtures/lint/clean/openspec/specs")
         );
+    }
+
+    #[test]
+    fn select_checks_without_filter_registers_every_kind() {
+        let registered = select_checks(&crate::config::LintConfig::default(), None).unwrap();
+        let kinds: Vec<&str> = registered.iter().map(|c| c.kind()).collect();
+        for kind in [
+            "vague-qualifier",
+            "imperative-step",
+            "conjunctive-bloat",
+            "missing-negative-scenario",
+            "missing-non-goals",
+            "unresolved-ambiguity",
+            "entangled-spec",
+        ] {
+            assert!(kinds.contains(&kind), "missing kind {kind} in {kinds:?}");
+        }
+    }
+
+    #[test]
+    fn select_checks_filter_runs_single_kind() {
+        let registered = select_checks(
+            &crate::config::LintConfig::default(),
+            Some("vague-qualifier"),
+        )
+        .unwrap();
+        assert_eq!(registered.len(), 1);
+        let output = run_lint_with(&defective_specs(), &registered).unwrap();
+        assert!(!output.findings.is_empty());
+        assert!(output.findings.iter().all(|f| f.kind == "vague-qualifier"));
+    }
+
+    #[test]
+    fn select_checks_unknown_kind_errors_listing_valid_kinds() {
+        let err = select_checks(&crate::config::LintConfig::default(), Some("no-such-check"))
+            .map(|_| ())
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("no-such-check"));
+        assert!(
+            msg.contains("vague-qualifier"),
+            "must list valid kinds: {msg}"
+        );
+    }
+
+    #[test]
+    fn merge_outputs_concats_findings_and_sums_counts() {
+        let a = run_lint_with(&clean_specs(), &[Box::new(StubCheck { kind: "k-a" })]).unwrap();
+        let b = run_lint_with(&defective_specs(), &[Box::new(StubCheck { kind: "k-b" })]).unwrap();
+        let merged = merge_outputs(a, b);
+        assert_eq!(merged.findings.len(), 2);
+        assert_eq!(merged.findings[0].kind, "k-a");
+        assert_eq!(merged.findings[1].kind, "k-b");
+        assert_eq!(merged.counts_by_kind.get("k-a"), Some(&1));
+        assert_eq!(merged.counts_by_kind.get("k-b"), Some(&1));
+    }
+
+    #[test]
+    fn exit_code_zero_on_warnings_and_empty_non_zero_on_errors() {
+        let empty = LintOutput {
+            findings: vec![],
+            counts_by_kind: BTreeMap::new(),
+        };
+        assert_eq!(exit_code(&empty), 0);
+        let warning_only =
+            LintFinding::warning("k", "spec", "", "m", "s", "edit_spec", "ah explain lint");
+        let warnings = LintOutput {
+            findings: vec![warning_only.clone()],
+            counts_by_kind: BTreeMap::from([("k".into(), 1)]),
+        };
+        assert_eq!(exit_code(&warnings), 0);
+        let mut errored = warning_only;
+        errored.severity = Severity::Error;
+        let errors = LintOutput {
+            findings: vec![errored],
+            counts_by_kind: BTreeMap::from([("k".into(), 1)]),
+        };
+        assert_eq!(exit_code(&errors), 1);
+    }
+
+    #[test]
+    fn changes_dir_for_missing_config_falls_back_to_openspec_layout() {
+        let clean_root = clean_specs()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        let dir = changes_dir_for(&clean_root).unwrap();
+        assert_eq!(
+            dir,
+            PathBuf::from("tests/fixtures/lint/clean/openspec/changes")
+        );
+    }
+
+    #[test]
+    fn run_change_overlay_unknown_change_is_hard_error() {
+        let root = defective_specs()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        let err = run_change_overlay(&root, "no-such-change", None).unwrap_err();
+        assert!(err.to_string().contains("no-such-change"));
+    }
+
+    #[test]
+    fn run_change_overlay_lints_change_specs() {
+        let root = defective_specs()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        let output = run_change_overlay(&root, "add-parser", None).unwrap();
+        assert!(output.findings.iter().all(|f| f.spec_path == "parser"));
+        assert!(!output.findings.is_empty());
     }
 
     #[test]
@@ -310,7 +510,7 @@ mod tests {
 
     #[test]
     fn vague_qualifier_fires_on_defective_fixture() {
-        let output = run_lint(&defective_specs()).unwrap();
+        let output = run_lint_query(&defective_specs(), None).unwrap();
         assert!(output.findings.iter().any(|f| f.kind == "vague-qualifier"));
         assert!(!output
             .findings
@@ -320,7 +520,7 @@ mod tests {
 
     #[test]
     fn imperative_step_fires_on_defective_fixture() {
-        let output = run_lint(&defective_specs()).unwrap();
+        let output = run_lint_query(&defective_specs(), None).unwrap();
         assert!(output.findings.iter().any(|f| f.kind == "imperative-step"));
         assert!(!output
             .findings
@@ -330,7 +530,7 @@ mod tests {
 
     #[test]
     fn conjunctive_bloat_fires_on_defective_fixture() {
-        let output = run_lint(&defective_specs()).unwrap();
+        let output = run_lint_query(&defective_specs(), None).unwrap();
         assert!(output
             .findings
             .iter()
@@ -343,7 +543,7 @@ mod tests {
 
     #[test]
     fn missing_negative_scenario_fires_on_defective_fixture() {
-        let output = run_lint(&defective_specs()).unwrap();
+        let output = run_lint_query(&defective_specs(), None).unwrap();
         assert!(output
             .findings
             .iter()
@@ -356,7 +556,7 @@ mod tests {
 
     #[test]
     fn missing_non_goals_fires_on_defective_fixture() {
-        let output = run_lint(&defective_specs()).unwrap();
+        let output = run_lint_query(&defective_specs(), None).unwrap();
         assert!(output
             .findings
             .iter()
@@ -369,7 +569,7 @@ mod tests {
 
     #[test]
     fn unresolved_ambiguity_fires_on_defective_fixture() {
-        let output = run_lint(&defective_specs()).unwrap();
+        let output = run_lint_query(&defective_specs(), None).unwrap();
         assert!(output
             .findings
             .iter()
@@ -382,7 +582,7 @@ mod tests {
 
     #[test]
     fn entangled_spec_fires_on_defective_fixture() {
-        let output = run_lint(&defective_specs()).unwrap();
+        let output = run_lint_query(&defective_specs(), None).unwrap();
         assert!(output.findings.iter().any(|f| f.kind == "entangled-spec"));
         assert!(!output
             .findings

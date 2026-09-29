@@ -106,3 +106,77 @@ fn ah_lint_defective_fixture_reports_all_scenario_flow_kinds_exits_zero() {
     }
     assert!(data["counts_by_kind"]["imperative-step"].as_u64().unwrap() >= 1);
 }
+
+#[test]
+fn ah_lint_changes_overlay_lints_change_specs_in_addition_to_deployed() {
+    // espectacular-6fp (task 4.2): --changes <id> analyzes deployed specs
+    // plus the change overlay. The add-parser overlay introduces a "parser"
+    // capability that only exists in the change dir — its findings prove the
+    // overlay was walked without disturbing deployed findings.
+    let output = ah_lint(&[
+        "tests/fixtures/lint/defective",
+        "--changes",
+        "add-parser",
+        "--json",
+    ]);
+    assert!(
+        output.status.success(),
+        "warning-only findings must exit 0, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let data = envelope_data(&output.stdout);
+    let findings = data["findings"].as_array().unwrap();
+    assert!(
+        findings.iter().any(|f| f["spec_path"] == "parser"),
+        "overlay spec not linted: {findings:?}"
+    );
+    // Deployed findings still present.
+    assert!(findings.iter().any(|f| f["spec_path"] == "ui"));
+}
+
+#[test]
+fn ah_lint_changes_unknown_change_id_fails() {
+    let output = ah_lint(&[
+        "tests/fixtures/lint/defective",
+        "--changes",
+        "no-such-change",
+    ]);
+    assert!(!output.status.success(), "unknown change id must fail");
+}
+
+#[test]
+fn ah_lint_check_filter_runs_single_category() {
+    // espectacular-6fp (task 4.4): --check <kind> runs only that check.
+    let output = ah_lint(&[
+        "tests/fixtures/lint/defective",
+        "--check",
+        "vague-qualifier",
+        "--json",
+    ]);
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let data = envelope_data(&output.stdout);
+    let findings = data["findings"].as_array().unwrap();
+    assert!(
+        !findings.is_empty(),
+        "vague-qualifier must fire on defective fixture"
+    );
+    assert!(
+        findings.iter().all(|f| f["kind"] == "vague-qualifier"),
+        "filter leaked other kinds: {findings:?}"
+    );
+}
+
+#[test]
+fn ah_lint_check_unknown_kind_fails_with_valid_kinds() {
+    let output = ah_lint(&["tests/fixtures/lint/defective", "--check", "no-such-check"]);
+    assert!(!output.status.success(), "unknown check kind must fail");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("vague-qualifier"),
+        "stderr must list valid kinds: {stderr}"
+    );
+}

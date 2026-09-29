@@ -87,6 +87,10 @@ fn scan_unbound_qualifier(line: &str, findings: &mut Vec<String>) {
 pub struct VagueQualifierCheck;
 
 impl LintCheck for VagueQualifierCheck {
+    fn kind(&self) -> &'static str {
+        "vague-qualifier"
+    }
+
     fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>) {
         for req in &spec.requirements {
             let mut hits = Vec::new();
@@ -118,6 +122,10 @@ impl LintCheck for VagueQualifierCheck {
 pub struct ImperativeStepCheck;
 
 impl LintCheck for ImperativeStepCheck {
+    fn kind(&self) -> &'static str {
+        "imperative-step"
+    }
+
     fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>) {
         for req in &spec.requirements {
             for scenario in &req.scenarios {
@@ -161,6 +169,10 @@ impl ConjunctiveBloatCheck {
 }
 
 impl LintCheck for ConjunctiveBloatCheck {
+    fn kind(&self) -> &'static str {
+        "conjunctive-bloat"
+    }
+
     fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>) {
         for req in &spec.requirements {
             for scenario in &req.scenarios {
@@ -196,6 +208,10 @@ fn has_negative_language(req: &RequirementUnit) -> bool {
 }
 
 impl LintCheck for MissingNegativeScenarioCheck {
+    fn kind(&self) -> &'static str {
+        "missing-negative-scenario"
+    }
+
     fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>) {
         for req in &spec.requirements {
             if req.heading.is_empty() || has_negative_language(req) {

@@ -88,6 +88,12 @@ enum Command {
     Lint {
         /// Optional repo root to lint (defaults to the current directory)
         root: Option<String>,
+        /// Lint a change's spec overlay in addition to deployed specs
+        #[arg(long)]
+        changes: Option<String>,
+        /// Run only a single check category (e.g. vague-qualifier)
+        #[arg(long)]
+        check: Option<String>,
     },
     /// Generate a coverage report (spec-to-contract matrix)
     Report {},
@@ -345,14 +351,22 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             let has_gaps = report.summary.missing > 0 || report.summary.failing > 0;
             std::process::exit(if has_gaps { 1 } else { 0 });
         }
-        Command::Lint { root } => {
+        Command::Lint {
+            root,
+            changes,
+            check,
+        } => {
             let cwd = std::env::current_dir()?;
             let repo_root = match &root {
                 Some(path) => cwd.join(path),
                 None => cwd,
             };
             let specs_dir = lint::specs_dir_for(&repo_root)?;
-            let output = lint::run_lint(&specs_dir)?;
+            let mut output = lint::run_lint_query(&specs_dir, check.as_deref())?;
+            if let Some(change) = &changes {
+                let overlay = lint::run_change_overlay(&repo_root, change, check.as_deref())?;
+                output = lint::merge_outputs(output, overlay);
+            }
             if cli.json {
                 println!(
                     "{}",
@@ -362,11 +376,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                 lint::print_report(&output);
             }
             std::io::stdout().flush().unwrap_or_default();
-            let has_errors = output
-                .findings
-                .iter()
-                .any(|f| f.severity == lint::Severity::Error);
-            std::process::exit(if has_errors { 1 } else { 0 });
+            std::process::exit(lint::exit_code(&output));
         }
         Command::Init => {
             let result = init::run_init(&std::env::current_dir()?)?;
