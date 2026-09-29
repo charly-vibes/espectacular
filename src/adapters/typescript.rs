@@ -124,6 +124,7 @@ mod tests {
             runners: HashMap::new(),
             quality: Default::default(),
             capabilities: Default::default(),
+            lint: Default::default(),
         }
     }
 
@@ -142,6 +143,7 @@ mod tests {
             runners,
             quality: Default::default(),
             capabilities: Default::default(),
+            lint: Default::default(),
         }
     }
 

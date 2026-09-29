@@ -243,6 +243,7 @@ mod tests {
             runners: HashMap::new(),
             quality: Default::default(),
             capabilities: Default::default(),
+            lint: Default::default(),
         }
     }
 

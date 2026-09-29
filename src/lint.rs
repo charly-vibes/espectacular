@@ -17,6 +17,7 @@
 //! Registry note: this module is the registry — espectacular-rty/aar append
 //! checks additively to [`checks`]; no check implementations live here.
 
+pub mod checks;
 pub mod walker;
 
 use serde::{Deserialize, Serialize};
@@ -88,15 +89,35 @@ pub trait LintCheck: Send + Sync {
     fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>);
 }
 
-/// The check registry. Empty until espectacular-rty/aar land their checks —
-/// append additively (one entry per check), do not reorder.
-pub(crate) fn checks() -> Vec<Box<dyn LintCheck>> {
-    Vec::new()
+/// The check registry. Append additively (one entry per check), do not
+/// reorder — finding order follows spec-then-check iteration.
+pub(crate) fn checks(cfg: &crate::config::LintConfig) -> Vec<Box<dyn LintCheck>> {
+    vec![
+        Box::new(checks::flow::VagueQualifierCheck),
+        Box::new(checks::flow::ImperativeStepCheck),
+        Box::new(checks::flow::ConjunctiveBloatCheck {
+            max_and_steps: cfg.max_and_steps,
+        }),
+        Box::new(checks::flow::MissingNegativeScenarioCheck),
+    ]
+}
+
+/// Resolve the `[lint]` config for a specs directory by walking up to the
+/// nearest repo root carrying an espectacular config. Falls back to defaults
+/// when no config exists (adoption-friendly, mirroring `specs_dir_for`).
+fn lint_config_for(specs_dir: &Path) -> anyhow::Result<crate::config::LintConfig> {
+    for dir in specs_dir.ancestors() {
+        if dir.join(crate::config::CONFIG_MARKER).exists() {
+            return Ok(crate::config::load(dir)?.lint);
+        }
+    }
+    Ok(crate::config::LintConfig::default())
 }
 
 /// Run the registered checks over the specs under `specs_dir`.
 pub fn run_lint(specs_dir: &Path) -> anyhow::Result<LintOutput> {
-    run_lint_with(specs_dir, &checks())
+    let cfg = lint_config_for(specs_dir)?;
+    run_lint_with(specs_dir, &checks(&cfg))
 }
 
 /// Run explicit checks over the specs under `specs_dir` (test seam).
@@ -285,7 +306,6 @@ mod tests {
     // ------------------------------------------------------------------
 
     #[test]
-    #[ignore = "RED: vague-qualifier check lands in espectacular-rty (task 3.1)"]
     fn vague_qualifier_fires_on_defective_fixture() {
         let output = run_lint(&defective_specs()).unwrap();
         assert!(output.findings.iter().any(|f| f.kind == "vague-qualifier"));
@@ -296,7 +316,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "RED: imperative-step check lands in espectacular-rty (task 3.2)"]
     fn imperative_step_fires_on_defective_fixture() {
         let output = run_lint(&defective_specs()).unwrap();
         assert!(output.findings.iter().any(|f| f.kind == "imperative-step"));
@@ -307,7 +326,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "RED: conjunctive-bloat check lands in espectacular-rty (task 3.3)"]
     fn conjunctive_bloat_fires_on_defective_fixture() {
         let output = run_lint(&defective_specs()).unwrap();
         assert!(output
@@ -321,7 +339,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "RED: missing-negative-scenario check lands in espectacular-rty (task 3.4)"]
     fn missing_negative_scenario_fires_on_defective_fixture() {
         let output = run_lint(&defective_specs()).unwrap();
         assert!(output

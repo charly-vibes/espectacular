@@ -65,7 +65,9 @@ pub fn walk_specs(specs_dir: &Path) -> anyhow::Result<Vec<SpecFile>> {
     Ok(specs)
 }
 
-fn parse_spec(content: &str, spec_name: &str) -> SpecFile {
+/// Parse one spec file's content into units. `pub(crate)` so check modules
+/// can unit-test against inline spec markdown.
+pub(crate) fn parse_spec(content: &str, spec_name: &str) -> SpecFile {
     use std::collections::HashSet;
 
     let lines: Vec<&str> = content.lines().collect();

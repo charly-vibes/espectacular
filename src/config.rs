@@ -30,6 +30,28 @@ pub struct Config {
     pub quality: QualityConfig,
     #[serde(default)]
     pub capabilities: CapabilitiesConfig,
+    #[serde(default)]
+    pub lint: LintConfig,
+}
+
+/// Spec-lint settings (`[lint]` table). All keys optional; defaults keep
+/// existing configs valid — lint is additive and advisory.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct LintConfig {
+    #[serde(default = "default_max_and_steps")]
+    pub max_and_steps: usize,
+}
+
+impl Default for LintConfig {
+    fn default() -> Self {
+        LintConfig {
+            max_and_steps: default_max_and_steps(),
+        }
+    }
+}
+
+fn default_max_and_steps() -> usize {
+    5
 }
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
@@ -135,6 +157,12 @@ impl ConfigFile for Config {
                 }
             }
         }
+        if self.lint.max_and_steps == 0 {
+            results.push(ConfigValidation::error(
+                "lint.max_and_steps",
+                "lint.max_and_steps must be at least 1",
+            ));
+        }
         Ok(results)
     }
 }
@@ -197,6 +225,7 @@ mod tests {
             runners: HashMap::new(),
             quality: QualityConfig::default(),
             capabilities: CapabilitiesConfig::default(),
+            lint: LintConfig::default(),
         });
     }
 
@@ -247,6 +276,40 @@ mod tests {
     }
 
     #[test]
+    fn lint_config_defaults_when_section_missing() {
+        let config = load(Path::new(VALID_REPO)).unwrap();
+        assert_eq!(config.lint.max_and_steps, 5);
+    }
+
+    #[test]
+    fn lint_config_parses_max_and_steps_override() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join(".espectacular/config.toml");
+        std::fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &config_path,
+            "tool_version = \"0.6.0\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\n\n[lint]\nmax_and_steps = 3\n",
+        )
+        .unwrap();
+        let config = load(dir.path()).unwrap();
+        assert_eq!(config.lint.max_and_steps, 3);
+    }
+
+    #[test]
+    fn lint_config_rejects_zero_max_and_steps() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join(".espectacular/config.toml");
+        std::fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &config_path,
+            "tool_version = \"0.6.0\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\n\n[lint]\nmax_and_steps = 0\n",
+        )
+        .unwrap();
+        let result = load(dir.path());
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn runner_argv_must_be_non_empty_strings() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join(".espectacular/config.toml");
@@ -278,10 +341,30 @@ bad = [""]
             runners: HashMap::new(),
             quality: QualityConfig::default(),
             capabilities: CapabilitiesConfig::default(),
+            lint: LintConfig::default(),
         };
         let results = config.validate().unwrap();
         assert!(results
             .iter()
             .any(|v| v.field == "tool_version" && v.severity == ValidationSeverity::Error));
+    }
+
+    #[test]
+    fn validate_flags_zero_max_and_steps() {
+        let config = Config {
+            tool_version: "0.6.0".into(),
+            paths: Paths {
+                specs: "s".into(),
+                changes: "c".into(),
+            },
+            runners: HashMap::new(),
+            quality: QualityConfig::default(),
+            capabilities: CapabilitiesConfig::default(),
+            lint: LintConfig { max_and_steps: 0 },
+        };
+        let results = config.validate().unwrap();
+        assert!(results
+            .iter()
+            .any(|v| v.field == "lint.max_and_steps" && v.severity == ValidationSeverity::Error));
     }
 }

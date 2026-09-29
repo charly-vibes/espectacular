@@ -64,3 +64,45 @@ fn ah_lint_json_finding_shape_matches_shared_schema() {
     assert!(data["findings"].is_array());
     assert!(data["counts_by_kind"].is_object());
 }
+
+#[test]
+fn ah_lint_defective_fixture_reports_all_scenario_flow_kinds_exits_zero() {
+    // es espectacular-rty: the four scenario-flow checks fire end-to-end,
+    // all findings stay warning severity, and the command still exits 0
+    // (advisory-only in v1 — exit non-zero is reserved for error severity).
+    let output = ah_lint(&["tests/fixtures/lint/defective", "--json"]);
+    assert!(
+        output.status.success(),
+        "warning-only findings must not change the exit code, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let data = envelope_data(&output.stdout);
+    let findings = data["findings"].as_array().unwrap();
+    assert!(!findings.is_empty());
+    let kinds: Vec<&str> = findings
+        .iter()
+        .map(|f| f["kind"].as_str().unwrap())
+        .collect();
+    for kind in [
+        "vague-qualifier",
+        "imperative-step",
+        "conjunctive-bloat",
+        "missing-negative-scenario",
+    ] {
+        assert!(kinds.contains(&kind), "missing kind {kind} in {kinds:?}");
+    }
+    assert!(findings.iter().all(|f| f["severity"] == "warning"));
+    for field in [
+        "kind",
+        "severity",
+        "spec_path",
+        "scenario_id",
+        "message",
+        "suggestion",
+        "suggested_action",
+        "playbook_command",
+    ] {
+        assert!(findings[0].get(field).is_some(), "finding missing {field}");
+    }
+    assert!(data["counts_by_kind"]["imperative-step"].as_u64().unwrap() >= 1);
+}
