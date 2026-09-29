@@ -170,9 +170,55 @@ fn resolve_scope(
         }
 
         let added_scenarios = openspec::discover_scenarios(change_specs.to_str().unwrap())?;
+        // Staged contracts are collected BEFORE the overlay scenarios so a
+        // staged contract for a (spec, id) can act as the explicit signal that
+        // the change deliberately MODIFIES a deployed scenario's text
+        // (allow-overlay-scenario-modification).
+        let mut change_staged: HashSet<(String, String)> = HashSet::new();
+        let staged_root = contracts_dir.join("changes").join(change);
+        for (spec, id, path) in collect_contract_files(&staged_root) {
+            let key = (spec.clone(), id.clone());
+            if let Some(previous) = contract_overrides.insert(key.clone(), path.clone()) {
+                findings.push(report_finding(
+                    "overlay-conflict",
+                    "structural",
+                    spec.clone(),
+                    spec_markdown_path(specs_dir, &spec),
+                    ScenarioContext {
+                        id: id.clone(),
+                        title: String::new(),
+                        body_markdown: String::new(),
+                    },
+                    None,
+                    None,
+                    Some(format!(
+                        "multiple staged contract updates for {}:{} ({} and {})",
+                        spec,
+                        id,
+                        previous.display(),
+                        path.display()
+                    )),
+                ));
+                continue;
+            }
+            contract_files.push((spec.clone(), id.clone(), path.clone()));
+            change_staged.insert(key.clone());
+            if let Some(existing) = scenarios.get_mut(&key) {
+                existing.contract_path = path;
+            }
+        }
         for scenario in added_scenarios {
             let key = (scenario.spec_path.clone(), scenario.id.clone());
             if scenarios.contains_key(&key) {
+                if change_staged.contains(&key) {
+                    // Deliberate modification: the overlay prose replaces the
+                    // deployed scenario text in scope. The staged loop above
+                    // already pointed the contract path at the staged file.
+                    if let Some(existing) = scenarios.get_mut(&key) {
+                        existing.scenario = scenario;
+                    }
+                    continue;
+                }
                 findings.push(report_finding(
                     "overlay-conflict",
                     "structural",
@@ -208,38 +254,6 @@ fn resolve_scope(
                     contract_path,
                 },
             );
-        }
-
-        let staged_root = contracts_dir.join("changes").join(change);
-        for (spec, id, path) in collect_contract_files(&staged_root) {
-            let key = (spec.clone(), id.clone());
-            if let Some(previous) = contract_overrides.insert(key.clone(), path.clone()) {
-                findings.push(report_finding(
-                    "overlay-conflict",
-                    "structural",
-                    spec.clone(),
-                    spec_markdown_path(specs_dir, &spec),
-                    ScenarioContext {
-                        id: id.clone(),
-                        title: String::new(),
-                        body_markdown: String::new(),
-                    },
-                    None,
-                    None,
-                    Some(format!(
-                        "multiple staged contract updates for {}:{} ({} and {})",
-                        spec,
-                        id,
-                        previous.display(),
-                        path.display()
-                    )),
-                ));
-                continue;
-            }
-            contract_files.push((spec.clone(), id.clone(), path.clone()));
-            if let Some(existing) = scenarios.get_mut(&key) {
-                existing.contract_path = path;
-            }
         }
     }
 
@@ -953,6 +967,90 @@ mod tests {
         assert_eq!(
             output.summary.counts_by_kind.get("overlay-conflict"),
             Some(&1)
+        );
+    }
+
+    #[test]
+    fn run_check_overlay_modification_with_staged_contract_passes() {
+        // RED (espectacular-hct / allow-overlay-scenario-modification):
+        // a change delta that redefines a deployed scenario id WITH a staged
+        // contract is a deliberate modification — the overlay text replaces
+        // the base text, no overlay-conflict.
+        let dir = success_repo();
+        fs::create_dir_all(
+            dir.path()
+                .join("openspec/changes/mod-parser/specs/compiler"),
+        )
+        .unwrap();
+        fs::create_dir_all(dir.path().join(".espectacular/changes/mod-parser/compiler")).unwrap();
+        fs::write(
+            dir.path().join("openspec/changes/mod-parser/specs/compiler/spec.md"),
+            "# Capability: compiler\n\n#### Scenario: Green path\n- **WHEN** it runs modified\n- **THEN** it passes differently\n",
+        ).unwrap();
+        fs::write(
+            dir.path().join(".espectacular/changes/mod-parser/compiler/green-path.toml"),
+            "id = \"green-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"ok\"\n",
+        ).unwrap();
+
+        let output = run_check(dir.path(), &["mod-parser".to_string()], true).unwrap();
+        assert!(
+            !output.findings.iter().any(|f| f.kind == "overlay-conflict"),
+            "staged-contract modification must not conflict; got: {:?}",
+            output.findings
+        );
+    }
+
+    #[test]
+    fn run_check_unsignaled_scenario_redefinition_still_conflicts() {
+        let dir = success_repo();
+        fs::create_dir_all(
+            dir.path()
+                .join("openspec/changes/mod-parser/specs/compiler"),
+        )
+        .unwrap();
+        fs::write(
+            dir.path().join("openspec/changes/mod-parser/specs/compiler/spec.md"),
+            "# Capability: compiler\n\n#### Scenario: Green path\n- **WHEN** it runs modified\n- **THEN** it passes differently\n",
+        ).unwrap();
+
+        let output = run_check(dir.path(), &["mod-parser".to_string()], true).unwrap();
+        assert!(
+            output.findings.iter().any(|f| f.kind == "overlay-conflict"),
+            "redefinition without a staged contract must still conflict; got: {:?}",
+            output.findings
+        );
+    }
+
+    #[test]
+    fn run_check_conflicting_scenario_modifications_across_changes() {
+        let dir = success_repo();
+        for change in ["zeta", "alpha"] {
+            fs::create_dir_all(
+                dir.path()
+                    .join(format!("openspec/changes/{change}/specs/compiler")),
+            )
+            .unwrap();
+            fs::create_dir_all(
+                dir.path()
+                    .join(format!(".espectacular/changes/{change}/compiler")),
+            )
+            .unwrap();
+            fs::write(
+                dir.path().join(format!("openspec/changes/{change}/specs/compiler/spec.md")),
+                "# Capability: compiler\n\n#### Scenario: Green path\n- **WHEN** it runs modified\n- **THEN** it passes differently\n",
+            ).unwrap();
+            fs::write(
+                dir.path().join(format!(".espectacular/changes/{change}/compiler/green-path.toml")),
+                "id = \"green-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"ok\"\n",
+            ).unwrap();
+        }
+
+        let output =
+            run_check(dir.path(), &["zeta".to_string(), "alpha".to_string()], true).unwrap();
+        assert!(
+            output.findings.iter().any(|f| f.kind == "overlay-conflict"),
+            "two changes modifying the same deployed scenario must conflict; got: {:?}",
+            output.findings
         );
     }
 
