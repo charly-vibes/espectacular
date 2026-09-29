@@ -110,23 +110,6 @@ fn find_section_start(text: &str, header: &str) -> Option<usize> {
     text.find(&needle).map(|pos| pos + 1)
 }
 
-#[derive(Debug, PartialEq)]
-pub enum HookFramework {
-    Lefthook,
-    Prek,
-    None,
-}
-
-pub fn detect_hook_framework(repo_root: &Path) -> HookFramework {
-    if repo_root.join("lefthook.yml").exists() || repo_root.join("lefthook.yaml").exists() {
-        return HookFramework::Lefthook;
-    }
-    if repo_root.join(".prek").exists() || repo_root.join("prek.yml").exists() {
-        return HookFramework::Prek;
-    }
-    HookFramework::None
-}
-
 pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
     anyhow::ensure!(
         repo_root.join("openspec").exists(),
@@ -460,44 +443,6 @@ mod tests {
         assert!(
             result.refreshed.iter().any(|s| s.contains("CLAUDE.md")),
             "refreshed list should contain CLAUDE.md"
-        );
-    }
-
-    // 4.5 RED: hook detection precedence
-
-    #[test]
-    fn hook_detection_returns_none_when_no_framework() {
-        let repo = make_repo(true);
-        assert_eq!(detect_hook_framework(repo.path()), HookFramework::None);
-    }
-
-    #[test]
-    fn hook_detection_returns_lefthook_when_lefthook_yml_present() {
-        let repo = make_repo(true);
-        fs::write(
-            repo.path().join("lefthook.yml"),
-            "pre-commit:\n  commands:\n",
-        )
-        .unwrap();
-        assert_eq!(detect_hook_framework(repo.path()), HookFramework::Lefthook);
-    }
-
-    #[test]
-    fn hook_detection_returns_prek_when_prek_config_present() {
-        let repo = make_repo(true);
-        fs::write(repo.path().join(".prek"), "").unwrap();
-        assert_eq!(detect_hook_framework(repo.path()), HookFramework::Prek);
-    }
-
-    #[test]
-    fn hook_detection_prefers_lefthook_over_prek() {
-        let repo = make_repo(true);
-        fs::write(repo.path().join("lefthook.yml"), "").unwrap();
-        fs::write(repo.path().join(".prek"), "").unwrap();
-        assert_eq!(
-            detect_hook_framework(repo.path()),
-            HookFramework::Lefthook,
-            "lefthook must win over prek"
         );
     }
 
