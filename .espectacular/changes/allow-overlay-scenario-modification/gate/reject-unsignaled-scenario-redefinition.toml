@@ -1,0 +1,10 @@
+id = "reject-unsignaled-scenario-redefinition"
+description = "A change delta redefining a deployed scenario id without staging a contract still emits an overlay-conflict structural finding."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.6.0"
+
+[[tests.shell]]
+command = "cargo test -q check::tests::run_check_unsignaled_scenario_redefinition"
+timeout_seconds = 60
