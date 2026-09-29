@@ -134,7 +134,8 @@ pub fn specs_dir_for(repo_root: &Path) -> anyhow::Result<std::path::PathBuf> {
     Ok(repo_root.join("openspec/specs"))
 }
 
-/// Human-readable lint report (stderr stays clean for findings on stdout).
+/// Human-readable lint report. Findings go to stdout; stderr stays clean
+/// for the error path (ErrorSink in main).
 pub fn print_report(output: &LintOutput) {
     for f in &output.findings {
         let severity = match f.severity {
@@ -299,6 +300,10 @@ mod tests {
     fn imperative_step_fires_on_defective_fixture() {
         let output = run_lint(&defective_specs()).unwrap();
         assert!(output.findings.iter().any(|f| f.kind == "imperative-step"));
+        assert!(!output
+            .findings
+            .iter()
+            .any(|f| f.kind == "imperative-step" && f.spec_path == "auth"));
     }
 
     #[test]
@@ -309,6 +314,10 @@ mod tests {
             .findings
             .iter()
             .any(|f| f.kind == "conjunctive-bloat"));
+        assert!(!output
+            .findings
+            .iter()
+            .any(|f| f.kind == "conjunctive-bloat" && f.spec_path == "auth"));
     }
 
     #[test]
@@ -319,6 +328,10 @@ mod tests {
             .findings
             .iter()
             .any(|f| f.kind == "missing-negative-scenario"));
+        assert!(!output
+            .findings
+            .iter()
+            .any(|f| f.kind == "missing-negative-scenario" && f.spec_path == "auth"));
     }
 
     #[test]
@@ -343,6 +356,10 @@ mod tests {
             .findings
             .iter()
             .any(|f| f.kind == "unresolved-ambiguity"));
+        assert!(!output
+            .findings
+            .iter()
+            .any(|f| f.kind == "unresolved-ambiguity" && f.spec_path == "auth"));
     }
 
     #[test]
@@ -350,5 +367,9 @@ mod tests {
     fn entangled_spec_fires_on_defective_fixture() {
         let output = run_lint(&defective_specs()).unwrap();
         assert!(output.findings.iter().any(|f| f.kind == "entangled-spec"));
+        assert!(!output
+            .findings
+            .iter()
+            .any(|f| f.kind == "entangled-spec" && f.spec_path == "auth"));
     }
 }

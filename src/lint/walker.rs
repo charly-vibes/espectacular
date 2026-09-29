@@ -66,9 +66,17 @@ pub fn walk_specs(specs_dir: &Path) -> anyhow::Result<Vec<SpecFile>> {
 }
 
 fn parse_spec(content: &str, spec_name: &str) -> SpecFile {
+    use std::collections::HashSet;
+
     let lines: Vec<&str> = content.lines().collect();
     let mut requirements: Vec<RequirementUnit> = Vec::new();
     let mut current_req: Option<usize> = None;
+    // Section-sync mirrors (same slugified id AND identical body, e.g. the
+    // `## ADDED Requirements` / `## Requirements` pair in a dual-format
+    // delta) are one logical scenario — same dedupe convention as
+    // openspec::parse_scenarios_from_spec (deployed gate semantics:
+    // deduplicate-mirrored-delta-sections).
+    let mut seen: HashSet<(String, String)> = HashSet::new();
 
     for (i, &line) in lines.iter().enumerate() {
         if let Some(heading) = line.strip_prefix("### Requirement: ") {
@@ -82,10 +90,14 @@ fn parse_spec(content: &str, spec_name: &str) -> SpecFile {
         }
         if let Some(heading) = line.strip_prefix("#### Scenario: ") {
             let heading = heading.trim();
+            let body = extract_body(&lines, i + 1);
+            if !seen.insert((slugify(heading), body.clone())) {
+                continue;
+            }
             let scenario = ScenarioBlock {
                 id: slugify(heading),
                 heading: heading.to_string(),
-                body: extract_body(&lines, i + 1),
+                body,
                 source_line: i + 1,
             };
             let idx = match current_req {
@@ -188,5 +200,20 @@ mod tests {
             .map(|r| r.scenarios.len())
             .sum();
         assert_eq!(scenario_count, 2);
+    }
+
+    #[test]
+    fn walker_dedupes_section_sync_mirrors() {
+        // Dual-format deltas mirror scenarios across ## ADDED Requirements /
+        // ## Requirements sections; same id + identical body is ONE logical
+        // scenario (deployed gate semantics: deduplicate-mirrored-delta-
+        // sections). The walker must not double-emit them.
+        let specs = walk_specs(&PathBuf::from("tests/fixtures/lint/dual/openspec/specs")).unwrap();
+        let scenario_count: usize = specs
+            .iter()
+            .flat_map(|s| &s.requirements)
+            .map(|r| r.scenarios.len())
+            .sum();
+        assert_eq!(scenario_count, 2, "mirrored scenarios double-emitted");
     }
 }
