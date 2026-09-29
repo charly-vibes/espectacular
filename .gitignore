@@ -16,3 +16,4 @@ docs/src/specs/
 # testaruda store (local SQLite DB)
 .testaruda/
 .claude/settings.local.json
+.beads.gate.lock
