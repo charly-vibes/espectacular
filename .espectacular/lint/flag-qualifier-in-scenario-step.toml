@@ -1,0 +1,10 @@
+id = "flag-qualifier-in-scenario-step"
+description = "Repo-local proof contract for lint/flag-qualifier-in-scenario-step."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+
+[[tests.shell]]
+command = "cargo test -q vague_qualifier_flags_qualifier_in_scenario_step"
+timeout_seconds = 60

@@ -1,0 +1,10 @@
+id = "clean-spec-exits-zero-with-empty-findings"
+description = "Repo-local proof contract for cli/clean-spec-exits-zero-with-empty-findings."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+
+[[tests.shell]]
+command = "cargo test -q clean_fixture_produces_zero_findings"
+timeout_seconds = 60

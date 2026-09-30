@@ -1,0 +1,10 @@
+id = "relay-specodelic-findings-for-dual-format-files"
+description = "Repo-local proof contract for lint/relay-specodelic-findings-for-dual-format-files."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+
+[[tests.shell]]
+command = "cargo test -q relay_maps_spk_issues_to_spk_prefixed_warning_findings"
+timeout_seconds = 60

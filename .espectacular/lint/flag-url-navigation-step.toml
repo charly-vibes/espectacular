@@ -1,0 +1,10 @@
+id = "flag-url-navigation-step"
+description = "Repo-local proof contract for lint/flag-url-navigation-step."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+
+[[tests.shell]]
+command = "cargo test -q imperative_step_flags_url_navigation_and_field_fill"
+timeout_seconds = 60

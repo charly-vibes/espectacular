@@ -1,0 +1,10 @@
+id = "specodelic-invocation-failure-does-not-hard-fail"
+description = "Repo-local proof contract for lint/specodelic-invocation-failure-does-not-hard-fail."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+
+[[tests.shell]]
+command = "cargo test -q relay_emits_advisory_on_unparseable_output"
+timeout_seconds = 60

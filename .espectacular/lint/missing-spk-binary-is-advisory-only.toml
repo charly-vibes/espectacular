@@ -1,0 +1,10 @@
+id = "missing-spk-binary-is-advisory-only"
+description = "Repo-local proof contract for lint/missing-spk-binary-is-advisory-only."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+
+[[tests.shell]]
+command = "cargo test -q relay_emits_single_advisory_when_spk_is_missing"
+timeout_seconds = 60

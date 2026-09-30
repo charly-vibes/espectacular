@@ -1,0 +1,10 @@
+id = "default-maximum-is-configurable"
+description = "Repo-local proof contract for lint/default-maximum-is-configurable."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+
+[[tests.shell]]
+command = "cargo test -q conjunctive_bloat_honors_configured_max"
+timeout_seconds = 60

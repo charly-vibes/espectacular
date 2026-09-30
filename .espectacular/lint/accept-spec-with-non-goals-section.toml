@@ -1,0 +1,10 @@
+id = "accept-spec-with-non-goals-section"
+description = "Repo-local proof contract for lint/accept-spec-with-non-goals-section."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+
+[[tests.shell]]
+command = "cargo test -q missing_non_goals_accepts_out_of_scope_variant"
+timeout_seconds = 60

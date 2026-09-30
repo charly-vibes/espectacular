@@ -1,0 +1,10 @@
+id = "lint-a-change-overlay"
+description = "Repo-local proof contract for cli/lint-a-change-overlay."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+
+[[tests.shell]]
+command = "cargo test -q run_change_overlay_lints_change_specs"
+timeout_seconds = 60

@@ -1,0 +1,10 @@
+id = "lint-json-output"
+description = "Repo-local proof contract for cli/lint-json-output."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+
+[[tests.shell]]
+command = "cargo test -q lint_finding_serializes_shared_schema_fields"
+timeout_seconds = 60

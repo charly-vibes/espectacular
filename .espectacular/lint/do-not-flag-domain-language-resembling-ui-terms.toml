@@ -1,0 +1,10 @@
+id = "do-not-flag-domain-language-resembling-ui-terms"
+description = "Repo-local proof contract for lint/do-not-flag-domain-language-resembling-ui-terms."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+
+[[tests.shell]]
+command = "cargo test -q entangled_spec_excludes_domain_legitimate_language"
+timeout_seconds = 60

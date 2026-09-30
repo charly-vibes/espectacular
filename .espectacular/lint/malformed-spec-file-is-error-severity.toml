@@ -1,0 +1,10 @@
+id = "malformed-spec-file-is-error-severity"
+description = "Repo-local proof contract for lint/malformed-spec-file-is-error-severity. NOTE: closest real test (error-severity exit semantics); walk_specs propagates parse errors instead of emitting an error finding — drift ticketed."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+
+[[tests.shell]]
+command = "cargo test -q exit_code_zero_on_warnings_and_empty_non_zero_on_errors"
+timeout_seconds = 60
