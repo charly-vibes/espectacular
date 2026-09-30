@@ -1083,7 +1083,6 @@ mod tests {
     fn structural_findings_carry_error_severity() {
         let dir = success_repo();
         let contract = dir.path().join(".espectacular/compiler/green-path.toml");
-        let text = fs::read_to_string(&contract).unwrap();
         fs::write(&contract, "id = \"green-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\nfalsifiability_class = \"liveness\"\n[tests]\n").unwrap();
 
         let output = run_check(dir.path(), &[], true).unwrap();
