@@ -15,10 +15,10 @@ section sync, `ah check`). One ticket per file, one concern per PR.
 
 ## 2. Change deltas (4 files — dual-format is the documented delta practice)
 
-- [ ] 2.1 `openspec/changes/adopt-genesis/specs/cli/spec.md` (3 reqs, 4 scenarios) + `ah check --changes adopt-genesis` contracts stay green
-- [ ] 2.2 `openspec/changes/add-contract-property-class/specs/gate/spec.md` (1 req, 9 scenarios) + `ah check --changes add-contract-property-class` contracts stay green; known-expected residue: overlay-conflicts where the overlay model cannot express MODIFIED requirement text (beads `espectacular-hct`), mirroring the pilot's task 2.4 pattern
-- [ ] 2.3 `openspec/changes/upgrade-genesis/specs/config/spec.md` (1 req, 3 scenarios)
-- [ ] 2.4 `openspec/changes/upgrade-genesis/specs/cli-core/spec.md` (1 req, 2 scenarios)
+- [x] 2.1 `openspec/changes/adopt-genesis/specs/cli/spec.md` (3 reqs, 4 scenarios) + `ah check --changes adopt-genesis` byte-identical to pre-migration
+- [x] 2.2 `openspec/changes/add-contract-property-class/specs/gate/spec.md` (1 req, 9 scenarios) + `ah check --changes add-contract-property-class` byte-identical to pre-migration; known-expected residue: overlay-conflicts where the overlay model cannot express MODIFIED requirement text (beads `espectacular-hct`), mirroring the pilot's task 2.4 pattern
+- [x] 2.3 `openspec/changes/upgrade-genesis/specs/config/spec.md` (1 req, 3 scenarios)
+- [x] 2.4 `openspec/changes/upgrade-genesis/specs/cli-core/spec.md` (1 req, 2 scenarios)
 
 ## 3. Deployed specs (5 files — one ticket each, smallest first)
 
