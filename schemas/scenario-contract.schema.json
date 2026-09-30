@@ -10,6 +10,7 @@
     "description": { "type": "string" },
     "archetype": { "type": "string" },
     "status": { "enum": ["active", "superseded"] },
+    "falsifiability_class": { "enum": ["safety", "liveness"] },
     "superseded_by": { "type": "string" },
     "authored_with": { "type": "string", "minLength": 1 },
     "tests": {

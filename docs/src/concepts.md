@@ -59,6 +59,15 @@ Required fields: `id`, `description`, `archetype`, `status`, `superseded_by`, `a
 
 The filename, the `id` field, and the scenario slug must all agree — `ah check` emits `id-mismatch` if they disagree.
 
+### Falsifiability class
+
+Contracts may declare an optional `falsifiability_class`:
+
+- `"safety"` — the scenario asserts a **safety** claim: a bad state never occurs. A single deterministic test can falsify it. Annotation-only in v1; it records the author's judgment and gives downstream tooling a hook.
+- `"liveness"` — the scenario asserts a **liveness** claim: a good state eventually occurs. A liveness claim is only falsifiable under bounded execution, so if every test entry omits `timeout_seconds`, `ah check` emits a `missing-liveness-timeout` **warning** suggesting an explicit timeout. Warnings do not fail the gate.
+
+The field is optional and absent by default — contracts without it validate exactly as before. Invalid values emit an `invalid-falsifiability-class` structural finding and fail the gate.
+
 ### Test entry types
 
 | Entry | How it runs |

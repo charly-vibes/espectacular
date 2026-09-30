@@ -607,6 +607,9 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorOutcome> {
         if let Some(r) = rec {
             suggestions.push(r);
         }
+        if let Some(s) = falsifiability_session_suggestion(repo_root, &cfg) {
+            session_suggestions.push(s);
+        }
     }
 
     if let Some(s) = lint_session_suggestion(repo_root) {
@@ -654,6 +657,40 @@ fn chrono_now_iso() -> String {
 /// Suggest `ah lint` when the repo is configured but no lint run has
 /// completed in the session. Advisory-only by construction: it lands in
 /// `session_suggestions`, which never influences the health verdict.
+fn falsifiability_session_suggestion(
+    repo_root: &Path,
+    config: &crate::config::Config,
+) -> Option<SessionSuggestion> {
+    let specs_dir = repo_root.join(&config.paths.specs);
+    let scenarios =
+        crate::openspec::discover_scenarios(specs_dir.to_str().unwrap_or_default()).ok()?;
+    let contracts_root = repo_root.join(".espectacular");
+    let mut candidates: Vec<String> = Vec::new();
+    for scenario in &scenarios {
+        if !scenario.body.to_lowercase().contains("eventually") {
+            continue;
+        }
+        let path = crate::check::contract_path(&contracts_root, &scenario.spec_path, &scenario.id);
+        let Ok(contract) = crate::contracts::load_contract(path.to_str().unwrap_or_default())
+        else {
+            continue;
+        };
+        if contract.falsifiability_class.is_empty() {
+            candidates.push(format!("{}/{}", scenario.spec_path, scenario.id));
+        }
+    }
+    if candidates.is_empty() {
+        return None;
+    }
+    let first = &candidates[0];
+    Some(SessionSuggestion {
+        detail: format!(
+            "{} scenario(s) containing \"eventually\" lack a falsifiability_class tag (e.g. {first}) — consider tagging safety claims \"safety\" and bounded liveness claims \"liveness\"",            candidates.len()
+        ),
+        apply_command: "ah explain missing-liveness-timeout".to_string(),
+    })
+}
+
 fn lint_session_suggestion(repo_root: &Path) -> Option<SessionSuggestion> {
     if !repo_root.join(crate::config::CONFIG_MARKER).exists() {
         return None;
@@ -1464,6 +1501,102 @@ mod lint_session_tests {
                 .iter()
                 .any(|s| s.apply_command == "ah lint"),
             "lint suggestion must disappear once a lint run completed"
+        );
+    }
+
+    #[test]
+    fn doctor_suggests_falsifiability_tagging_for_eventually_scenarios() {
+        let repo = make_healthy_repo();
+        let root = repo.path();
+        fs::create_dir_all(root.join("openspec/specs/queue")).unwrap();
+        fs::create_dir_all(root.join(".espectacular/queue")).unwrap();
+        fs::write(
+            root.join("openspec/specs/queue/spec.md"),
+            "# Capability: queue\n\n#### Scenario: Request settles\n- **WHEN** a request is submitted\n- **THEN** it eventually settles\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".espectacular/queue/request-settles.toml"),
+            format!(
+                "id = \"request-settles\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"{}\"\n\n[[tests.unit]]\nflags = \"t::f\"\n",
+                TOOL_VERSION
+            ),
+        )
+        .unwrap();
+
+        let outcome = run_doctor(root).unwrap();
+        let sugg = outcome
+            .session_suggestions
+            .iter()
+            .find(|s| s.apply_command == "ah explain missing-liveness-timeout");
+        assert!(
+            sugg.is_some(),
+            "expected a falsifiability tagging suggestion"
+        );
+        assert!(sugg.unwrap().detail.contains("eventually"));
+    }
+
+    #[test]
+    fn doctor_no_falsifiability_suggestion_when_contract_tagged() {
+        let repo = make_healthy_repo();
+        let root = repo.path();
+        fs::create_dir_all(root.join("openspec/specs/queue")).unwrap();
+        fs::create_dir_all(root.join(".espectacular/queue")).unwrap();
+        fs::write(
+            root.join("openspec/specs/queue/spec.md"),
+            "# Capability: queue\n\n#### Scenario: Request settles\n- **WHEN** a request is submitted\n- **THEN** it eventually settles\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".espectacular/queue/request-settles.toml"),
+            format!(
+                "id = \"request-settles\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"{}\"\nfalsifiability_class = \"liveness\"\n\n[[tests.unit]]\nflags = \"t::f\"\n",
+                TOOL_VERSION
+            ),
+        )
+        .unwrap();
+
+        let outcome = run_doctor(root).unwrap();
+        assert!(
+            !outcome
+                .session_suggestions
+                .iter()
+                .any(|s| s.apply_command == "ah explain missing-liveness-timeout"),
+            "tagged contracts must not trigger the suggestion"
+        );
+    }
+
+    #[test]
+    fn falsifiability_suggestion_never_fails_the_doctor_run() {
+        // Anti-goal guard (EXCL-003): a tagging nudge must ride the suggestion
+        // path only — genesis maps any LintResult to CheckStatus::Warn, so a
+        // finding here would make `ah doctor` exit 1 (mu5/djw foot-gun).
+        let repo = make_healthy_repo();
+        let root = repo.path();
+        fs::create_dir_all(root.join("openspec/specs/queue")).unwrap();
+        fs::create_dir_all(root.join(".espectacular/queue")).unwrap();
+        fs::write(
+            root.join("openspec/specs/queue/spec.md"),
+            "# Capability: queue\n\n#### Scenario: Request settles\n- **WHEN** a request is submitted\n- **THEN** it eventually settles\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".espectacular/queue/request-settles.toml"),
+            format!(
+                "id = \"request-settles\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"{}\"\n\n[[tests.unit]]\nflags = \"t::f\"\n",
+                TOOL_VERSION
+            ),
+        )
+        .unwrap();
+
+        let outcome = run_doctor(root).unwrap();
+        assert!(outcome
+            .session_suggestions
+            .iter()
+            .any(|s| s.apply_command == "ah explain missing-liveness-timeout"),);
+        assert!(
+            outcome.genesis_report.is_healthy(),
+            "suggestion must never flip the health verdict"
         );
     }
 

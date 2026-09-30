@@ -24,11 +24,11 @@ Each numbered group is one TDD cycle: red (failing test) → green (implementati
 
 ## 4. Schema, docs, playbooks
 
-- [ ] 4.1 Update `schemas/scenario-contract.schema.json` with the optional enum field
-- [ ] 4.2 Update `docs/src/concepts.md` contract section (field, semantics, warning behavior; `safety` is annotation-only in v1)
-- [ ] 4.3 Add `ah explain` topics for `invalid-falsifiability-class` and `missing-liveness-timeout` (compile-enforced per explain spec) — both topics landed with cycles 2 and 3 respectively (registration is compile-forced); remaining 4.3 verification is covered by explain CLI tests
-- [ ] 4.4 `ah doctor` suggests tagging contracts whose scenario text contains "eventually" (advisory nudge, per design risk mitigation) — MUST use the suggestion path, NOT a finding: genesis maps any LintResult (incl. Advisory) to CheckStatus::Warn → `ah doctor` exits 1; a failing nudge would recreate the mu5/djw foot-gun (Rule of 5 review 2026-10-01, EXCL-003)
-- [ ] 4.5 Dogfood: audit espectacular's own `.espectacular/` contracts and tag any obvious liveness/safety claims (e.g., timeout-related scenarios)
+- [x] 4.1 Update `schemas/scenario-contract.schema.json` with the optional enum field
+- [x] 4.2 Update `docs/src/concepts.md` contract section (field, semantics, warning behavior; `safety` is annotation-only in v1)
+- [x] 4.3 Add `ah explain` topics for `invalid-falsifiability-class` and `missing-liveness-timeout` (compile-enforced per explain spec) — both topics landed with cycles 2 and 3 respectively (registration is compile-forced); remaining 4.3 verification is covered by explain CLI tests
+- [x] 4.4 `ah doctor` suggests tagging contracts whose scenario text contains "eventually" (advisory nudge, per design risk mitigation) — MUST use the suggestion path, NOT a finding: genesis maps any LintResult (incl. Advisory) to CheckStatus::Warn → `ah doctor` exits 1; a failing nudge would recreate the mu5/djw foot-gun (Rule of 5 review 2026-10-01, EXCL-003) (session_suggestion with anti-goal guard test: never flips health verdict)
+- [x] 4.5 Dogfood: audit espectacular's own `.espectacular/` contracts and tag any obvious liveness/safety claims (e.g., timeout-related scenarios) — no repo scenario prose contains "eventually" (doctor nudge stays silent, verified); gate/enforce-test-timeout tagged "safety" (bounded-termination claim, falsified by a single deterministic run, tests already carry timeout_seconds); no liveness candidates
 
 ## 5. Validation
 

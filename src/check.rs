@@ -872,7 +872,7 @@ fn report_finding_cmp(left: &ReportFinding, right: &ReportFinding) -> std::cmp::
         ))
 }
 
-fn contract_path(contracts_root: &Path, spec: &str, id: &str) -> PathBuf {
+pub(crate) fn contract_path(contracts_root: &Path, spec: &str, id: &str) -> PathBuf {
     contracts_root.join(spec).join(format!("{id}.toml"))
 }
 
