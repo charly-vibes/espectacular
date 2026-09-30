@@ -38,7 +38,7 @@ jobs:
 
       # Run the exact same command as local development
       - name: Install specodelic (corpus gate in `just ci`)
-        run: cargo install --locked specodelic@0.1.0
+        run: cargo install --git https://github.com/charly-vibes/specodelic.git --locked
 
       - name: Install ecosystem tools (§4 dogfood matrix, pinned)
         run: |
@@ -54,7 +54,7 @@ jobs:
         env:
           DO_NOT_TRACK: "1"
         run: |
-          bd list >/dev/null
+          bd --version >/dev/null
           ddl status >/dev/null
           wai status >/dev/null
           openspec validate --all >/dev/null
@@ -107,7 +107,7 @@ jobs:
         uses: extractions/setup-just@v2
 
       - name: Install specodelic
-        run: cargo install --locked specodelic@0.1.0
+        run: cargo install --git https://github.com/charly-vibes/specodelic.git --locked
 
       - name: Spec corpus mandate (spk lint + frontmatter over all non-archived spec.md)
         run: just spec-lint

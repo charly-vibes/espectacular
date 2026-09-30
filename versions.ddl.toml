@@ -5,7 +5,8 @@
 # tests/standard_conformance.rs) requires this file to exist.
 #
 # §4 matrix row (espectacular): pretender ✅ · wai ✅ · bd ✅ · openspec ✅ · ddl ✅
-# CI already installs specodelic (git, unpinned) — pin separately if kept.
+# specodelic is installed from git in ci.yml (crates.io 0.1.0 is stale vs main;
+# pin once a current release is published) — not a §4 matrix column.
 
 [tools]
 wai = "2026.9.28"          # crates.io: wai-cli
