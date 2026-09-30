@@ -45,6 +45,7 @@ enum FindingKind {
     IdMismatch,
     InvalidStatus,
     InvalidFalsifiabilityClass,
+    MissingLivenessTimeout,
     NoTestsDeclared,
     MissingRunner,
     MissingAdapter,
@@ -78,6 +79,7 @@ const ALL_FINDING_KINDS: &[FindingKind] = &[
     FindingKind::IdMismatch,
     FindingKind::InvalidStatus,
     FindingKind::InvalidFalsifiabilityClass,
+    FindingKind::MissingLivenessTimeout,
     FindingKind::NoTestsDeclared,
     FindingKind::MissingRunner,
     FindingKind::MissingAdapter,
@@ -136,6 +138,7 @@ fn finding_kind_entry(kind: FindingKind) -> &'static TopicEntry {
         FindingKind::IdMismatch => &ID_MISMATCH,
         FindingKind::InvalidStatus => &INVALID_STATUS,
         FindingKind::InvalidFalsifiabilityClass => &INVALID_FALSIFIABILITY_CLASS,
+        FindingKind::MissingLivenessTimeout => &MISSING_LIVENESS_TIMEOUT,
         FindingKind::NoTestsDeclared => &NO_TESTS_DECLARED,
         FindingKind::MissingRunner => &MISSING_RUNNER,
         FindingKind::MissingAdapter => &MISSING_ADAPTER,
@@ -649,6 +652,34 @@ remove the field entirely — an absent field is always valid.",
     human_approval: false,
     related_topics: &["invalid-status", "review_and_apply"],
     hints: &[],
+};
+
+static MISSING_LIVENESS_TIMEOUT: TopicEntry = TopicEntry {
+    slug: "missing-liveness-timeout",
+    summary: "A `liveness` contract declares no `timeout_seconds` on any test entry.",
+    body: "## missing-liveness-timeout — Unbounded liveness claim
+
+A contract tagged `falsifiability_class = \"liveness\"` declares a liveness
+claim: good states eventually occur. Such a claim is only falsifiable under
+bounded execution — without a timeout, a hanging or looping test never
+produces a falsifying result, so the scenario reads as verified while it is
+merely un-executed. This is a warning: it does not fail the gate.
+
+**Why it appears**: the contract was tagged liveness but its test entries
+rely on the runner's default timeout behavior (or none).
+
+**How to fix**: declare `timeout_seconds` on at least one test entry in the
+contract. That single explicit bound is enough to suppress the warning.",
+    when: "A `liveness` contract's test entries all omit `timeout_seconds`.",
+    do_action: "Add `timeout_seconds` to at least one test entry in the contract .toml.",
+    human_approval: false,
+    related_topics: &["invalid-falsifiability-class", "review_and_apply"],
+    hints: &[Hint {
+        kind: "example",
+        message: r#"[[tests.unit]]
+flags = "crate::tests::my_scenario"
+timeout_seconds = 30"#,
+    }],
 };
 
 static NO_TESTS_DECLARED: TopicEntry = TopicEntry {
@@ -1575,12 +1606,12 @@ mod tests {
     #[test]
     fn topic_count_is_complete() {
         let topics = all_topics();
-        // 19 finding kinds + 7 suggested actions + 5 general (incl. lint)
-        // + 3 adapter + 7 lint kinds (espectacular-eia) = 41
+        // 20 finding kinds + 7 suggested actions + 5 general (incl. lint)
+        // + 3 adapter + 7 lint kinds (espectacular-eia) = 42
         assert_eq!(
             topics.len(),
-            41,
-            "expected 41 topics (19 finding + 7 action + 5 general + 3 adapter + 7 lint kinds), got {}",
+            42,
+            "expected 42 topics (20 finding + 7 action + 5 general + 3 adapter + 7 lint kinds), got {}",
             topics.len()
         );
     }

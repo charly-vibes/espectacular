@@ -64,12 +64,21 @@ pub struct ReportFinding {
     pub scenario: ScenarioContext,
     pub suggested_action: String,
     pub playbook_command: String,
+    /// Gate severity: "error" for structural/execution findings (gate-failing),
+    /// "warning" for non-gating findings (exit zero on warnings only).
+    /// External custom-runner findings that omit it default to "error".
+    #[serde(default = "default_severity")]
+    pub severity: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scenario_prose: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub test: Option<TestResult>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
+}
+
+fn default_severity() -> String {
+    "error".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
@@ -417,6 +426,7 @@ fn evaluate_scope(
             },
             suggested_action: "fix_tool_invocation".to_string(),
             playbook_command: "ah explain fix_tool_invocation".to_string(),
+            severity: "error".to_string(),
             scenario_prose: None,
             test: None,
             message: Some(msg),
@@ -543,6 +553,31 @@ fn collect_structural_findings(
                             "replacement scenario '{}' is absent from scope",
                             contract.superseded_by
                         )),
+                    ));
+                }
+                // Liveness timeout warning (gate delta C-liveness-timeout-warning):
+                // fires only when ≥1 test entry exists (zero entries are governed
+                // by no-tests-declared) and every entry lacks timeout_seconds.
+                let all_entries: Vec<&contracts::TestEntry> =
+                    contract.tests.values().flatten().collect();
+                if contract.falsifiability_class == "liveness"
+                    && !all_entries.is_empty()
+                    && all_entries
+                        .iter()
+                        .all(|entry| entry.timeout_seconds.is_none())
+                {
+                    findings.push(structural_report(
+                        scenario,
+                        specs_root,
+                        "missing-liveness-timeout",
+                        Some(
+                            concat!(
+                            "liveness claim has no timeout_seconds on any test entry; liveness ",
+                            "assertions are only falsifiable under bounded execution — declare ",
+                            "timeout_seconds at least once"
+                        )
+                            .to_string(),
+                        ),
                     ));
                 }
             }
@@ -723,6 +758,16 @@ fn report_finding(
     message: Option<String>,
 ) -> ReportFinding {
     let suggested_action = suggested_action_for(kind).to_string();
+    let severity = if kind == "missing-liveness-timeout" {
+        "warning"
+    } else {
+        "error"
+    };
+    let category = if severity == "warning" {
+        "warning"
+    } else {
+        category
+    };
     ReportFinding {
         kind: kind.to_string(),
         category: category.to_string(),
@@ -731,6 +776,7 @@ fn report_finding(
         scenario,
         suggested_action: suggested_action.clone(),
         playbook_command: format!("ah explain {suggested_action}"),
+        severity: severity.to_string(),
         scenario_prose,
         test,
         message,
@@ -787,6 +833,7 @@ fn suggested_action_for(kind: &str) -> &'static str {
         | "id-mismatch"
         | "invalid-status"
         | "invalid-falsifiability-class"
+        | "missing-liveness-timeout"
         | "no-tests-declared"
         | "malformed-contract"
         | "missing-replacement"
@@ -939,7 +986,8 @@ mod tests {
 
     #[test]
     fn valid_falsifiability_class_values_pass_and_run_tests() {
-        for value in ["safety", "liveness"] {
+        // safety: no findings at all
+        {
             let dir = success_repo();
             let contract = dir.path().join(".espectacular/compiler/green-path.toml");
             let text = fs::read_to_string(&contract).unwrap();
@@ -947,16 +995,205 @@ mod tests {
                 &contract,
                 text.replace(
                     "status = \"active\"",
-                    &format!("status = \"active\"\nfalsifiability_class = \"{value}\""),
+                    "status = \"active\"\nfalsifiability_class = \"safety\"",
                 ),
             )
             .unwrap();
             let output = run_check(dir.path(), &[], true).unwrap();
             assert!(
                 output.findings.is_empty(),
-                "falsifiability_class = {value} must not produce findings"
+                "falsifiability_class = safety must not produce findings"
             );
             assert_eq!(output.summary.passed, 1);
+        }
+        // liveness: only the timeout warning (entry in success_repo has no timeout)
+        {
+            let dir = success_repo();
+            let contract = dir.path().join(".espectacular/compiler/green-path.toml");
+            let text = fs::read_to_string(&contract).unwrap();
+            fs::write(
+                &contract,
+                text.replace(
+                    "status = \"active\"",
+                    "status = \"active\"\nfalsifiability_class = \"liveness\"",
+                ),
+            )
+            .unwrap();
+            let output = run_check(dir.path(), &[], true).unwrap();
+            assert_eq!(output.findings.len(), 1);
+            assert_eq!(output.findings[0].kind, "missing-liveness-timeout");
+            assert_eq!(output.findings[0].severity, "warning");
+            assert_eq!(output.summary.passed, 1);
+        }
+    }
+
+    #[test]
+    fn liveness_without_timeout_emits_warning_severity() {
+        let dir = success_repo();
+        let contract = dir.path().join(".espectacular/compiler/green-path.toml");
+        let text = fs::read_to_string(&contract).unwrap();
+        fs::write(
+            &contract,
+            text.replace(
+                "status = \"active\"",
+                "status = \"active\"\nfalsifiability_class = \"liveness\"",
+            ),
+        )
+        .unwrap();
+
+        let output = run_check(dir.path(), &[], true).unwrap();
+        let warnings: Vec<_> = output
+            .findings
+            .iter()
+            .filter(|f| f.kind == "missing-liveness-timeout")
+            .collect();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].severity, "warning");
+        assert_eq!(warnings[0].category, "warning");
+        assert_eq!(
+            output.summary.structural, 0,
+            "warning must not be structural"
+        );
+        assert_eq!(output.summary.passed, 1, "tests still run and pass");
+    }
+
+    #[test]
+    fn liveness_with_timeout_emits_no_warning() {
+        let dir = success_repo();
+        let contract = dir.path().join(".espectacular/compiler/green-path.toml");
+        let text = fs::read_to_string(&contract).unwrap();
+        fs::write(
+            &contract,
+            text.replace(
+                "[[tests.unit]]\nflags = \"ok\"",
+                "falsifiability_class = \"liveness\"\n\n[[tests.unit]]\nflags = \"ok\"\ntimeout_seconds = 30",
+            ),
+        )
+        .unwrap();
+
+        let output = run_check(dir.path(), &[], true).unwrap();
+        assert!(!output
+            .findings
+            .iter()
+            .any(|f| f.kind == "missing-liveness-timeout"));
+        assert_eq!(output.summary.passed, 1);
+    }
+
+    #[test]
+    fn structural_findings_carry_error_severity() {
+        let dir = success_repo();
+        let contract = dir.path().join(".espectacular/compiler/green-path.toml");
+        let text = fs::read_to_string(&contract).unwrap();
+        fs::write(&contract, "id = \"green-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\nfalsifiability_class = \"liveness\"\n[tests]\n").unwrap();
+
+        let output = run_check(dir.path(), &[], true).unwrap();
+        let declared: Vec<_> = output
+            .findings
+            .iter()
+            .filter(|f| f.kind == "no-tests-declared")
+            .collect();
+        assert_eq!(declared.len(), 1);
+        assert_eq!(declared[0].severity, "error");
+        assert!(
+            !output
+                .findings
+                .iter()
+                .any(|f| f.kind == "missing-liveness-timeout"),
+            "zero test entries must not emit the liveness warning"
+        );
+    }
+
+    #[test]
+    fn non_liveness_findings_serialize_error_severity() {
+        let dir = success_repo();
+        let contract = dir.path().join(".espectacular/compiler/green-path.toml");
+        let text = fs::read_to_string(&contract).unwrap();
+        fs::write(
+            &contract,
+            text.replace(
+                "status = \"active\"",
+                "status = \"active\"\nfalsifiability_class = \"eventual\"",
+            ),
+        )
+        .unwrap();
+
+        let output = run_check(dir.path(), &[], true).unwrap();
+        let findings: Vec<_> = output
+            .findings
+            .iter()
+            .filter(|f| f.kind == "invalid-falsifiability-class")
+            .collect();
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].severity, "error");
+        // byte-compatibility: serialized JSON keeps every pre-existing field
+        let json = serde_json::to_value(&findings[0]).unwrap();
+        for key in [
+            "kind",
+            "category",
+            "spec",
+            "spec_path",
+            "scenario",
+            "suggested_action",
+            "playbook_command",
+            "message",
+        ] {
+            assert!(json.get(key).is_some(), "missing pre-existing field {key}");
+        }
+        // external (custom-runner) findings without severity deserialize as error
+        let external: ReportFinding =
+            serde_json::from_value(serde_json::json!({"kind": "test-failing", "category": "execution", "spec": "s", "spec_path": "p", "scenario": {"id": "i", "title": "t", "body_markdown": "b"}, "suggested_action": "edit_code_not_scenario", "playbook_command": "ah explain edit_code_not_scenario"})).unwrap();
+        assert_eq!(external.severity, "error");
+    }
+
+    #[test]
+    fn every_preexisting_finding_kind_serializes_error_severity() {
+        // All kinds that existed before the severity field (schema enum minus
+        // the two falsifiability kinds introduced alongside it).
+        let kinds = [
+            "no-toml",
+            "orphan-toml",
+            "slug-collision",
+            "id-mismatch",
+            "invalid-status",
+            "no-tests-declared",
+            "missing-runner",
+            "malformed-contract",
+            "missing-replacement",
+            "overlay-conflict",
+            "test-failing",
+            "no-tests-ran",
+        ];
+        for kind in kinds {
+            let finding = report_finding(
+                kind,
+                "structural",
+                "s".to_string(),
+                "p".to_string(),
+                ScenarioContext {
+                    id: "i".to_string(),
+                    title: "t".to_string(),
+                    body_markdown: "b".to_string(),
+                },
+                None,
+                None,
+                None,
+            );
+            assert_eq!(finding.severity, "error", "kind {kind} must be error");
+            let json = serde_json::to_value(&finding).unwrap();
+            for key in [
+                "kind",
+                "category",
+                "spec",
+                "spec_path",
+                "scenario",
+                "suggested_action",
+                "playbook_command",
+            ] {
+                assert!(
+                    json.get(key).is_some(),
+                    "kind {kind}: missing pre-existing field {key}"
+                );
+            }
         }
     }
 
