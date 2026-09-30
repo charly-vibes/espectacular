@@ -25,8 +25,13 @@ pub struct SpecFile {
     pub spec_path: String,
     pub requirements: Vec<RequirementUnit>,
     /// Raw spec markdown — spec-file-level checks (missing-non-goals) scan
-    /// headings outside any requirement unit.
+    /// headings outside any requirement unit; the dual-format bridge detects
+    /// `id: spec` frontmatter in it.
     pub raw: String,
+    /// On-disk path of the spec file (set by `walk_specs`; empty for
+    /// synthetically parsed units). The dual-format bridge invokes
+    /// `spk lint` against it.
+    pub source_path: std::path::PathBuf,
 }
 
 /// A `### Requirement:` block and every scenario declared under it.
@@ -67,9 +72,12 @@ pub fn walk_specs(specs_dir: &Path) -> anyhow::Result<Vec<SpecFile>> {
             continue;
         }
         let content = fs::read_to_string(&spec_file)?;
-        let mut spec = parse_spec(&content, &spec_name);
-        load_archetypes(&mut spec, contracts_root_for(specs_dir));
-        specs.push(spec);
+        specs.push({
+            let mut spec = parse_spec(&content, &spec_name);
+            spec.source_path = spec_file.clone();
+            load_archetypes(&mut spec, contracts_root_for(specs_dir));
+            spec
+        });
     }
     specs.sort_by(|a, b| a.spec_path.cmp(&b.spec_path));
     Ok(specs)
@@ -179,6 +187,7 @@ pub(crate) fn parse_spec(content: &str, spec_name: &str) -> SpecFile {
         spec_path: spec_name.to_string(),
         requirements,
         raw: content.to_string(),
+        source_path: std::path::PathBuf::new(),
     }
 }
 

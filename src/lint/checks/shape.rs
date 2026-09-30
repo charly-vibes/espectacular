@@ -301,6 +301,7 @@ mod tests {
                 scenarios,
             }],
             raw: String::new(),
+            source_path: std::path::PathBuf::new(),
         };
         let mut findings = Vec::new();
         check.check(&spec, &mut findings);

@@ -17,6 +17,7 @@
 //! Registry note: this module is the registry — espectacular-rty/aar append
 //! checks additively to [`checks`]; no check implementations live here.
 
+pub mod bridge;
 pub mod checks;
 pub mod walker;
 
@@ -212,6 +213,9 @@ pub(crate) fn run_lint_with(
             check.check(spec, &mut findings);
         }
     }
+    // Dual-format bridge: relay spk findings after the prose checks. Runs
+    // regardless of --check filtering — the bridge is not a registry check.
+    bridge::relay_dual_format(&specs, &mut findings);
     let mut counts_by_kind: BTreeMap<String, usize> = BTreeMap::new();
     for finding in &findings {
         *counts_by_kind.entry(finding.kind.clone()).or_insert(0) += 1;
@@ -484,6 +488,38 @@ mod tests {
         let output = run_change_overlay(&root, "add-parser", None).unwrap();
         assert!(output.findings.iter().all(|f| f.spec_path == "parser"));
         assert!(!output.findings.is_empty());
+    }
+
+    #[test]
+    fn dual_format_fixture_receives_both_prose_and_relayed_spk_findings() {
+        // espectacular-zlw (task 7.1) end-to-end against the real spk binary.
+        // Skips where spk is not installed (CI) — the shim-based tests cover
+        // the relay deterministically.
+        let spk_present = std::process::Command::new("spk")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        if !spk_present {
+            return;
+        }
+        let output = run_lint_query(
+            &PathBuf::from("tests/fixtures/lint/dual-format/openspec/specs"),
+            None,
+        )
+        .unwrap();
+        assert!(output.findings.iter().any(|f| f.kind.starts_with("spk.")));
+        // Prose checks still fire on the same dual-format file (task 7.1).
+        assert!(output
+            .findings
+            .iter()
+            .any(|f| f.kind == "vague-qualifier" && f.spec_path == "auth"));
+        // Every relayed finding is warning severity (task 7.4).
+        assert!(output
+            .findings
+            .iter()
+            .filter(|f| f.kind.starts_with("spk."))
+            .all(|f| f.severity == Severity::Warning));
     }
 
     #[test]
