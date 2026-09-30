@@ -7,6 +7,53 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- **Specodelic dual-format spec corpus** — all 9 deployed specs migrated to
+  specodelic dual format (YAML frontmatter intent + fixed-schema tables),
+  constraint `traces_to` wiring wired corpus-wide, and specodelic gates
+  (`spk lint`) added to repo tooling and CI.
+
+### Fixed
+
+- **CI** — tap/scoop update steps now skip cleanly when `TAP_GITHUB_TOKEN`
+  is absent (secrets context is unavailable in step-level `if`); specodelic
+  is installed from git in both CI jobs.
+- **Contract** — `cli/enable-already-active-capability-is-a-no-op` shell
+  entry repointed at the surviving test; the stale `_is_noop` filter matched
+  0 tests and emitted a `no-tests-ran` finding on every `--run-tests` run
+  (espectacular-65d).
+
+## [0.7.0] — 2026-09-30
+
+### Added
+
+- **`ah lint` — spec-quality linter** — finding registry and walker over
+  `.espectacular/` contracts with mirror dedupe, routed as a CLI subcommand:
+  - **Scenario-flow checks** — vague-qualifier, imperative-step,
+    conjunctive-bloat (`[lint] max_and_steps`, default 5),
+    missing-negative-scenario
+  - **Spec-shape checks** — missing-non-goals, unresolved-ambiguity,
+    entangled-spec
+  - **CLI flags** — `--changes`, `--check` scoping and exit-code helper
+  - **Dual-format bridge** — relays `spk.<rule_id>` findings (advisory-only)
+  - **Doctor/explain integration** — lint session suggestion plus lint-kind
+    explain topics
+  - Deployed `lint` spec (9 requirements) via the archived
+    `add-spec-quality-checks` change
+
+### Fixed
+
+- **Mutation gate runnable by default** — `doctor --enable mutation` writes
+  command `["{}"]` (was the unspawnable default `[""]`) and the mutation
+  engine substitutes the `{}` placeholder in the program position too, so the
+  gate runs end-to-end without a custom runner (espectacular-mu5).
+- **Fixture version literals** — test fixture `tool_version` literals derive
+  from `CARGO_PKG_VERSION` instead of hardcoded strings that only break when
+  the crate version changes (espectacular-n8o).
+
 ## [0.6.0] — 2026-09-29
 
 ### Added
@@ -198,7 +245,8 @@ Initial stable release. Covers two deployed change proposals:
 
 ---
 
-[Unreleased]: https://github.com/charly-vibes/espectacular/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/charly-vibes/espectacular/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/charly-vibes/espectacular/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/charly-vibes/espectacular/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/charly-vibes/espectacular/releases/tag/v0.5.0
 [0.4.0]: https://github.com/charly-vibes/espectacular/releases/tag/v0.4.0
