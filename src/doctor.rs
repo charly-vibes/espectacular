@@ -75,6 +75,45 @@ fn check_entry_to_status_item(entry: genesis::doctor::CheckEntry) -> genesis::st
 
 // ── DoctorCheck implementations ───────────────────────────────────────
 
+// ── djw decision A: pretender owns mutation execution + scoring ────────────────
+
+struct MutationOwnershipCheck {
+    config: config::Config,
+}
+impl DoctorCheck for MutationOwnershipCheck {
+    fn name(&self) -> &'static str {
+        "mutation-ownership"
+    }
+    fn description(&self) -> &'static str {
+        "Check mutation scoring ownership (espectacular-djw)"
+    }
+    fn run(&self, _repo_root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
+        let Some(mutation) = &self.config.quality.mutation else {
+            return Ok(vec![]);
+        };
+        if mutation.command.is_empty() {
+            return Ok(vec![]);
+        }
+        // Decision A (espectacular-djw): pretender owns mutation execution and
+        // scoring; espectacular consumes its report. Warn only on raw-mutator
+        // commands — the double-execution/dual-threshold risk. The `{}`
+        // generated-runner default (espectacular-mu5) stays warning-free for
+        // repos without pretender; it is deprecated in the README instead.
+        const RAW_MUTATORS: [&str; 4] = ["cargo-mutants", "mutmut", "stryker", "pit"];
+        let first = mutation.command.first().map(String::as_str).unwrap_or("");
+        if first == "pretender" || !RAW_MUTATORS.contains(&first) {
+            return Ok(vec![]);
+        }
+        Ok(vec![LintResult::new(
+            "pretender owns mutation execution and scoring \
+             (suite decision espectacular-djw, option A). Wire the report consumer: \
+             command = [\"pretender\", \"mutation\", \"--format\", \"json\"]; \
+             running a raw mutator here risks a duplicate run and a competing threshold",
+            Severity::Warning,
+        )])
+    }
+}
+
 struct ConfigCheck;
 impl DoctorCheck for ConfigCheck {
     fn name(&self) -> &'static str {
@@ -508,6 +547,9 @@ fn build_checks(repo_root: &Path) -> Vec<Box<dyn DoctorCheck>> {
         let specs_dir = repo_root.join(&cfg.paths.specs);
 
         checks.push(Box::new(VersionDriftCheck {
+            config: cfg.clone(),
+        }));
+        checks.push(Box::new(MutationOwnershipCheck {
             config: cfg.clone(),
         }));
         checks.push(Box::new(SpecsDirCheck {

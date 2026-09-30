@@ -166,7 +166,7 @@ Optional quality fields:
 
 - `quality.mutation.enabled`: activate mutation quality signal
 - `quality.mutation.threshold`: minimum mutation score (default `0.80`)
-- `quality.mutation.command`: argv template; `{}` is replaced with the runner script path
+- `quality.mutation.command`: argv template; `{}` is replaced with the runner script path. Mutation scoring is owned by **pretender** (suite decision `espectacular-djw`): the supported wiring is `command = ["pretender", "mutation", "--format", "json"]`, which consumes pretender's report; raw-mutator commands are deprecated and flagged by `ah doctor`
 - `capabilities.property.enabled`: activate property-based testing quality signal
 - `capabilities.snapshot.enabled`: activate snapshot testing quality signal
 
@@ -348,6 +348,23 @@ command = ["/bin/sh", "{}"]
 ```
 
 `{}` in `command` is replaced with a generated runner script path. When the mutation score meets or exceeds `threshold`, a `quality-mutation` finding appears. If the tool exits non-zero, a `test-failing` finding is emitted instead.
+
+**Mutation ownership (suite decision `espectacular-djw`, option A):**
+**pretender owns mutation execution and scoring.** Espectacular gates on the
+score but does not re-run mutation tooling. Supported wiring:
+
+```toml
+[quality.mutation]
+enabled = true
+threshold = 0.80
+command = ["pretender", "mutation", "--format", "json"]
+```
+
+- A raw-mutator command (e.g. `cargo-mutants`, `mutmut`, `stryker`, `pit`)
+  is deprecated and flagged as a `mutation-ownership` doctor check: it risks
+  a duplicate mutation run and a competing threshold alongside pretender.
+- The `{}` generated-runner template is kept for backward compatibility but
+  deprecated for mutation-owning setups; wire pretender instead.
 
 ### Suite-trio quality signals (vampiro / crua / livin)
 

@@ -1,4 +1,5 @@
 use assert_cmd::Command;
+use predicates::prelude::PredicateBooleanExt;
 use std::fs;
 
 fn make_minimal_repo() -> tempfile::TempDir {
@@ -133,6 +134,66 @@ fn doctor_enable_mutation_writes_quality_mutation_config() {
         config.contains("command = [\"{}\"]"),
         "must include the {{}} placeholder the mutation engine substitutes; got:\n{config}"
     );
+}
+
+// ── djw decision A: pretender owns mutation execution + scoring ───────────────
+
+#[test]
+fn doctor_mutation_non_pretender_command_warns_ownership() {
+    let repo = make_minimal_repo();
+    let config = repo.path().join(".espectacular/config.toml");
+    fs::write(
+        &config,
+        fs::read_to_string(&config).unwrap()
+            + "\n[quality.mutation]\nenabled = true\nthreshold = 0.80\ncommand = [\"cargo-mutants\"]\n",
+    )
+    .unwrap();
+    Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["doctor"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("mutation-ownership"))
+        .stderr(predicates::str::contains("pretender"));
+}
+
+#[test]
+fn doctor_mutation_pretender_command_emits_no_ownership_warning() {
+    let repo = make_minimal_repo();
+    let config = repo.path().join(".espectacular/config.toml");
+    fs::write(
+        &config,
+        fs::read_to_string(&config).unwrap()
+            + "\n[quality.mutation]\nenabled = true\nthreshold = 0.80\ncommand = [\"pretender\", \"mutation\", \"--format\", \"json\"]\n",
+    )
+    .unwrap();
+    Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["doctor"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("mutation-ownership").not());
+}
+
+#[test]
+fn doctor_mutation_default_runner_template_emits_no_ownership_warning() {
+    let repo = make_minimal_repo();
+    let config = repo.path().join(".espectacular/config.toml");
+    fs::write(
+        &config,
+        fs::read_to_string(&config).unwrap()
+            + "\n[quality.mutation]\nenabled = true\nthreshold = 0.80\ncommand = [\"{}\"]\n",
+    )
+    .unwrap();
+    Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["doctor"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("mutation-ownership").not());
 }
 
 #[test]
