@@ -3,6 +3,12 @@
 
 # espectacular
 
+> **Why:** AI-written behavior needs adversarial evaluation, not just tests —
+> espectacular is the behavioral verification layer of the charly ecosystem,
+> stress-testing agent outputs against hostile scenarios and stakeholder
+> evaluations before they ship.
+> **Status:** [beta](docs/src/status.md) · adversarial evaluation workflows shipped · [Motivation & design](docs/src/index.md)
+
 [![tracked with wai](https://img.shields.io/badge/tracked%20with-wai-blue)](https://github.com/charly-vibes/wai)
 
 Behavioral verification layer for the charly AI development ecosystem.

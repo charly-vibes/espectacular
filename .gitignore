@@ -1,20 +1,18 @@
 
+.beads/*
+!.beads/config.yaml
+.beads-credential-key
+# Beads / Dolt files (added by bd init)
+.beads.gate.lock
+# Beads internal state (track only issues.jsonl for backup)
+!.beads/issues.jsonl
+/book/
+.claude/settings.local.json
+*.db
 docs/book/
 docs/src/specs/
-
-# Beads / Dolt files (added by bd init)
 .dolt/
-*.db
-.beads-credential-key
-
-# Beads internal state (track only issues.jsonl for backup)
-.beads/*
-!.beads/issues.jsonl
-!.beads/config.yaml
 .dont/
-
-# testaruda store (local SQLite DB)
-.testaruda/
-.claude/settings.local.json
-.beads.gate.lock
 .espectacular/state/
+.testaruda/
+# testaruda store (local SQLite DB)

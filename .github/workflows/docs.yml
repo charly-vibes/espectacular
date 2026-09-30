@@ -29,15 +29,15 @@ jobs:
         run: cp -r openspec/specs docs/src/specs
 
       - name: Build docs
-        run: mdbook build docs
+        run: mdbook build
 
       - name: Copy llm.txt to site root
-        run: cp llm.txt docs/book/llm.txt
+        run: cp llm.txt book/llm.txt
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/book
+          path: book
 
   deploy:
     needs: build
