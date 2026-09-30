@@ -13,6 +13,8 @@ pub struct Contract {
     pub superseded_by: String,
     pub authored_with: String,
     #[serde(default)]
+    pub falsifiability_class: String,
+    #[serde(default)]
     pub tests: HashMap<String, Vec<TestEntry>>,
 }
 
@@ -116,6 +118,45 @@ mod tests {
         let c = load_contract(SUPERSEDED).unwrap();
         assert_eq!(c.status, "superseded");
         assert!(!c.superseded_by.is_empty());
+    }
+
+    #[test]
+    fn contract_with_falsifiability_class_parses() {
+        let toml = r#"
+id = "foo"
+description = ""
+archetype = ""
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+falsifiability_class = "safety"
+[tests]
+unit = [{flags = "test::foo"}]
+"#;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("foo.toml");
+        std::fs::write(&path, toml).unwrap();
+        let c = load_contract(path.to_str().unwrap()).unwrap();
+        assert_eq!(c.falsifiability_class, "safety");
+    }
+
+    #[test]
+    fn contract_without_falsifiability_class_defaults_empty() {
+        let toml = r#"
+id = "foo"
+description = ""
+archetype = ""
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+[tests]
+unit = [{flags = "test::foo"}]
+"#;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("foo.toml");
+        std::fs::write(&path, toml).unwrap();
+        let c = load_contract(path.to_str().unwrap()).unwrap();
+        assert_eq!(c.falsifiability_class, "");
     }
 
     #[test]

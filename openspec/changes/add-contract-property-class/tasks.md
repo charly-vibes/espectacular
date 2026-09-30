@@ -4,8 +4,8 @@ Each numbered group is one TDD cycle: red (failing test) → green (implementati
 
 ## 1. Contract field parsing
 
-- [ ] 1.1 Failing unit test: contract with `falsifiability_class = "safety"` parses; contract without the field parses with empty default (red)
-- [ ] 1.2 Add optional `falsifiability_class` to contract struct in `src/contracts.rs`, defaulting to empty (green)
+- [x] 1.1 Failing unit test: contract with `falsifiability_class = "safety"` parses; contract without the field parses with empty default (red)
+- [x] 1.2 Add optional `falsifiability_class` to contract struct in `src/contracts.rs`, defaulting to empty (green)
 - [ ] 1.3 Refactor: shared enum parsing with `status` if duplication emerges
 
 ## 2. Structural validation
