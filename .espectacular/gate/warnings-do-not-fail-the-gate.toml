@@ -1,0 +1,11 @@
+id = "warnings-do-not-fail-the-gate"
+description = "A run whose only finding is a warning (category warning, severity warning) exits zero: ah check --run-tests --json succeeds and tests still run and pass."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+falsifiability_class = "safety"
+
+[[tests.shell]]
+command = "cargo test -q --test check_cli ah_check_warning_only_findings_exit_zero -- --exact"
+timeout_seconds = 120

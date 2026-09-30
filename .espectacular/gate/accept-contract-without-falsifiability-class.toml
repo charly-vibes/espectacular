@@ -1,0 +1,11 @@
+id = "accept-contract-without-falsifiability-class"
+description = "A contract declaring no falsifiability_class field validates and behaves exactly as before the field existed; no falsifiability-related finding is emitted (backward compatibility)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+falsifiability_class = "safety"
+
+[[tests.shell]]
+command = "cargo test -q contracts::tests::contract_without_falsifiability_class_defaults_empty -- --exact"
+timeout_seconds = 60

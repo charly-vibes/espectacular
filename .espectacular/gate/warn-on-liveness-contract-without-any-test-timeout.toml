@@ -1,0 +1,11 @@
+id = "warn-on-liveness-contract-without-any-test-timeout"
+description = "A liveness-tagged contract whose test entries all omit timeout_seconds emits a missing-liveness-timeout finding with severity warning; liveness claims are only falsifiable under bounded execution."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+falsifiability_class = "safety"
+
+[[tests.shell]]
+command = "cargo test -q check::tests::liveness_without_timeout_emits_warning_severity -- --exact"
+timeout_seconds = 60

@@ -1,0 +1,11 @@
+id = "no-liveness-warning-when-the-contract-declares-no-tests"
+description = "A liveness-tagged contract declaring no test entries at all emits no missing-liveness-timeout warning (zero test entries is already a structural no-tests-declared error)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+falsifiability_class = "safety"
+
+[[tests.shell]]
+command = "cargo test -q check::tests::structural_findings_carry_error_severity -- --exact"
+timeout_seconds = 60

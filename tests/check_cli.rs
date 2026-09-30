@@ -211,6 +211,40 @@ fn ah_check_failure_emits_execution_details_and_exit_one() {
 }
 
 #[test]
+fn ah_check_warning_only_findings_exit_zero() {
+    let repo = base_repo();
+    // Tag green-path as liveness with no timeout_seconds: exactly one
+    // missing-liveness-timeout warning, nothing gate-failing.
+    let contract = repo.path().join(".espectacular/compiler/green-path.toml");
+    let text = fs::read_to_string(&contract).unwrap();
+    fs::write(
+        &contract,
+        text.replace(
+            "status = \"active\"",
+            "status = \"active\"\nfalsifiability_class = \"liveness\"",
+        ),
+    )
+    .unwrap();
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["check", "--run-tests", "--json"])
+        .assert()
+        .success();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
+    assert_schema_valid(&output);
+    let findings = data["findings"].as_array().unwrap();
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0]["kind"], "missing-liveness-timeout");
+    assert_eq!(findings[0]["severity"], "warning");
+    assert_eq!(findings[0]["category"], "warning");
+    assert_eq!(data["summary"]["passed"], 2, "tests still run and pass");
+}
+
+#[test]
 fn ah_check_with_changes_includes_overlay_scope() {
     let repo = base_repo();
     fs::create_dir_all(

@@ -1,0 +1,11 @@
+id = "no-warning-when-liveness-contract-declares-a-timeout"
+description = "A liveness-tagged contract with at least one test entry specifying timeout_seconds emits no missing-liveness-timeout finding."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.7.0"
+falsifiability_class = "safety"
+
+[[tests.shell]]
+command = "cargo test -q check::tests::liveness_with_timeout_emits_no_warning -- --exact"
+timeout_seconds = 60
