@@ -33,4 +33,4 @@ Each numbered group is one TDD cycle: red (failing test) → green (implementati
 ## 5. Validation
 
 - [ ] 5.1 Full `just validate` + `ah check` pass on own repo
-- [ ] 5.2 Update tasks in `bd` per project workflow; close tickets as each cycle lands
+- [ ] 5.2 Close bd cycle tickets as each cycle lands — one tracer-bullet ticket per cycle group, filed 2026-10-02 (issue-review remediation): espectacular-yq3 (§1) → espectacular-7js (§2) → espectacular-vej (§3) → espectacular-jul (§4) → espectacular-n8b (§5, this validation pass). Tick this file's checkboxes in the same commits as the code.
