@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn loads_valid_config() {
         let config = load(Path::new(VALID_REPO)).unwrap();
-        assert_eq!(config.tool_version, "0.6.0");
+        assert_eq!(config.tool_version, env!("CARGO_PKG_VERSION"));
     }
 
     #[test]
@@ -352,7 +352,7 @@ bad = [""]
     #[test]
     fn validate_flags_zero_max_and_steps() {
         let config = Config {
-            tool_version: "0.6.0".into(),
+            tool_version: env!("CARGO_PKG_VERSION").into(),
             paths: Paths {
                 specs: "s".into(),
                 changes: "c".into(),

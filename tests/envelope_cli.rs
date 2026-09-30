@@ -9,12 +9,10 @@ fn create_simple_repo() -> tempfile::TempDir {
     fs::create_dir_all(root.join(".espectacular")).unwrap();
     fs::write(
         root.join(".espectacular/config.toml"),
-        r#"tool_version = "0.6.0"
-[paths]
-specs = "openspec/specs"
-changes = "openspec/changes"
-[runners]
-"#,
+        format!(
+            "tool_version = \"{}\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\n",
+            env!("CARGO_PKG_VERSION")
+        ),
     )
     .unwrap();
     // Write an AGENTS.md with the managed block so doctor doesn't complain
