@@ -1,4 +1,4 @@
-# Change: Add property_class field to scenario contracts
+# Change: Add falsifiability_class field to scenario contracts
 
 Change-id: `add-contract-property-class`
 Status: draft
@@ -9,9 +9,9 @@ Contracts verify behavior without distinguishing *safety* claims (bad states nev
 
 ## What Changes
 
-- Add optional `property_class = "safety" | "liveness"` field to scenario contracts (`src/contracts.rs`, `schemas/scenario-contract.schema.json`). Default: empty (field may be omitted — no deprecation, no churn on existing contracts). In v1, `safety` is annotation-only: it records the author's judgment and gives downstream tooling a hook; `liveness` has warning-severity gate semantics — checked but non-gating (Rule of 5 review 2026-10-01: the original "gate-enforced" phrasing overstated the behavior).
+- Add optional `falsifiability_class = "safety" | "liveness"` field to scenario contracts (`src/contracts.rs`, `schemas/scenario-contract.schema.json`). Default: empty (field may be omitted — no deprecation, no churn on existing contracts). In v1, `safety` is annotation-only: it records the author's judgment and gives downstream tooling a hook; `liveness` has warning-severity gate semantics — checked but non-gating (Rule of 5 review 2026-10-01: the original "gate-enforced" phrasing overstated the behavior).
 - Introduce a `severity` field on `ah check` findings (`src/report.rs`, `schemas/check-output.schema.json`): `"error"` for structural/execution findings, `"warning"` for the new liveness check. Scoped precisely (Rule of 5 review 2026-10-01): this is the first warning-severity entry in the gate's `findings` array and the first appearance of `severity` in `schemas/check-output.schema.json` — quality warnings live in the separate `quality_findings` array and `ah lint` warnings in its own envelope. This *completes* the shared-envelope invariant the deployed lint spec asserts (C-finding-schema: lint findings "use the same stable JSON envelope as `ah check`", which already names `severity`).
-- Invalid `property_class` values emit an `invalid-property-class` structural finding and exit non-zero, mirroring `invalid-status` handling.
+- Invalid `falsifiability_class` values emit an `invalid-falsifiability-class` structural finding and exit non-zero, mirroring `invalid-status` handling.
 - A `liveness`-tagged contract whose test entries all lack `timeout_seconds` emits a `missing-liveness-timeout` **warning** finding; the gate still passes (exit zero on warnings only). Warnings never fire when the field is absent, so existing behavior is byte-identical for untagged contracts. `timeout_seconds` is already supported on every test entry type (shared `TestEntry` struct, `src/contracts.rs:23`), so no entry-type work is needed.
 
 ## Impact
@@ -24,5 +24,5 @@ Contracts verify behavior without distinguishing *safety* claims (bad states nev
 ## Relationship to other work
 
 - The `add-spec-quality-checks` change is **deployed** (`openspec/specs/lint/`): this change completes its C-finding-schema shared-envelope invariant by adding `severity` to `ah check` findings, and its warning-first precedent (warnings exit zero) is deployed behavior, not a draft (Rule of 5 review 2026-10-01).
-- **Specodelic:** deployed specs are dual-format (`id: spec` frontmatter); `ah lint` relays `spk.<rule_id>` findings as warnings (lint spec C-dual-bridge). `property_class` is orthogonal to specodelic's closed sets (constraint kinds `invariant|advisory|effect|extension_point`; property kinds `unit|law` — none encode safety/liveness). Disambiguation: `property_class` classifies a *contract's* runtime falsifiability, **not** a specodelic Property; it is the runtime counterpart of specodelic's spec-level property checking (`spk compile` → TLA+/stateright). Layering: author judgment lives in the contract; inference lives in spec lint; the two may legitimately co-report the same claim.
+- **Specodelic:** deployed specs are dual-format (`id: spec` frontmatter); `ah lint` relays `spk.<rule_id>` findings as warnings (lint spec C-dual-bridge). `falsifiability_class` is orthogonal to specodelic's closed sets (constraint kinds `invariant|advisory|effect|extension_point`; property kinds `unit|law` — none encode safety/liveness). Disambiguation: `falsifiability_class` classifies a *contract's* runtime falsifiability, **not** a specodelic Property; it is the runtime counterpart of specodelic's spec-level property checking (`spk compile` → TLA+/stateright). Layering: author judgment lives in the contract; inference lives in spec lint; the two may legitimately co-report the same claim.
 - Research opportunity #6 (archetype for non-deterministic scenarios) intentionally deferred: a statistical `verification_kind` would generalize this field, but is blocked until two+ adopters need it — adding it now would expand taxonomy without proven demand.
