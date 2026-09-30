@@ -23,7 +23,7 @@ This delta is itself authored in dual format, extending the pilot from
 | C-lint-clean | invariant | `spk lint` exits zero over the corpus, and the repo hook chain plus CI run it on every change to a spec file | [[spec.C-corpus-dual]] |
 | C-open-half-stable | invariant | migrating a file leaves its openspec requirement and scenario text textually identical (section-sync mirror and `ah check` stay green) | [[spec.C-corpus-dual]] |
 | C-adopters-unaffected | advisory | no espectacular product behavior requires dual format; plain openspec repos remain fully valid | |
-| C-archive-rederive | invariant | when `openspec archive` strips the specodelic half from a deployed spec, the half is re-derived by copying frontmatter and tables from the archived delta and re-running the gates | [[spec.C-corpus-dual]] |
+| C-archive-rederive | invariant | when `openspec archive` merges new requirements into a deployed spec and strips its specodelic half, the half is re-derived — frontmatter copied from the archived delta, surviving constraint/property rows carried over from the pre-archive version, rows added for newly merged requirements — and the gates re-run | [[spec.C-corpus-dual]] |
 
 ## Model
 
@@ -50,7 +50,7 @@ This delta is itself authored in dual format, extending the pilot from
 | P-lint | unit | [[spec.C-lint-clean]] | the full corpus after any edit to a spec file | `spk lint` exits zero |
 | P-open-half | unit | [[spec.C-open-half-stable]] | the openspec half of a migrated file diffed against its pre-migration git blob | the diff is empty outside frontmatter and the three tables |
 | P-adopter | unit | [[spec.C-adopters-unaffected]] | a plain openspec spec file with no frontmatter | `ah check` discovers scenarios and imposes no dual-format finding |
-| P-rederive | unit | [[spec.C-archive-rederive]] | a deployed spec whose specodelic half was stripped by archive | after re-derivation from the archived delta, `spk lint` exits zero |
+| P-rederive | unit | [[spec.C-archive-rederive]] | a deployed spec whose specodelic half was stripped by an archive that also merged new requirements | after re-derivation, constraint and property rows cover both pre-existing and newly merged requirements, and `spk lint` exits zero |
 
 ## Purpose
 
@@ -61,7 +61,7 @@ espectacular's opt-in promise to adopters.
 ## ADDED Requirements
 
 ### Requirement: Dual-Format Spec Corpus
-The repository SHALL keep every spec file under `openspec/` in specodelic dual format, lint-clean under `spk lint`, with the mandate enforced by the repo hook chain and CI, and SHALL re-derive the specodelic half from the archived delta whenever `openspec archive` strips it from a deployed spec.
+The repository SHALL keep every spec file under `openspec/` in specodelic dual format, lint-clean under `spk lint`, with the mandate enforced by the repo hook chain and CI, and SHALL re-derive the specodelic half after `openspec archive` merges new requirements into a deployed spec and strips it.
 
 #### Scenario: Plain spec file rejected
 - **GIVEN** a `spec.md` under `openspec/` carries no YAML frontmatter and no specodelic tables
@@ -76,15 +76,16 @@ The repository SHALL keep every spec file under `openspec/` in specodelic dual f
 - **AND** `ah check` output is unchanged
 
 #### Scenario: Archive strip is re-derived
-- **GIVEN** `openspec archive` merged a delta into a deployed spec and stripped its specodelic half
-- **WHEN** the contributor copies the frontmatter and four-layer tables from the archived delta and re-runs the gates
+- **GIVEN** `openspec archive` merged a delta's requirements into a deployed spec and stripped its specodelic half
+- **WHEN** the contributor re-derives the half — frontmatter from the archived delta, surviving constraint and property rows from the pre-archive version, rows added for the newly merged requirements — and re-runs the gates
 - **THEN** `spk lint` exits zero on the deployed spec again
+- **AND** the constraints and properties cover both pre-existing and newly merged requirements
 - **AND** the corpus-wide lint stays green
 
 ## Requirements
 
 ### Requirement: Dual-Format Spec Corpus
-The repository SHALL keep every spec file under `openspec/` in specodelic dual format, lint-clean under `spk lint`, with the mandate enforced by the repo hook chain and CI, and SHALL re-derive the specodelic half from the archived delta whenever `openspec archive` strips it from a deployed spec.
+The repository SHALL keep every spec file under `openspec/` in specodelic dual format, lint-clean under `spk lint`, with the mandate enforced by the repo hook chain and CI, and SHALL re-derive the specodelic half after `openspec archive` merges new requirements into a deployed spec and strips it.
 
 #### Scenario: Plain spec file rejected
 - **GIVEN** a `spec.md` under `openspec/` carries no YAML frontmatter and no specodelic tables
@@ -99,7 +100,8 @@ The repository SHALL keep every spec file under `openspec/` in specodelic dual f
 - **AND** `ah check` output is unchanged
 
 #### Scenario: Archive strip is re-derived
-- **GIVEN** `openspec archive` merged a delta into a deployed spec and stripped its specodelic half
-- **WHEN** the contributor copies the frontmatter and four-layer tables from the archived delta and re-runs the gates
+- **GIVEN** `openspec archive` merged a delta's requirements into a deployed spec and stripped its specodelic half
+- **WHEN** the contributor re-derives the half — frontmatter from the archived delta, surviving constraint and property rows from the pre-archive version, rows added for the newly merged requirements — and re-runs the gates
 - **THEN** `spk lint` exits zero on the deployed spec again
+- **AND** the constraints and properties cover both pre-existing and newly merged requirements
 - **AND** the corpus-wide lint stays green

@@ -18,10 +18,12 @@ deltas (6 requirements, 18 scenarios). It also flips this repo's own
 enforcement from opt-in to mandated: `spk lint` joins the lefthook hook chain
 and CI, so a spec file can no longer regress to plain openspec here.
 
-This is repo dogfooding, not tool behavior: espectacular remains a
-language-agnostic, opt-in tool for adopters (`C-opt-in` from the pilot change
-is untouched), so **no spec delta is required** — only spec-file authoring,
-tooling wiring, and docs.
+The mandate itself is captured as **one delta**: an ADDED requirement,
+"Dual-Format Spec Corpus", under a new `spec-authoring` capability
+(`specs/spec-authoring/spec.md`, itself dual-format). It lives outside the
+product capabilities precisely because this is repo dogfooding, not tool
+behavior — espectacular remains a language-agnostic, opt-in tool for adopters
+(`C-opt-in` from the pilot change is untouched).
 
 ## What Changes
 
@@ -40,13 +42,17 @@ tooling wiring, and docs.
 
 ## Capabilities
 
-None — no deployed requirement changes. Deliberately: the gate spec's
-`C-opt-in` advisory (plain openspec specs remain valid) is a product promise to
-adopters and MUST NOT be converted into a mandate.
+### Added
+- `spec-authoring` — Dual-Format Spec Corpus: this repo's own spec files stay
+  dual-format and lint-clean, enforced in the hook chain and CI, with the
+  archive-strip re-derivation rule. Deliberately not a product capability:
+  the gate spec's `C-opt-in` advisory (plain openspec specs remain valid) is
+  a product promise to adopters and MUST NOT be converted into a mandate.
 
 ## Impact
 
-- 9 spec files under `openspec/` (authoring only; no code).
+- 9 spec files under `openspec/` (authoring; no product code — repo tooling
+  config changes are covered by task 1).
 - `AGENTS.md` (tool-managed SPECODELIC block), `lefthook.yml`, CI workflow, `justfile`.
 - `docs/src/dual-format-authoring.md`.
 - One upstream openspec issue.

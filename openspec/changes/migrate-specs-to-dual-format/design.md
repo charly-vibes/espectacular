@@ -16,14 +16,16 @@ Options considered:
 | Patch `openspec archive` behavior in-repo | Rejected — `openspec` is an external binary (v0.19.0); shimming it violates minimal footprint |
 | Convert everything + re-derivation recipe + upstream issue | **Chosen** |
 
-**Chosen approach**: convert all 9 files now. When a future archive strips a
-file's specodelic half, the half is re-derived from the archived delta (which
-retains frontmatter + tables verbatim in `openspec/changes/archive/`) — a
-mechanical copy of the frontmatter block and tables, plus a re-run of the
-gates. A justfile target `spec-lint` makes the drift visible immediately
-(lefthook/CI fail on the stripped file), so re-derivation is never silent. An
-upstream issue asks openspec to preserve the half natively; once fixed, the
-recipe becomes a no-op.
+**Chosen approach**: convert all 9 files now. When a future archive touches a
+capability, `openspec archive` **merges** the delta's requirements into the
+deployed spec and strips its specodelic half — so re-derivation is not a blind
+copy: copy the frontmatter from the archived delta, carry over the surviving
+constraint/property rows from the pre-archive deployed spec (git history),
+add rows for any newly merged requirements, then re-run all gates. A justfile
+target `spec-lint` makes the drift visible immediately (lefthook/CI fail on
+the stripped or narrowed file), so re-derivation is never silent. An upstream
+issue asks openspec to preserve the half natively; once fixed, the recipe
+becomes a no-op.
 
 This is reversible: stripping is the status quo behavior, so the worst case of
 abandoning this migration is exactly today's state.
