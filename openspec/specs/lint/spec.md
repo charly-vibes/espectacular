@@ -1,4 +1,56 @@
+---
+id: spec
+kind: intent
+statement: "WHEN ah lint inspects specification files THE linter SHALL flag vague qualifiers, imperative UI steps, conjunctive step bloat, missing negative scenarios, missing non-goals, unresolved ambiguities, and entangled presentation concerns, emit findings in the shared check finding schema with warning severity by default, and bridge specodelic findings for dual-format files without reimplementing specodelic rules."
+---
+
 # lint Specification
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| C-vague-qualifier | invariant | requirement bodies and scenario steps containing unbound qualitative terms without an adjacent numeric measurement emit a `vague-qualifier` finding suggesting a measurable condition; a qualifier with an adjacent numeric bound emits none | |
+| C-imperative-step | invariant | WHEN/THEN steps describing UI mechanics (explicit click, URL navigation) emit an `imperative-step` finding suggesting business-action phrasing; declarative business steps emit none | |
+| C-conjunctive-bloat | invariant | scenarios chaining more than the configured maximum of AND-linked steps emit a `conjunctive-bloat` finding suggesting a split; a scenario at exactly the limit is accepted; the maximum is configurable via `[lint] max_and_steps` in `.espectacular/config.toml` | |
+| C-missing-negative | invariant | a requirement with no scenario exercising an error, rejection, or boundary condition emits a `missing-negative-scenario` finding suggesting a failure-mode scenario; one negative scenario suppresses it | |
+| C-missing-non-goals | invariant | a spec capability file lacking a `Non-Goals`/`Non Goals`/`non-goals`/`Out of Scope` heading emits a `missing-non-goals` finding for that file | |
+| C-unresolved-ambiguity | invariant | requirement or scenario text containing `[NEEDS CLARIFICATION` emits an `unresolved-ambiguity` finding including the marker as context; text without the marker emits none | |
+| C-entangled-spec | invariant | a scenario with contract archetype `PF` or `SA` whose text references presentation-layer primitives (buttons, modals, colors, CSS selectors, component names, client routes) emits an `entangled-spec` finding suggesting the domain event or state; the same text in a `BP` scenario and domain-legitimate lookalike terms are not flagged | |
+| C-finding-schema | invariant | lint findings use the same stable JSON envelope as `ah check`: each carries `kind`, `severity`, `spec_path`, `message`, `suggested_action`, `playbook_command`, plus `scenario_id`/`scenario_title` when scenario-specific; findings default to `severity = "warning"`; a malformed spec file emits a `severity = "error"` finding and exits non-zero | |
+| C-dual-bridge | invariant | for dual-format files (`id: spec` frontmatter) `ah lint` invokes `spk lint` and relays each specodelic finding as `kind = "spk.<rule_id>"` with `severity = "warning"`; plain openspec files cause no specodelic invocation and identical pre-bridge output; a missing `spk` binary emits one advisory `spk-unavailable` finding with unchanged exit code; a non-envelope `spk` failure emits one advisory finding and linting continues | |
+
+## Model
+
+### States
+
+- `scanning`
+- `bridging`
+- `reported`
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| t-textual-rules | scanning | scanning | [[spec.C-vague-qualifier]], [[spec.C-imperative-step]], [[spec.C-conjunctive-bloat]], [[spec.C-missing-negative]], [[spec.C-missing-non-goals]], [[spec.C-unresolved-ambiguity]], or [[spec.C-entangled-spec]] |
+| t-bridge | scanning | bridging | [[spec.C-dual-bridge]] (dual-format file present) |
+| t-inert | scanning | scanning | [[spec.C-dual-bridge]] (plain file — no invocation) |
+| t-schema | bridging | reported | [[spec.C-finding-schema]] |
+| t-degrade | bridging | reported | [[spec.C-dual-bridge]] (missing binary or failed invocation — advisory only) |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|-----------|
+| P-vague | unit | [[spec.C-vague-qualifier]] | bodies with unbound qualifiers vs numerically bounded qualifiers, in requirements and THEN steps | findings exactly in the unbound cases, with measurable-condition suggestions |
+| P-imperative | unit | [[spec.C-imperative-step]] | WHEN steps with click/URL mechanics vs declarative business steps | findings exactly in the mechanical cases, with business-action suggestions |
+| P-bloat | unit | [[spec.C-conjunctive-bloat]] | scenarios at limit-1, limit, and limit+1 AND-steps under default and custom maximums | finding only above the configured limit; exact limit accepted |
+| P-negative | unit | [[spec.C-missing-negative]] | requirements with only happy-path scenarios vs one negative scenario | finding exactly in the happy-path-only case |
+| P-non-goals | unit | [[spec.C-missing-non-goals]] | spec files with and without any non-goals heading variant | finding exactly when no variant is present |
+| P-ambiguity | unit | [[spec.C-unresolved-ambiguity]] | bodies with and without `[NEEDS CLARIFICATION` markers | finding with marker context exactly when present |
+| P-entangled | unit | [[spec.C-entangled-spec]] | PF/SA scenarios with presentation primitives vs BP scenarios and domain lookalikes | findings exactly in the PF/SA primitive cases |
+| P-schema | unit | [[spec.C-finding-schema]] | lint runs over well-formed and malformed specs | shared finding fields throughout, warning default, malformed → error + non-zero exit |
+| P-bridge | unit | [[spec.C-dual-bridge]] | dual files with spk findings, plain files, missing binary, and failing invocation | relaying with `spk.` kind prefix; inert for plain files; advisory-only degradation in both failure modes |
 
 ## Purpose
 TBD - created by archiving change add-spec-quality-checks. Update Purpose after archive.
