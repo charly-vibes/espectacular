@@ -13,7 +13,7 @@ statement: "WHEN a scenario contract declares an optional property_class field T
 | C-schema-first | invariant | per-scenario TOML contracts are validated (`id`, `description`, `archetype`, `status`, `authored_with`) before any declared test executes | [[spec]] |
 | C-status-values | invariant | an unknown `status` value emits an `invalid-status` structural finding and exits non-zero; `status = "superseded"` requires a non-empty `superseded_by` and still runs the declared tests | [[spec]] |
 | C-property-class-values | invariant | `property_class` is absent (behaving exactly as before the field existed), `safety`, or `liveness`; any other value emits an `invalid-property-class` structural finding and exits non-zero without running tests | [[spec]] |
-| C-liveness-timeout-warning | invariant | a `liveness` contract whose test entries all omit `timeout_seconds` emits a `missing-liveness-timeout` finding with `severity = "warning"` suggesting bounded execution semantics; at least one declared timeout suppresses it; warnings alone exit zero | [[spec]] |
+| C-liveness-timeout-warning | invariant | a `liveness` contract whose test entries all omit `timeout_seconds` emits a `missing-liveness-timeout` finding with `severity = "warning"` suggesting bounded execution semantics; at least one declared timeout suppresses it; a contract with no test entries is governed by `no-tests-declared` and emits no liveness warning; warnings alone exit zero | [[spec]] |
 
 ## Model
 
@@ -40,7 +40,7 @@ statement: "WHEN a scenario contract declares an optional property_class field T
 | P-schema-first | unit | [[spec.C-schema-first]] | a contract with malformed metadata | no declared test runs before schema validation emits its findings |
 | P-status | unit | [[spec.C-status-values]] | contracts with `status = "paused"` and `status = "superseded"` | the first exits non-zero with `invalid-status`; the second runs its tests only with a non-empty `superseded_by` |
 | P-property-class | unit | [[spec.C-property-class-values]] | contracts with `property_class` absent, `"safety"`, `"liveness"`, and `"eventual"` | the first three validate and behave per their class; the last exits non-zero with `invalid-property-class` and runs no tests |
-| P-liveness-timeout | unit | [[spec.C-liveness-timeout-warning]] | liveness contracts with all tests lacking `timeout_seconds` vs at least one timeout | warning emitted exactly in the first case with `severity = "warning"`; suppressed in the second; warnings alone exit zero |
+| P-liveness-timeout | unit | [[spec.C-liveness-timeout-warning]] | liveness contracts with all tests lacking `timeout_seconds`, at least one timeout, and zero test entries | warning emitted exactly when ≥1 entry exists and all lack timeouts, with `severity = "warning"`; suppressed with a timeout; zero entries yield `no-tests-declared` and no warning; warnings alone exit zero |
 
 ## Purpose
 
@@ -102,6 +102,13 @@ The system SHALL validate per-scenario TOML contracts before running tests. Cont
 - **WHEN** a user runs `ah check`
 - **THEN** no `missing-liveness-timeout` finding is emitted
 
+#### Scenario: No liveness warning when the contract declares no tests
+- **GIVEN** a scenario contract has `property_class = "liveness"`
+- **AND** the contract declares no test entries at all
+- **WHEN** a user runs `ah check`
+- **THEN** the command emits a `no-tests-declared` structural finding
+- **AND** no `missing-liveness-timeout` warning is emitted
+
 #### Scenario: Warnings do not fail the gate
 - **GIVEN** `ah check` produces only `missing-liveness-timeout` warnings and no error-severity findings
 - **WHEN** the run completes
@@ -158,6 +165,13 @@ The system SHALL validate per-scenario TOML contracts before running tests. Cont
 - **AND** at least one declared test entry specifies `timeout_seconds`
 - **WHEN** a user runs `ah check`
 - **THEN** no `missing-liveness-timeout` finding is emitted
+
+#### Scenario: No liveness warning when the contract declares no tests
+- **GIVEN** a scenario contract has `property_class = "liveness"`
+- **AND** the contract declares no test entries at all
+- **WHEN** a user runs `ah check`
+- **THEN** the command emits a `no-tests-declared` structural finding
+- **AND** no `missing-liveness-timeout` warning is emitted
 
 #### Scenario: Warnings do not fail the gate
 - **GIVEN** `ah check` produces only `missing-liveness-timeout` warnings and no error-severity findings

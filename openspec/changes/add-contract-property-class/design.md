@@ -2,7 +2,7 @@
 
 ## Context
 
-Scenario contracts are the machine-readable pairing between spec scenarios and verifying tests (`src/contracts.rs`). The contract format is governance-protected: even additive changes require an openspec proposal, hence this document. Source research: `.wai/projects/espectacular/research/2026-09-05-machine-verifiable-spec-engineering-framework-analysis.md` (improvement #4).
+Scenario contracts are the machine-readable pairing between spec scenarios and verifying tests (`src/contracts.rs`). The contract format is governance-protected: even additive changes require an openspec proposal, hence this document. Source research: `.wai/projects/espectacular/research/2026-09-05-machine-verifiable-spec-engineering-framework-analysis.md` (improvement #4). Written pre-specodelic; the relationship to specodelic is recorded in the proposal's Relationship section (Rule of 5 review 2026-10-01).
 
 ## Goals / Non-Goals
 
@@ -13,13 +13,14 @@ Scenario contracts are the machine-readable pairing between spec scenarios and v
 
 - **Optional enum field, default empty.** Untagged contracts are unaffected; backward compatibility is structural, not behavioral.
 - **Invalid value → error; missing timeout on liveness → warning.** Asymmetry is deliberate: a typo in the field is authoring error and must fail (`invalid-property-class`, mirroring `invalid-status`). An untagged-timeout liveness claim is a *quality* signal — failing the gate on it would break adopters' existing contracts the moment they opt in, contradicting the warning-first precedent set by the `add-spec-quality-checks` draft.
-- **Severity field is owned here.** Check findings have no `severity` today (verified: no occurrence in `schemas/check-output.schema.json`, `src/report.rs`, `src/check.rs`). This change adds it (`"error"` default on all existing findings, `"warning"` for `missing-liveness-timeout`); the lint draft's finding-schema task inherits the shared field instead of adding it independently.
+- **Severity field is owned here (scope: the `findings` array + schema).** `ah check` findings have no `severity` today (re-verified 2026-10-01: no occurrence in `schemas/check-output.schema.json`, `src/report.rs`, `src/check.rs`). This change adds it (`"error"` default on all existing findings, `"warning"` for `missing-liveness-timeout`), completing the deployed lint spec's C-finding-schema shared-envelope invariant — the lint spec already names `severity` as part of the shared envelope. Not the first gate warning overall: quality findings (separate `quality_findings` array; deployed gate spec scenario "Quality scores below threshold do not fail the gate in v1") and `ah lint` warnings already exist. Known pre-existing drift this change intersects: the deployed gate spec asserts warning/info severity for quality findings while `qualityFinding` in check-output.schema.json carries no severity field — this change scopes severity to the `findings` array; reconciling `qualityFinding` is a follow-up, not silently absorbed here.
 - **Alternatives considered:** (a) new archetype for liveness behavior — rejected: orthogonal taxonomy change requiring two+ adopters per research recommendation; (b) inferring liveness from scenario text — rejected: inference is the lint's job (`add-spec-quality-checks`), the contract records the author's judgment.
 
 ## Risks / Trade-offs
 
 - Field may go unused (adoption risk) → mitigation: `ah doctor` suggests tagging contracts whose scenario text contains "eventually"; dogfooding task tags espectacular's own contracts.
 - Enum future-proofing (`verification_kind` generalization) → the field name is scoped to `property_class` now; a later proposal can supersede it through the normal append-only cycle.
+- Cross-tool closed-set sync: specodelic closed sets grow only via `## Revision` (`append_only_variants`). If a future specodelic revision adds safety/liveness property kinds, the contract-side vocabulary must be reconciled through a superseding proposal — this design's future-proofing covers the contract side only (Rule of 5 review 2026-10-01, EDGE-003).
 
 ## Migration Plan
 
@@ -27,4 +28,5 @@ None required. Adoption is per-contract, opt-in. Rollback: remove the field from
 
 ## Open Questions
 
+- **Field-name collision (Rule of 5 review 2026-10-01, CLAR-001 — human decision required before task 1.1):** should `property_class` be renamed (e.g. `falsifiability_class`) to avoid colliding with specodelic's Property vocabulary (`unit|law`)? Renaming is cheap now, pre-adoption; after task 1.1 lands it becomes a deprecation cycle. Interim mitigation applied: disambiguation note in the proposal (it classifies contract falsifiability, not a specodelic Property).
 - Should `ah signals` surface `missing-liveness-timeout` warnings as dont drift signals? Deferred until the warning exists and we see its noise rate.
