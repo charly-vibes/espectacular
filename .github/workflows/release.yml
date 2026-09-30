@@ -177,6 +177,10 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Update Homebrew tap
+        # Skip when the PAT is absent (espectacular-0oc): a missing secret
+        # must degrade to a skipped step, not fail the whole release. Re-run
+        # the job after adding TAP_GITHUB_TOKEN to publish the formula.
+        if: ${{ secrets.TAP_GITHUB_TOKEN != '' }}
         env:
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
         run: |
@@ -194,6 +198,7 @@ jobs:
           git push
 
       - name: Update Scoop bucket
+        if: ${{ secrets.TAP_GITHUB_TOKEN != '' }}
         env:
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
         run: |
