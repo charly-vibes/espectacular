@@ -1,0 +1,105 @@
+---
+id: spec
+kind: intent
+statement: "WHEN any spec file in this repository is added, edited, or deployed by archive THE corpus SHALL stay lint-clean under specodelic dual format, with the mandate enforced in the repo hook chain and CI and the specodelic half re-derived from the archived delta whenever archive strips it."
+---
+
+# spec-authoring corpus mandate
+
+Dogfooding change: every spec file in this repository — deployed capability
+specs and change deltas alike — carries the specodelic four-layer grammar in
+addition to its openspec grammar. This is repo practice, not product behavior:
+espectacular remains opt-in for adopters (`C-opt-in`, deployed gate spec), and
+this mandate never reaches `ah check`'s product logic.
+
+This delta is itself authored in dual format, extending the pilot from
+`adopt-dual-format-specs` to the whole corpus.
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| C-corpus-dual | invariant | every `spec.md` under `openspec/specs/` and under active `openspec/changes/*/specs/` carries YAML frontmatter (`id: spec`, `kind: intent`, EARS statement) and the Constraints, Model, and Properties tables | |
+| C-lint-clean | invariant | `spk lint` exits zero over the corpus, and the repo hook chain plus CI run it on every change to a spec file | [[spec.C-corpus-dual]] |
+| C-open-half-stable | invariant | migrating a file leaves its openspec requirement and scenario text textually identical (section-sync mirror and `ah check` stay green) | [[spec.C-corpus-dual]] |
+| C-adopters-unaffected | advisory | no espectacular product behavior requires dual format; plain openspec repos remain fully valid | |
+| C-archive-rederive | invariant | when `openspec archive` strips the specodelic half from a deployed spec, the half is re-derived by copying frontmatter and tables from the archived delta and re-running the gates | [[spec.C-corpus-dual]] |
+
+## Model
+
+### States
+
+- `plain`
+- `dual`
+- `linted`
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| t-migrate | plain | dual | [[spec.C-corpus-dual]] |
+| t-lint | dual | linted | [[spec.C-lint-clean]] |
+| t-stable | linted | linted | [[spec.C-open-half-stable]] |
+| t-strip | linted | dual | [[spec.C-archive-rederive]] |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|-----------|
+| P-corpus | unit | [[spec.C-corpus-dual]] | any `spec.md` under `openspec/` | the file parses as dual format: frontmatter plus all three tables present |
+| P-lint | unit | [[spec.C-lint-clean]] | the full corpus after any edit to a spec file | `spk lint` exits zero |
+| P-open-half | unit | [[spec.C-open-half-stable]] | the openspec half of a migrated file diffed against its pre-migration git blob | the diff is empty outside frontmatter and the three tables |
+| P-adopter | unit | [[spec.C-adopters-unaffected]] | a plain openspec spec file with no frontmatter | `ah check` discovers scenarios and imposes no dual-format finding |
+| P-rederive | unit | [[spec.C-archive-rederive]] | a deployed spec whose specodelic half was stripped by archive | after re-derivation from the archived delta, `spk lint` exits zero |
+
+## Purpose
+
+Make the entire spec corpus of this repository dual-format and machine-linted,
+flipping this repo's own enforcement from opt-in to mandated while preserving
+espectacular's opt-in promise to adopters.
+
+## ADDED Requirements
+
+### Requirement: Dual-Format Spec Corpus
+The repository SHALL keep every spec file under `openspec/` in specodelic dual format, lint-clean under `spk lint`, with the mandate enforced by the repo hook chain and CI, and SHALL re-derive the specodelic half from the archived delta whenever `openspec archive` strips it from a deployed spec.
+
+#### Scenario: Plain spec file rejected
+- **GIVEN** a `spec.md` under `openspec/` carries no YAML frontmatter and no specodelic tables
+- **WHEN** the repo hook chain or CI lints the corpus
+- **THEN** `spk lint` emits a finding for the file
+- **AND** the change cannot be committed
+
+#### Scenario: Migration keeps the openspec half identical
+- **GIVEN** a spec file is migrated to dual format
+- **WHEN** its openspec requirement and scenario text is diffed against the pre-migration version
+- **THEN** the diff shows no change outside the frontmatter and the Constraints, Model, and Properties tables
+- **AND** `ah check` output is unchanged
+
+#### Scenario: Archive strip is re-derived
+- **GIVEN** `openspec archive` merged a delta into a deployed spec and stripped its specodelic half
+- **WHEN** the contributor copies the frontmatter and four-layer tables from the archived delta and re-runs the gates
+- **THEN** `spk lint` exits zero on the deployed spec again
+- **AND** the corpus-wide lint stays green
+
+## Requirements
+
+### Requirement: Dual-Format Spec Corpus
+The repository SHALL keep every spec file under `openspec/` in specodelic dual format, lint-clean under `spk lint`, with the mandate enforced by the repo hook chain and CI, and SHALL re-derive the specodelic half from the archived delta whenever `openspec archive` strips it from a deployed spec.
+
+#### Scenario: Plain spec file rejected
+- **GIVEN** a `spec.md` under `openspec/` carries no YAML frontmatter and no specodelic tables
+- **WHEN** the repo hook chain or CI lints the corpus
+- **THEN** `spk lint` emits a finding for the file
+- **AND** the change cannot be committed
+
+#### Scenario: Migration keeps the openspec half identical
+- **GIVEN** a spec file is migrated to dual format
+- **WHEN** its openspec requirement and scenario text is diffed against the pre-migration version
+- **THEN** the diff shows no change outside the frontmatter and the Constraints, Model, and Properties tables
+- **AND** `ah check` output is unchanged
+
+#### Scenario: Archive strip is re-derived
+- **GIVEN** `openspec archive` merged a delta into a deployed spec and stripped its specodelic half
+- **WHEN** the contributor copies the frontmatter and four-layer tables from the archived delta and re-runs the gates
+- **THEN** `spk lint` exits zero on the deployed spec again
+- **AND** the corpus-wide lint stays green
