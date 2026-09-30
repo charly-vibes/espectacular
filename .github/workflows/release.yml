@@ -21,6 +21,9 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  # Secret surfaced at workflow level so steps can test it via `if: env...`
+  # (the `secrets` context is not available in step-level `if` — 0oc).
+  TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
 
 jobs:
   build-linux:
@@ -180,9 +183,7 @@ jobs:
         # Skip when the PAT is absent (espectacular-0oc): a missing secret
         # must degrade to a skipped step, not fail the whole release. Re-run
         # the job after adding TAP_GITHUB_TOKEN to publish the formula.
-        if: ${{ secrets.TAP_GITHUB_TOKEN != '' }}
-        env:
-          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+        if: env.TAP_GITHUB_TOKEN != ''
         run: |
           TAG="${GITHUB_REF_NAME}"
           VERSION="${{ steps.pkg.outputs.version }}"
@@ -198,9 +199,7 @@ jobs:
           git push
 
       - name: Update Scoop bucket
-        if: ${{ secrets.TAP_GITHUB_TOKEN != '' }}
-        env:
-          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+        if: env.TAP_GITHUB_TOKEN != ''
         run: |
           TAG="${GITHUB_REF_NAME}"
           VERSION="${{ steps.pkg.outputs.version }}"
