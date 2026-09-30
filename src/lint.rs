@@ -26,8 +26,8 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use walker::SpecFile;
 
-/// Finding severity. All lint findings are `Warning` in v1; `Error` is
-/// reserved for structural issues such as malformed spec files.
+/// Finding severity. Lint checks emit `Warning` in v1; `Error` is reserved
+/// for structural issues such as malformed spec files.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Severity {
@@ -49,10 +49,32 @@ pub struct LintFinding {
 }
 
 impl LintFinding {
-    /// Build a warning-severity finding (the only severity checks emit in v1).
-    /// Unused until the first check lands (espectacular-rty) — kept as the
-    /// canonical constructor for the registry's additions.
-    #[allow(dead_code)]
+    /// Build an error-severity finding — structural issues such as malformed
+    /// spec files (deployed lint spec C-finding-schema; espectacular-pt8).
+    pub fn error(
+        kind: &str,
+        spec_path: &str,
+        scenario_id: &str,
+        message: &str,
+        suggestion: &str,
+        suggested_action: &str,
+        playbook_command: &str,
+    ) -> Self {
+        LintFinding {
+            kind: kind.to_string(),
+            severity: Severity::Error,
+            spec_path: spec_path.to_string(),
+            scenario_id: scenario_id.to_string(),
+            message: message.to_string(),
+            suggestion: suggestion.to_string(),
+            suggested_action: suggested_action.to_string(),
+            playbook_command: playbook_command.to_string(),
+        }
+    }
+
+    /// Build a warning-severity finding — what lint checks emit in v1. The
+    /// error constructor is reserved for structural issues (malformed spec
+    /// files, espectacular-pt8).
     pub fn warning(
         kind: &str,
         spec_path: &str,
@@ -206,12 +228,26 @@ pub(crate) fn run_lint_with(
     specs_dir: &Path,
     registered: &[Box<dyn LintCheck>],
 ) -> anyhow::Result<LintOutput> {
-    let specs = walker::walk_specs(specs_dir)?;
+    let (specs, read_errors) = walker::walk_specs_with_errors(specs_dir)?;
     let mut findings = Vec::new();
     for spec in &specs {
         for check in registered {
             check.check(spec, &mut findings);
         }
+    }
+    // Malformed spec files surface as error-severity findings (deployed lint
+    // spec C-finding-schema) instead of aborting the walk — the rest of the
+    // corpus still lints and exit_code() maps Error to non-zero.
+    for err in &read_errors {
+        findings.push(LintFinding::error(
+            "malformed-spec",
+            &err.spec_path,
+            "",
+            &format!("spec file could not be read as UTF-8: {}", err.message),
+            "fix or remove the malformed spec file so it parses as valid openspec markdown",
+            "review_and_apply",
+            "ah explain lint",
+        ));
     }
     // Dual-format bridge: relay spk findings after the prose checks. Runs
     // regardless of --check filtering — the bridge is not a registry check.
@@ -446,6 +482,44 @@ mod tests {
             counts_by_kind: BTreeMap::from([("k".into(), 1)]),
         };
         assert_eq!(exit_code(&errors), 1);
+    }
+
+    #[test]
+    fn malformed_spec_file_emits_error_finding_and_other_specs_still_lint() {
+        // Deployed lint spec C-finding-schema: "a malformed spec file emits a
+        // severity = "error" finding and exits non-zero" (espectacular-pt8).
+        let tmp = tempfile::tempdir().unwrap();
+        let specs = tmp.path().join("specs");
+        std::fs::create_dir_all(specs.join("good")).unwrap();
+        std::fs::create_dir_all(specs.join("bad")).unwrap();
+        std::fs::write(
+            specs.join("good/spec.md"),
+            "### Requirement: UX\nThe system SHALL show the result.\n\n#### Scenario: Feedback\n- **WHEN** the result arrives\n- **THEN** the response is user-friendly\n",
+        )
+        .unwrap();
+        // Invalid UTF-8 — the file cannot be read as a spec (malformed).
+        std::fs::write(specs.join("bad/spec.md"), b"\xff\xfe broken bytes").unwrap();
+
+        let registered = select_checks(&crate::config::LintConfig::default(), None).unwrap();
+        let output = run_lint_with(&specs, &registered).unwrap();
+
+        let errors: Vec<_> = output
+            .findings
+            .iter()
+            .filter(|f| f.severity == Severity::Error)
+            .collect();
+        assert_eq!(errors.len(), 1, "exactly one error finding: {errors:?}");
+        assert_eq!(errors[0].kind, "malformed-spec");
+        assert_eq!(errors[0].spec_path, "bad");
+        assert_eq!(errors[0].playbook_command, "ah explain lint");
+        assert_eq!(exit_code(&output), 1);
+        // The readable spec is still linted — no hard failure, no lost coverage.
+        let good_warnings: Vec<_> = output
+            .findings
+            .iter()
+            .filter(|f| f.severity == Severity::Warning && f.spec_path == "good")
+            .collect();
+        assert!(!good_warnings.is_empty());
     }
 
     #[test]

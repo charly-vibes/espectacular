@@ -61,9 +61,29 @@ pub struct ScenarioBlock {
     pub archetype: Option<String>,
 }
 
-/// Walk every `<specs_dir>/<capability>/spec.md` and parse it into units.
-pub fn walk_specs(specs_dir: &Path) -> anyhow::Result<Vec<SpecFile>> {
+/// One spec file that could not be read (e.g. invalid UTF-8). The lint
+/// engine turns these into error-severity findings instead of hard-failing,
+/// so the rest of the corpus still lints (espectacular-pt8, deployed lint
+/// spec C-finding-schema).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpecReadError {
+    /// Capability directory name, mirrors `SpecFile::spec_path`.
+    pub spec_path: String,
+    /// On-disk path of the unreadable file.
+    pub source_path: std::path::PathBuf,
+    /// Underlying read error message.
+    pub message: String,
+}
+
+/// Like [`walk_specs`], but per-file read failures are collected instead of
+/// aborting the walk. Root-level failures (specs dir unreadable) still
+/// return `Err` — the spec scenario covers malformed *files*, not a missing
+/// corpus root.
+pub fn walk_specs_with_errors(
+    specs_dir: &Path,
+) -> anyhow::Result<(Vec<SpecFile>, Vec<SpecReadError>)> {
     let mut specs = Vec::new();
+    let mut errors = Vec::new();
     for entry in fs::read_dir(specs_dir)? {
         let entry = entry?;
         let spec_name = entry.file_name().to_string_lossy().into_owned();
@@ -71,16 +91,22 @@ pub fn walk_specs(specs_dir: &Path) -> anyhow::Result<Vec<SpecFile>> {
         if !spec_file.exists() {
             continue;
         }
-        let content = fs::read_to_string(&spec_file)?;
-        specs.push({
-            let mut spec = parse_spec(&content, &spec_name);
-            spec.source_path = spec_file.clone();
-            load_archetypes(&mut spec, contracts_root_for(specs_dir));
-            spec
-        });
+        match fs::read_to_string(&spec_file) {
+            Ok(content) => specs.push({
+                let mut spec = parse_spec(&content, &spec_name);
+                spec.source_path = spec_file.clone();
+                load_archetypes(&mut spec, contracts_root_for(specs_dir));
+                spec
+            }),
+            Err(e) => errors.push(SpecReadError {
+                spec_path: spec_name,
+                source_path: spec_file,
+                message: e.to_string(),
+            }),
+        }
     }
     specs.sort_by(|a, b| a.spec_path.cmp(&b.spec_path));
-    Ok(specs)
+    Ok((specs, errors))
 }
 
 /// Nearest ancestor of `specs_dir` carrying an `.espectacular` contracts
@@ -218,7 +244,7 @@ mod tests {
 
     #[test]
     fn walker_visits_every_scenario_with_parent_requirement() {
-        let specs = walk_specs(&clean_specs()).unwrap();
+        let (specs, _) = walk_specs_with_errors(&clean_specs()).unwrap();
         assert_eq!(specs.len(), 1);
         let spec = &specs[0];
         assert_eq!(spec.spec_path, "auth");
@@ -235,7 +261,7 @@ mod tests {
     #[test]
     fn walker_parses_every_fixture() {
         for dir in [clean_specs(), defective_specs()] {
-            let specs = walk_specs(&dir).unwrap();
+            let (specs, _) = walk_specs_with_errors(&dir).unwrap();
             assert!(!specs.is_empty(), "walker parsed nothing for {dir:?}");
             for spec in &specs {
                 assert!(!spec.requirements.is_empty());
@@ -246,7 +272,7 @@ mod tests {
                 }
             }
         }
-        let defective = walk_specs(&defective_specs()).unwrap();
+        let (defective, _) = walk_specs_with_errors(&defective_specs()).unwrap();
         let scenario_count: usize = defective
             .iter()
             .flat_map(|s| &s.requirements)
@@ -261,7 +287,9 @@ mod tests {
         // ## Requirements sections; same id + identical body is ONE logical
         // scenario (deployed gate semantics: deduplicate-mirrored-delta-
         // sections). The walker must not double-emit them.
-        let specs = walk_specs(&PathBuf::from("tests/fixtures/lint/dual/openspec/specs")).unwrap();
+        let (specs, _) =
+            walk_specs_with_errors(&PathBuf::from("tests/fixtures/lint/dual/openspec/specs"))
+                .unwrap();
         let scenario_count: usize = specs
             .iter()
             .flat_map(|s| &s.requirements)
