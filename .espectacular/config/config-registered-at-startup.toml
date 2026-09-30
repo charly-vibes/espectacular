@@ -1,0 +1,10 @@
+id = "config-registered-at-startup"
+description = "At startup the tool registers its config struct with ConfigRegistry (ConfigStore used for discovery and validation)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.6.0"
+
+[[tests.shell]]
+command = "cargo test -q config::tests::registry_registers_espectacular_config"
+timeout_seconds = 120
