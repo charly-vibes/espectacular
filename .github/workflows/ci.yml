@@ -37,6 +37,9 @@ jobs:
         uses: extractions/setup-just@v2
 
       # Run the exact same command as local development
+      - name: Install specodelic (corpus gate in `just ci`)
+        run: cargo install --git https://github.com/charly-vibes/specodelic.git --locked
+
       - name: Run CI pipeline
         run: just ci
 
@@ -85,7 +88,7 @@ jobs:
         uses: extractions/setup-just@v2
 
       - name: Install specodelic
-        run: cargo install specodelic --locked
+        run: cargo install --git https://github.com/charly-vibes/specodelic.git --locked
 
       - name: Spec corpus mandate (spk lint + frontmatter over all non-archived spec.md)
         run: just spec-lint
