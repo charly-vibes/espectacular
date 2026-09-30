@@ -129,7 +129,7 @@ The system SHALL require exactly one TOML sidecar contract for each discovered s
 - **AND** exits non-zero
 
 ### Requirement: Contract Schema
-The system SHALL validate per-scenario TOML contracts before running tests.
+The system SHALL validate per-scenario TOML contracts before running tests. Contracts MAY declare an optional `falsifiability_class` field with value `safety` or `liveness`; an invalid value is a structural finding, and a `liveness`-tagged contract whose test entries all lack `timeout_seconds` produces a warning that does not fail the gate.
 
 #### Scenario: Validate scenario metadata
 - **GIVEN** a scenario contract contains `id`, `description`, `archetype`, `status`, and `authored_with`
@@ -147,6 +147,48 @@ The system SHALL validate per-scenario TOML contracts before running tests.
 - **WHEN** a user runs `ah check`
 - **THEN** the command requires a non-empty `superseded_by` value
 - **AND** still runs the scenario's declared tests
+
+#### Scenario: Accept contract without falsifiability_class
+- **GIVEN** a scenario contract declares no `falsifiability_class` field
+- **WHEN** a user runs `ah check`
+- **THEN** the contract validates and behaves exactly as it did before the field existed
+- **AND** no finding related to `falsifiability_class` is emitted
+
+#### Scenario: Accept valid falsifiability_class values
+- **GIVEN** a scenario contract has `falsifiability_class = "safety"` (or `"liveness"`)
+- **WHEN** a user runs `ah check`
+- **THEN** the contract validates and runs its declared tests normally
+
+#### Scenario: Reject invalid falsifiability_class value
+- **GIVEN** a scenario contract has `falsifiability_class = "eventual"`
+- **WHEN** a user runs `ah check`
+- **THEN** the command emits an `invalid-falsifiability-class` structural finding
+- **AND** exits non-zero without running tests
+
+#### Scenario: Warn on liveness contract without any test timeout
+- **GIVEN** a scenario contract has `falsifiability_class = "liveness"`
+- **AND** every declared test entry omits `timeout_seconds`
+- **WHEN** a user runs `ah check`
+- **THEN** the command emits a `missing-liveness-timeout` finding with `severity = "warning"`
+- **AND** the finding suggests adding explicit timeout semantics, since liveness claims are only falsifiable under bounded execution
+
+#### Scenario: No warning when liveness contract declares a timeout
+- **GIVEN** a scenario contract has `falsifiability_class = "liveness"`
+- **AND** at least one declared test entry specifies `timeout_seconds`
+- **WHEN** a user runs `ah check`
+- **THEN** no `missing-liveness-timeout` finding is emitted
+
+#### Scenario: No liveness warning when the contract declares no tests
+- **GIVEN** a scenario contract has `falsifiability_class = "liveness"`
+- **AND** the contract declares no test entries at all
+- **WHEN** a user runs `ah check`
+- **THEN** the command emits a `no-tests-declared` structural finding
+- **AND** no `missing-liveness-timeout` warning is emitted
+
+#### Scenario: Warnings do not fail the gate
+- **GIVEN** `ah check` produces only `missing-liveness-timeout` warnings and no error-severity findings
+- **WHEN** the run completes
+- **THEN** the command exits zero
 
 ### Requirement: Test Runner Execution
 The system SHALL run each declared test command and use its exit code as the execution verdict.
