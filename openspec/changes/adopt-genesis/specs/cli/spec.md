@@ -10,10 +10,10 @@ statement: "WHEN espectacular adopts genesis THE cli surface SHALL wrap check JS
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-envelope-shape | invariant | `ah check --json` emits top-level keys `ok`, `envelope_version`, `cli_version`, `envelope_kind`, `data`, `warnings`, `hints`, `meta`, with `findings` and `summary` nested under `data` | |
-| C-init-genesis-injector | invariant | `ah init` injects managed blocks via `genesis::managed_block` and no local injector code remains | |
-| C-feedback-subcommand | invariant | `ah feedback bug --from-last-error --yes` reads its own error scratch, assembles and redacts the body via `genesis::feedback`, and invokes `gh issue create` against the `Cargo.toml` `repository` with labels `agent-reported`, `bug`, `has-repro` | |
-| C-report-verb-stable | advisory | the `report` verb is not repurposed: it renders the coverage matrix as before | |
+| C-envelope-shape | invariant | `ah check --json` emits top-level keys `ok`, `envelope_version`, `cli_version`, `envelope_kind`, `data`, `warnings`, `hints`, `meta`, with `findings` and `summary` nested under `data` | [[spec]] |
+| C-init-genesis-injector | invariant | `ah init` injects managed blocks via `genesis::managed_block` and no local injector code remains | [[spec]] |
+| C-feedback-subcommand | invariant | `ah feedback bug --from-last-error --yes` reads its own error scratch, assembles and redacts the body via `genesis::feedback`, and invokes `gh issue create` against the `Cargo.toml` `repository` with labels `agent-reported`, `bug`, `has-repro` | [[spec]] |
+| C-report-verb-stable | advisory | the `report` verb is not repurposed: it renders the coverage matrix as before | [[spec]] |
 
 ## Model
 

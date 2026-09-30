@@ -10,13 +10,13 @@ statement: "WHEN a user runs ah explain THE playbook SHALL serve compile-enforce
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-compile-enforced | invariant | the build fails if any `FindingKind` or `SuggestedAction` enum variant lacks a playbook topic body, and succeeds enumerating all topics when complete | |
+| C-compile-enforced | invariant | the build fails if any `FindingKind` or `SuggestedAction` enum variant lacks a playbook topic body, and succeeds enumerating all topics when complete | [[spec]] |
 | C-topic-coverage | invariant | `ah explain` provides topics for every `FindingKind` value, every `SuggestedAction` value, and a set of general topics | [[spec.C-compile-enforced]] |
-| C-json-schema | invariant | `ah explain <topic> --json` emits a valid JSON object with `topic`, `summary`, `when`, `do` (string array), `human_approval` (boolean), `related_topics` (string array), and `hints` (objects with `kind` and `message`), for every valid topic | |
+| C-json-schema | invariant | `ah explain <topic> --json` emits a valid JSON object with `topic`, `summary`, `when`, `do` (string array), `human_approval` (boolean), `related_topics` (string array), and `hints` (objects with `kind` and `message`), for every valid topic | [[spec]] |
 | C-listing-stable | invariant | `ah explain --list` prints all topic identifiers one per line, sorted alphabetically, identical across runs | [[spec.C-topic-coverage]] |
-| C-unknown-topic | invariant | an unknown topic exits non-zero with either the sorted topic list or a pointer to `ah explain --list` | |
+| C-unknown-topic | invariant | an unknown topic exits non-zero with either the sorted topic list or a pointer to `ah explain --list` | [[spec]] |
 | C-quality-kinds | invariant | topics exist for the quality finding kinds `quality-mutation`, `quality-property`, `quality-snapshot`, and are subject to compile enforcement like all `FindingKind` values | [[spec.C-compile-enforced]] |
-| C-adapter-topics | invariant | progressive-enablement capability topics are included when their adapter modules are compiled in; two adapter modules registering the same topic identifier fail the build | |
+| C-adapter-topics | invariant | progressive-enablement capability topics are included when their adapter modules are compiled in; two adapter modules registering the same topic identifier fail the build | [[spec]] |
 
 ## Model
 

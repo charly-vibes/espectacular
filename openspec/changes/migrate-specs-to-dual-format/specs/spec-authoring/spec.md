@@ -19,10 +19,10 @@ This delta is itself authored in dual format, extending the pilot from
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-corpus-dual | invariant | every `spec.md` under `openspec/specs/` and under active `openspec/changes/*/specs/` carries YAML frontmatter (`id: spec`, `kind: intent`, EARS statement) and the Constraints, Model, and Properties tables | |
+| C-corpus-dual | invariant | every `spec.md` under `openspec/specs/` and under active `openspec/changes/*/specs/` carries YAML frontmatter (`id: spec`, `kind: intent`, EARS statement) and the Constraints, Model, and Properties tables | [[spec]] |
 | C-lint-clean | invariant | `spk lint` exits zero over the corpus, and the repo hook chain plus CI run it on every change to a spec file | [[spec.C-corpus-dual]] |
 | C-open-half-stable | invariant | migrating a file leaves its openspec requirement and scenario text textually identical (section-sync mirror and `ah check` stay green) | [[spec.C-corpus-dual]] |
-| C-adopters-unaffected | advisory | no espectacular product behavior requires dual format; plain openspec repos remain fully valid | |
+| C-adopters-unaffected | advisory | no espectacular product behavior requires dual format; plain openspec repos remain fully valid | [[spec]] |
 | C-archive-rederive | invariant | when `openspec archive` merges new requirements into a deployed spec and strips its specodelic half, the half is re-derived — frontmatter copied from the archived delta, surviving constraint/property rows carried over from the pre-archive version, rows added for newly merged requirements — and the gates re-run | [[spec.C-corpus-dual]] |
 
 ## Model

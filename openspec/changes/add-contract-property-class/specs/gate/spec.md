@@ -10,10 +10,10 @@ statement: "WHEN a scenario contract declares an optional property_class field T
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-schema-first | invariant | per-scenario TOML contracts are validated (`id`, `description`, `archetype`, `status`, `authored_with`) before any declared test executes | |
-| C-status-values | invariant | an unknown `status` value emits an `invalid-status` structural finding and exits non-zero; `status = "superseded"` requires a non-empty `superseded_by` and still runs the declared tests | |
-| C-property-class-values | invariant | `property_class` is absent (behaving exactly as before the field existed), `safety`, or `liveness`; any other value emits an `invalid-property-class` structural finding and exits non-zero without running tests | |
-| C-liveness-timeout-warning | invariant | a `liveness` contract whose test entries all omit `timeout_seconds` emits a `missing-liveness-timeout` finding with `severity = "warning"` suggesting bounded execution semantics; at least one declared timeout suppresses it; warnings alone exit zero | |
+| C-schema-first | invariant | per-scenario TOML contracts are validated (`id`, `description`, `archetype`, `status`, `authored_with`) before any declared test executes | [[spec]] |
+| C-status-values | invariant | an unknown `status` value emits an `invalid-status` structural finding and exits non-zero; `status = "superseded"` requires a non-empty `superseded_by` and still runs the declared tests | [[spec]] |
+| C-property-class-values | invariant | `property_class` is absent (behaving exactly as before the field existed), `safety`, or `liveness`; any other value emits an `invalid-property-class` structural finding and exits non-zero without running tests | [[spec]] |
+| C-liveness-timeout-warning | invariant | a `liveness` contract whose test entries all omit `timeout_seconds` emits a `missing-liveness-timeout` finding with `severity = "warning"` suggesting bounded execution semantics; at least one declared timeout suppresses it; warnings alone exit zero | [[spec]] |
 
 ## Model
 

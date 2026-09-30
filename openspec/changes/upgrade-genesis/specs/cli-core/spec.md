@@ -10,9 +10,9 @@ statement: "WHEN the tool adopts genesis::guide THE CLI scaffold SHALL be built 
 
 | id | kind | expr | traces_to |
 |----|------|----|-----------|
-| C-guide-builder | invariant | the tool's `main.rs` CLI setup uses `genesis::guide::Guide::builder()` when the tool adopts `genesis::guide` (adoption is the maintainer's decision — this spec fixes the contract, not the timing), with `cargo test` passing | |
-| C-output-handlers | advisory | command handlers SHOULD return `Output<T>` or use `ErrorSink` | |
-| C-errorsink-selfheal | advisory | on a command error, `ErrorSink` SHOULD print the error with a suggestion footer and write to the error scratch (for `--from-last-error`) | |
+| C-guide-builder | invariant | the tool's `main.rs` CLI setup uses `genesis::guide::Guide::builder()` when the tool adopts `genesis::guide` (adoption is the maintainer's decision — this spec fixes the contract, not the timing), with `cargo test` passing | [[spec]] |
+| C-output-handlers | advisory | command handlers SHOULD return `Output<T>` or use `ErrorSink` | [[spec]] |
+| C-errorsink-selfheal | advisory | on a command error, `ErrorSink` SHOULD print the error with a suggestion footer and write to the error scratch (for `--from-last-error`) | [[spec]] |
 
 ## Model
 

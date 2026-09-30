@@ -10,19 +10,19 @@ statement: "WHEN a user drives the ah CLI THE system SHALL provide the command s
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-cli-name | invariant | the standalone command-line interface is exposed as `ah` | |
-| C-init-command | invariant | `ah init` is idempotent and prepares a repository for spec-test correspondence checks: it refuses without OpenSpec, stubs existing deployed scenarios, installs a supported pre-commit integration preferring lefthook before prek and falling back to prek, and reports when no hook framework is present | |
-| C-check-command | invariant | `ah check` is the deterministic gate command, operating on deployed specs and accepting an OpenSpec change overlay | |
-| C-doctor-command | invariant | `ah doctor` diagnoses project setup and correspondence wiring | |
-| C-type-commands | invariant | `ah type` exposes built-in archetype guidance: listing archetypes and showing per-archetype details | |
-| C-scenario-lifecycle | invariant | scenario lifecycle commands author append-only: creating a scenario in a change rejects without a target requirement; superseding rejects when the replacement is missing | |
-| C-archive-companion | invariant | `ah archive <change>` moves staged scenario contracts after OpenSpec archive; it refuses to run before OpenSpec archive and refuses on collision | |
-| C-upgrade-command | invariant | `ah upgrade` makes tool-version drift explicit by reporting compatibility changes | |
-| C-doctor-enable | invariant | `ah doctor --enable <capability>` for a detected inactive capability writes exactly one config table for it and prints the path and table name written; enabling an unknown capability is an error; enabling an already-active capability is a no-op | |
-| C-explain-subcommand | invariant | `ah explain <topic>` prints playbook guidance for finding kinds, suggested actions, and general topics, supports JSON output and listing, and errors on unknown topics | |
-| C-report-command | invariant | `ah report` displays a conformance coverage matrix across deployed specs and archetype tiers (modeled on the OpenTelemetry per-language compliance matrix); it exits zero when coverage is complete, non-zero when scenarios lack contracts, and supports JSON output | |
-| C-recommendation-findings | invariant | `ah doctor` emits `recommendation` findings for capabilities that are available but not yet configured; each carries its enable command and is a finding kind, not a log line | |
-| C-lint-command | invariant | `ah lint` statically analyzes OpenSpec scenario files for quality findings without modifying files or running tests, operating on deployed specs and change overlays, scoping to a single check category, supporting JSON output, and exiting zero with empty findings on a clean spec | |
+| C-cli-name | invariant | the standalone command-line interface is exposed as `ah` | [[spec]] |
+| C-init-command | invariant | `ah init` is idempotent and prepares a repository for spec-test correspondence checks: it refuses without OpenSpec, stubs existing deployed scenarios, installs a supported pre-commit integration preferring lefthook before prek and falling back to prek, and reports when no hook framework is present | [[spec]] |
+| C-check-command | invariant | `ah check` is the deterministic gate command, operating on deployed specs and accepting an OpenSpec change overlay | [[spec]] |
+| C-doctor-command | invariant | `ah doctor` diagnoses project setup and correspondence wiring | [[spec]] |
+| C-type-commands | invariant | `ah type` exposes built-in archetype guidance: listing archetypes and showing per-archetype details | [[spec]] |
+| C-scenario-lifecycle | invariant | scenario lifecycle commands author append-only: creating a scenario in a change rejects without a target requirement; superseding rejects when the replacement is missing | [[spec]] |
+| C-archive-companion | invariant | `ah archive <change>` moves staged scenario contracts after OpenSpec archive; it refuses to run before OpenSpec archive and refuses on collision | [[spec]] |
+| C-upgrade-command | invariant | `ah upgrade` makes tool-version drift explicit by reporting compatibility changes | [[spec]] |
+| C-doctor-enable | invariant | `ah doctor --enable <capability>` for a detected inactive capability writes exactly one config table for it and prints the path and table name written; enabling an unknown capability is an error; enabling an already-active capability is a no-op | [[spec]] |
+| C-explain-subcommand | invariant | `ah explain <topic>` prints playbook guidance for finding kinds, suggested actions, and general topics, supports JSON output and listing, and errors on unknown topics | [[spec]] |
+| C-report-command | invariant | `ah report` displays a conformance coverage matrix across deployed specs and archetype tiers (modeled on the OpenTelemetry per-language compliance matrix); it exits zero when coverage is complete, non-zero when scenarios lack contracts, and supports JSON output | [[spec]] |
+| C-recommendation-findings | invariant | `ah doctor` emits `recommendation` findings for capabilities that are available but not yet configured; each carries its enable command and is a finding kind, not a log line | [[spec]] |
+| C-lint-command | invariant | `ah lint` statically analyzes OpenSpec scenario files for quality findings without modifying files or running tests, operating on deployed specs and change overlays, scoping to a single check category, supporting JSON output, and exiting zero with empty findings on a clean spec | [[spec]] |
 
 ## Model
 

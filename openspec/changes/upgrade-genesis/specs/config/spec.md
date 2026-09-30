@@ -10,10 +10,10 @@ statement: "WHEN the tool adopts genesis::config THE tool SHALL implement Config
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-configfile-impl | invariant | the tool's config struct implements `genesis::config::ConfigFile` and all config file I/O (read, write, parse) delegates to genesis, with `cargo test` passing | |
-| C-startup-registration | invariant | at startup the tool registers its config struct with `ConfigRegistry` | |
-| C-configstore-advisory | advisory | config discovery and validation SHOULD use `ConfigStore` | |
-| C-dead-code-removed | invariant | after adoption the old config parsing code is removed, `cargo clippy` introduces no new warnings, and `cargo test` passes | |
+| C-configfile-impl | invariant | the tool's config struct implements `genesis::config::ConfigFile` and all config file I/O (read, write, parse) delegates to genesis, with `cargo test` passing | [[spec]] |
+| C-startup-registration | invariant | at startup the tool registers its config struct with `ConfigRegistry` | [[spec]] |
+| C-configstore-advisory | advisory | config discovery and validation SHOULD use `ConfigStore` | [[spec]] |
+| C-dead-code-removed | invariant | after adoption the old config parsing code is removed, `cargo clippy` introduces no new warnings, and `cargo test` passes | [[spec]] |
 
 ## Model
 
