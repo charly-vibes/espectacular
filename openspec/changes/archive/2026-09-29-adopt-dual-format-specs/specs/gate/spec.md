@@ -23,11 +23,11 @@ The specodelic half of this file is linted by `spk lint`; the openspec half by
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-mirror-dedupe | invariant | two `#### Scenario:` headings in the same file with the same slugified id and identical bodies yield exactly one discovered scenario | |
-| C-distinct-bodies-collide | invariant | two `#### Scenario:` headings in the same file with the same slugified id but different bodies emit a slug-collision structural finding and fail the gate | |
-| C-tables-inert | invariant | YAML frontmatter, Constraints rows, Model states and transitions, and Properties rows contribute no discovered scenarios | |
-| C-opt-in | advisory | the gate never requires the specodelic half; a plain openspec spec file remains valid and discovers scenarios unchanged | |
-| C-prose-untouched | advisory | prose outside frontmatter and the fixed-schema tables is never parsed and never alters the discovered scenario set | |
+| C-mirror-dedupe | invariant | two `#### Scenario:` headings in the same file with the same slugified id and identical bodies yield exactly one discovered scenario | [[spec]] |
+| C-distinct-bodies-collide | invariant | two `#### Scenario:` headings in the same file with the same slugified id but different bodies emit a slug-collision structural finding and fail the gate | [[spec]] |
+| C-tables-inert | invariant | YAML frontmatter, Constraints rows, Model states and transitions, and Properties rows contribute no discovered scenarios | [[spec]] |
+| C-opt-in | advisory | the gate never requires the specodelic half; a plain openspec spec file remains valid and discovers scenarios unchanged | [[spec]] |
+| C-prose-untouched | advisory | prose outside frontmatter and the fixed-schema tables is never parsed and never alters the discovered scenario set | [[spec]] |
 
 ## Model
 
