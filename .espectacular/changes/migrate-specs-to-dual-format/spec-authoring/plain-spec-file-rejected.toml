@@ -1,0 +1,10 @@
+id = "plain-spec-file-rejected"
+description = "A staged spec.md under openspec/ carrying no YAML frontmatter and no specodelic tables fails the pre-commit corpus mandate (specodelic frontmatter missing), so the change cannot be committed."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.6.0"
+
+[[tests.shell]]
+command = "bash -c 'mkdir -p openspec/specs/zz-fixture && printf \"# plain\" > openspec/specs/zz-fixture/spec.md && trap \"rm -rf openspec/specs/zz-fixture\" EXIT; if just spec-corpus-staged openspec/specs/zz-fixture/spec.md >/dev/null 2>&1; then exit 1; fi'"
+timeout_seconds = 60

@@ -67,3 +67,25 @@ jobs:
         with:
           files: target/coverage/cobertura.xml
           fail_ci_if_error: false
+  spec-gate:
+    name: Specodelic dual-format gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install specodelic
+        run: cargo install specodelic --locked
+
+      - name: Spec corpus mandate (spk lint + frontmatter over all non-archived spec.md)
+        run: just spec-lint

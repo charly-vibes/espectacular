@@ -1,0 +1,10 @@
+id = "archive-strip-is-re-derived"
+description = "The corpus mandate stays green across archive round-trips: every non-archived spec.md currently carries specodelic frontmatter and lints clean (just spec-lint). A future archive strip re-fails this gate, at which point the re-derivation recipe (design.md Decision 1) re-derives the half and the gate goes green again."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.6.0"
+
+[[tests.shell]]
+command = "just spec-lint"
+timeout_seconds = 120

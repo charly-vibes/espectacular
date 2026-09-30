@@ -62,5 +62,5 @@ spec-lint:
 # === CI Commands ===
 
 # Full CI pipeline (matches the CI workflow)
-ci: fmt-check lint test build-release
+ci: fmt-check lint test build-release spec-lint
 

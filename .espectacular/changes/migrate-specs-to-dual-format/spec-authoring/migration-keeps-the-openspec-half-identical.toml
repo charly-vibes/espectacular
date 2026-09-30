@@ -1,0 +1,10 @@
+id = "migration-keeps-the-openspec-half-identical"
+description = "A dual-format file's openspec half stays coherent under both parsers: section-sync (spk lint requirement_drift) holds and openspec validate --all --strict accepts the corpus. Migration-time byte-parity of the openspec half against its pre-migration blob was proven during apply (ah check output byte-identical per file)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.6.0"
+
+[[tests.shell]]
+command = "bash -c 'spk lint openspec >/dev/null && openspec validate --all --strict >/dev/null'"
+timeout_seconds = 60

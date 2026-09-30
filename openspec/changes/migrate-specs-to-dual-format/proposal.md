@@ -37,8 +37,7 @@ behavior — espectacular remains a language-agnostic, opt-in tool for adopters
 - **Docs**: `docs/src/dual-format-authoring.md` flips from "enforcement is
   opt-in" to "enforcement is mandated in this repo", and documents the archive
   strip + re-derivation recipe (see design.md).
-- **Upstream**: an issue is filed against openspec asking `openspec archive` to
-  preserve frontmatter and four-layer tables on deploy.
+- **Upstream**: an issue is filed against **specodelic** (via `spk feedback`) asking for a mechanism that lets the dual-format corpus survive the `openspec archive` round-trip (post-archive restore, companion hook, or upstream guidance).
 
 ## Capabilities
 
@@ -55,7 +54,7 @@ behavior — espectacular remains a language-agnostic, opt-in tool for adopters
   config changes are covered by task 1).
 - `AGENTS.md` (tool-managed SPECODELIC block), `lefthook.yml`, CI workflow, `justfile`.
 - `docs/src/dual-format-authoring.md`.
-- One upstream openspec issue.
+- One upstream specodelic issue (`spk feedback`).
 - All gates must stay green per file: `spk lint <file>`, `openspec validate
   --all --strict`, section sync, and `ah check` (with the matching change
   overlay for deltas).

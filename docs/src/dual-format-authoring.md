@@ -83,13 +83,25 @@ with `#### Scenario: `. YAML frontmatter, Constraints rows, Model states
 and transitions, and Properties rows never yield scenarios — no matter
 what scenario-like text they quote.
 
-## Enforcement is opt-in
+## Enforcement is mandated in this repo (opt-in for adopters)
 
-espectacular deliberately does **not** adopt specodelic's CI rule
-("capability specs must be dual-format or CI fails"). Requiring the
-four-layer grammar would break plain openspec repos. A repo opts in by
-authoring files dual-format; plain openspec files remain valid and discover
-scenarios unchanged. `ah check` treats both grammars as valid.
+espectacular deliberately does **not** make its product require the
+two-grammar format: plain openspec repos remain fully valid, and `ah check`
+treats both grammars as valid (`C-adopters-unaffected`).
+
+This repository, however, dogfoods the mandate (change
+`migrate-specs-to-dual-format`, capability `spec-authoring`):
+
+- **pre-commit** — `spk lint openspec` (deep lint of dual-format files) plus
+  a staged-file frontmatter mandate (`spec-corpus-staged`) that catches an
+  archive strip at commit time;
+- **corpus gate** — `just spec-lint` fails while any non-archived `spec.md`
+  lacks the specodelic half, and runs in CI;
+- **CI** — the spec-gate job installs specodelic from crates.io and runs the
+  same mandate.
+
+The migration recipe for converting a plain file lives in
+`openspec/changes/migrate-specs-to-dual-format/design.md`.
 
 ## In-gate section-sync drift signal
 
@@ -122,7 +134,19 @@ proves every discovered scenario has a contract.
 
 `openspec archive` merges the openspec half of a delta into the deployed
 spec but **strips the specodelic half** (frontmatter and four-layer tables
-do not survive). This is harmless by design: the gate only discovers
-scenarios from `#### Scenario:` headings, so a deployed spec — now plain
-openspec — behaves identically. Treat dual-format as a change-delta and
-source-repo authoring practice, not a deployed-spec artifact.
+do not survive). The strip is not silent: `just spec-lint` (pre-commit
+staged mandate, corpus gate, and CI) fails until the half is re-derived.
+
+**Re-derivation recipe** (not a blind copy — archive *merges*):
+
+1. Copy the frontmatter block from the archived delta
+   (`openspec/changes/archive/<change>/specs/<capability>/spec.md`).
+2. Carry over the surviving constraint/property rows from the pre-archive
+   deployed spec (git history).
+3. Add rows for any newly merged requirements.
+4. Re-run the gates: `spk lint`, `openspec validate --all --strict`,
+   section sync, `ah check`.
+
+An issue is filed against **specodelic** (specodelic#7) asking for the
+dual-format corpus to survive the archive round-trip natively; once fixed,
+the recipe becomes a no-op.

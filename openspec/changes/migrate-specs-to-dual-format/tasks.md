@@ -26,10 +26,10 @@ section sync, `ah check`). One ticket per file, one concern per PR.
 - [x] 3.2 `openspec/specs/adapters/spec.md` (6 reqs, 25 scenarios)
 - [x] 3.3 `openspec/specs/lint/spec.md` (9 reqs, 26 scenarios)
 - [x] 3.4 `openspec/specs/gate/spec.md` (13 reqs, 60 scenarios)
-- [ ] 3.5 `openspec/specs/cli/spec.md` (13 reqs, 47 scenarios)
+- [x] 3.5 `openspec/specs/cli/spec.md` (13 reqs, 47 scenarios)
 
 ## 4. Docs and upstream
 
-- [ ] 4.1 Update `docs/src/dual-format-authoring.md`: enforcement mandated in this repo; archive-strip + re-derivation recipe (copy frontmatter + tables from the archived delta, re-run gates)
-- [ ] 4.2 File upstream openspec issue: preserve frontmatter and four-layer tables on `openspec archive`
-- [ ] 4.3 Add CI spec-gate job (`cargo install specodelic`, `just spec-lint`) and wire it into the `just ci` pipeline — corpus is green by then; full gate: `spk lint` (9 files), `openspec validate --all --strict`, `ah check` all exit zero
+- [x] 4.1 Update `docs/src/dual-format-authoring.md`: enforcement mandated in this repo; archive-strip + re-derivation recipe (frontmatter from archived delta, surviving rows from git history, rows for merged requirements, re-run gates)
+- [x] 4.2 File upstream issue — corrected audience per HITL: **specodelic** (owner of the dual-format protocol), not openspec — filed as [specodelic#7](https://github.com/charly-vibes/specodelic/issues/7) via `spk feedback`
+- [x] 4.3 CI spec-gate job added to `.github/workflows/ci.yml` (`cargo install specodelic --locked`, `just spec-lint`) and `spec-lint` wired into the `just ci` pipeline; full gate: `spk lint` (11 files), `openspec validate --all --strict`, `just spec-lint` all exit zero

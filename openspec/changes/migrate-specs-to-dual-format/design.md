@@ -25,7 +25,9 @@ add rows for any newly merged requirements, then re-run all gates. A justfile
 target `spec-lint` makes the drift visible immediately (lefthook/CI fail on
 the stripped or narrowed file), so re-derivation is never silent. An upstream
 issue asks openspec to preserve the half natively; once fixed, the recipe
-becomes a no-op.
+becomes a no-op. Note: the fix belongs to **specodelic** (owner of the
+dual-format protocol), not openspec — tracked as specodelic#7 via
+`spk feedback`; the recipe covers the gap until then.
 
 This is reversible: stripping is the status quo behavior, so the worst case of
 abandoning this migration is exactly today's state.

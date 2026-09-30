@@ -151,7 +151,8 @@ Pause and request human input when any of these triggers fire:
 4. **Secrets/credentials** — any external service, API key, or credential not yet authorized
 5. **Test failure persistence** — unresolved test failure after two repair attempts, or the same failure across 3 different approaches
 6. **Push/release** — pushing to remote, creating a release, or deploying
-7. **Context saturation** — context approaching ~40%; recommend `wai close` then `/clear`
+7. **Ticket/issue creation without confirmation** — never create a ticket or file an external issue (bd, gh, `spk feedback`) without explicit human confirmation of the target and action first (see beads memory: HITL gate, incident 2026-09-30)
+8. **Context saturation** — context approaching ~40%; recommend `wai close` then `/clear`
 
 ### Minimal Footprint
 
