@@ -24,7 +24,7 @@ section sync, `ah check`). One ticket per file, one concern per PR.
 
 - [x] 3.1 `openspec/specs/explain/spec.md` (7 reqs, 15 scenarios)
 - [x] 3.2 `openspec/specs/adapters/spec.md` (6 reqs, 25 scenarios)
-- [ ] 3.3 `openspec/specs/lint/spec.md` (9 reqs, 26 scenarios)
+- [x] 3.3 `openspec/specs/lint/spec.md` (9 reqs, 26 scenarios)
 - [ ] 3.4 `openspec/specs/gate/spec.md` (13 reqs, 60 scenarios)
 - [ ] 3.5 `openspec/specs/cli/spec.md` (13 reqs, 47 scenarios)
 
