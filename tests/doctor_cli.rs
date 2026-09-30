@@ -130,8 +130,8 @@ fn doctor_enable_mutation_writes_quality_mutation_config() {
         "must include default threshold; got:\n{config}"
     );
     assert!(
-        config.contains("command = [\"\"]"),
-        "must include command placeholder; got:\n{config}"
+        config.contains("command = [\"{}\"]"),
+        "must include the {{}} placeholder the mutation engine substitutes; got:\n{config}"
     );
 }
 

@@ -192,6 +192,12 @@ fn run_mutation_tool(
         .ok_or_else(|| "mutation command is empty".to_string())?;
 
     // Replace "{}" placeholder with a generated runner script path.
+    // The placeholder may appear as the program itself or as an argument.
+    let prog = if prog == "{}" {
+        generate_runner_script(repo_root)
+    } else {
+        prog.clone()
+    };
     let args: Vec<String> = args
         .iter()
         .map(|arg| {
@@ -411,6 +417,31 @@ mod tests {
         let f = &findings[0];
         assert_eq!(f.kind, "quality-mutation");
         assert!(f.kill_rate.is_some(), "kill_rate must be present");
+    }
+
+    // mu5: the exact default block `ah doctor --enable mutation` writes must
+    // work through the engine unmodified — command ["{}"] substitutes to the
+    // generated stub runner, so the gate runs and reports a finding (kill rate
+    // 0.0 < 0.80) instead of a spawn error.
+    #[test]
+    fn doctor_written_mutation_default_runs_without_tool_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = QualityConfig {
+            mutation: Some(MutationConfig {
+                enabled: true,
+                threshold: 0.80,
+                command: vec!["{}".to_string()],
+            }),
+            ..Default::default()
+        };
+        let (findings, tool_errors) = collect_quality_findings(dir.path(), &config, "full");
+        assert!(
+            tool_errors.is_empty(),
+            "doctor-written default must not produce tool errors; got: {tool_errors:?}"
+        );
+        assert_eq!(findings.len(), 1, "stub runner must yield one finding");
+        assert_eq!(findings[0].kind, "quality-mutation");
+        assert_eq!(findings[0].kill_rate, Some(0.0));
     }
 
     // ── Suite-trio quality signals (vampiro/crua/livin) ────────────────

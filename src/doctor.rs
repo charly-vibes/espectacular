@@ -752,7 +752,7 @@ pub fn run_doctor_enable(repo_root: &Path, capability: &str) -> anyhow::Result<D
             let text = fs::read_to_string(&config_path)?;
             let trimmed = text.trim_end();
             let updated = format!(
-                "{trimmed}\n\n[quality.mutation]\nenabled = true\nthreshold = 0.80\ncommand = [\"\"]\n"
+                "{trimmed}\n\n[quality.mutation]\nenabled = true\nthreshold = 0.80\ncommand = [\"{{}}\"]\n"
             );
             fs::write(&config_path, &updated)?;
             Ok(DoctorEnableResult::Written {
