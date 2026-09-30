@@ -1,4 +1,67 @@
+---
+id: spec
+kind: intent
+statement: "WHEN ah check validates a spec corpus THE gate SHALL discover scenarios, require one schema-valid sidecar contract each, execute declared tests with exit-code verdicts, emit stable JSON findings with agent-action fields, support deterministic change overlays and opt-in quality measurement plus an NR archetype and a conformance coverage matrix, and never semantically evaluate test quality or scenario prose."
+---
+
 # gate Specification
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| C-scenario-discovery | invariant | scenarios are discovered from `#### Scenario:` headings in `spec.md` files including dual-format files; identical mirrored headings deduplicate to one; same slugified id with different bodies emits a slug-collision finding and exits non-zero; frontmatter and structured table layers contribute no scenarios | [[spec]] |
+| C-sidecar-correspondence | invariant | each discovered scenario in scope requires exactly one TOML sidecar contract; missing, orphaned, mismatched-id, or empty-test-set contracts emit the corresponding structural finding and fail the gate | [[spec]] |
+| C-contract-schema | invariant | contract metadata (`id`, `description`, `archetype`, `status`, `authored_with`) is validated before tests run; unknown `status` emits `invalid-status` and exits non-zero; `superseded` requires a non-empty `superseded_by` and still runs declared tests | [[spec]] |
+| C-runner-execution | invariant | each declared test command runs with its exit code as the verdict: unit tests map through config runners, shell tests run inline, timeouts are enforced, output tails are bounded, missing runners / invalid TOML / malformed test entries are structural findings, and a non-zero declared test fails the check | [[spec]] |
+| C-json-findings | invariant | `ah check` emits stable JSON: success with empty findings, findings in stable order, actionable scenario context with verbatim body boundaries, checked scope, and command details for execution findings | [[spec]] |
+| C-overlay-scope | invariant | `ah check --changes <id>` overlays selected changes on deployed specs: added scenarios, staged metadata updates, and signaled modified scenario text apply; unsignaled redefinition, supersession with missing replacement, conflicting overlays, and conflicting staged updates for one scenario are rejected; resolution is deterministic | [[spec]] |
+| C-nr-archetype | invariant | the `NR` (Non-Regression) archetype is a valid contract archetype, runs in change overlay scope, and `ah upgrade` reports it as an archetype addition | [[spec]] |
+| C-scope-boundary | invariant | the gate never semantically evaluates test quality or scenario prose — it does not inspect test internals and does not hash scenario prose | [[spec]] |
+| C-agent-actions | invariant | every finding carries `suggested_action` and `playbook_command`, `scenario_prose` is verbatim and untruncated, findings sort deterministically, and the summary counts by kind | [[spec.C-json-findings]] |
+| C-quality-measurement | invariant | opt-in quality measurement capabilities run during `ah check` emitting measurement findings without failing the gate on below-threshold scores in v1; property/snapshot command failure and mutation tool execution failure fail the gate; mutation is off in pre-commit scope by default | [[spec]] |
+| C-quality-schema | invariant | quality measurement config (`[quality.mutation]`, property, snapshot) is not a test entry, while property and snapshot declarations are runnable test entries — baseline `tests.<type>` arrays stay runnable declarations | [[spec]] |
+| C-coverage-matrix | invariant | a per-spec, per-archetype coverage matrix aggregates scenario contract status across all specs in scope, counts covered scenarios and archetype totals, reports missing contracts as uncovered, and is available machine-readable | [[spec]] |
+| C-apply-command | invariant | `apply_command` is set only when the finding's `suggested_action` maps to a concrete mechanical shell command (e.g., `enable_capability`), and is null for findings requiring human review or code edits | [[spec]] |
+
+## Model
+
+### States
+
+- `discovering`
+- `validating`
+- `executing`
+- `reporting`
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| t-discover | discovering | discovering | [[spec.C-scenario-discovery]] ([[spec.C-overlay-scope]] widens scope) |
+| t-correspond | discovering | validating | [[spec.C-sidecar-correspondence]] |
+| t-schema | validating | validating | [[spec.C-contract-schema]] |
+| t-execute | validating | executing | [[spec.C-runner-execution]] ([[spec.C-nr-archetype]] and [[spec.C-quality-schema]] shape what runs) |
+| t-quality | executing | executing | [[spec.C-quality-measurement]] |
+| t-report | executing | reporting | [[spec.C-json-findings]] AND [[spec.C-agent-actions]] AND [[spec.C-coverage-matrix]] AND [[spec.C-apply-command]] |
+| t-bound | reporting | reporting | [[spec.C-scope-boundary]] |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|-----------|
+| P-discovery | unit | [[spec.C-scenario-discovery]] | deployed and dual-format specs, mirrored deltas, and same-id/different-body collisions | one scenario per logical scenario; collisions fail with findings; structured layers inert |
+| P-correspondence | unit | [[spec.C-sidecar-correspondence]] | scenarios with missing, orphaned, mismatched, and empty contracts | each emits its structural finding and fails the gate |
+| P-schema | unit | [[spec.C-contract-schema]] | contracts with valid, unknown, and superseded status | validation precedes execution; invalid status fails; superseded runs only with a replacement |
+| P-execution | unit | [[spec.C-runner-execution]] | unit, shell, timeout, bounded-output, structural-breakage, and failing-test contracts | exit-code verdicts with bounded tails; structural breakage fails before running; non-zero fails the check |
+| P-json | unit | [[spec.C-json-findings]] | check runs from clean to finding-rich scopes | stable ordering, verbatim bodies, scope and command details present |
+| P-overlay | unit | [[spec.C-overlay-scope]] | overlays applying additions, staged updates, signaled modifications, and each rejection case | legal overlays apply deterministically; every illegal case is rejected |
+| P-nr | unit | [[spec.C-nr-archetype]] | an NR contract in overlay scope and an `ah upgrade` run | NR validates, runs in scope, and upgrades report the archetype addition |
+| P-boundary | unit | [[spec.C-scope-boundary]] | a passing test with poor quality and prose mutations | verdicts and outputs are unchanged by test internals or prose content |
+| P-agent-actions | unit | [[spec.C-agent-actions]] | any finding-producing check run | every finding has both agent fields; prose verbatim; deterministic sort; kind counts in summary |
+| P-quality | unit | [[spec.C-quality-measurement]] | enabled mutation, declared property/snapshot, threshold crossings, tool failures, pre-commit scope | measurement findings never fail on scores in v1; tool/command failures do; mutation off pre-commit |
+| P-quality-schema | unit | [[spec.C-quality-schema]] | contracts with quality blocks and quality-declared runnable entries | quality config never counted as a test entry; property/snapshot run as declared tests |
+| P-matrix | unit | [[spec.C-coverage-matrix]] | multi-spec scopes with missing contracts | matrix counts coverage per spec and archetype, marks missing as uncovered, and is machine-readable |
+| P-apply-command | unit | [[spec.C-apply-command]] | findings across suggested_action classes | `apply_command` non-null only for mechanical actions |
 
 ## Purpose
 TBD - created by archiving change add-spec-assertions. Update Purpose after archive.

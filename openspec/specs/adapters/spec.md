@@ -1,4 +1,51 @@
+---
+id: spec
+kind: intent
+statement: "WHEN contracts declare test commands THE adapter layer SHALL detect frameworks through a configured-manifest-environment-source precedence chain, dispatch per test type via bundled pytest, cargo, and vitest adapters normalizing output into the finding schema, emit missing-adapter findings when nothing matches, and wire custom runners through a strict JSON envelope."
+---
+
 # adapters Specification
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| C-detection-precedence | invariant | adapter detection runs through the precedence chain `configured` > `manifest` > `environment` > `source_import` before any adapter invocation, with manifest evidence winning per matching test type (cross-language evidence is not a conflict), and the selection reported by `ah doctor --json` / `ah check --json` as `adapter`, `test_type`, and `detection_source` ∈ {`manifest`, `environment`, `source_import`, `configured`} | [[spec]] |
+| C-pytest-adapter | invariant | the bundled pytest adapter detects pytest via `pyproject.toml` (reporting the detected version), runs the declared command, and normalizes output: zero exit emits no `test-failing` finding; non-zero emits `test-failing` with bounded stdout/stderr tails; JSON `ImportError`, missing-fixture, and collection failures remain `test-failing` with execution context `test.type` = `pytest-import-error`, `pytest-fixture-error`, `pytest-collection-error` | [[spec]] |
+| C-cargo-adapter | invariant | the bundled cargo adapter detects cargo via `Cargo.toml`, runs the declared command, and normalizes output: zero exit emits no `test-failing` finding; non-zero emits `test-failing` with bounded stdout/stderr tails | [[spec]] |
+| C-vitest-adapter | invariant | the bundled vitest adapter detects vitest via `package.json` dependencies (reporting the detected version), runs the declared command, and normalizes output like the cargo adapter | [[spec]] |
+| C-missing-adapter | invariant | a contract that declares a test command with no adapter configured or detected for the test type emits a `missing-adapter` finding carrying `kind`, `message`, `suggested_action`, and `playbook_command`, directing the user to `ah doctor`, and is distinct from `no-tests-declared` | [[spec]] |
+| C-custom-runner-envelope | invariant | `[runners.custom.<name>]` config blocks wire arbitrary shell commands via the JSON envelope of `schemas/custom-runner.schema.json` (findings conform to `schemas/check-output.schema.json`): the envelope requires `exit_code` (integer), `passed` (boolean), `findings` (array); empty findings with zero exit is a pass; envelope failure (`passed = false` or non-empty findings) overrides process success; process failure overrides envelope success; non-zero exit without a valid envelope emits `test-failing` with raw tails; no custom runner is invoked without explicit config | [[spec]] |
+
+## Model
+
+### States
+
+- `detecting`
+- `running`
+- `normalizing`
+- `reported`
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| t-detect | detecting | running | [[spec.C-detection-precedence]] |
+| t-run | running | normalizing | a bundled adapter ([[spec.C-pytest-adapter]], [[spec.C-cargo-adapter]], or [[spec.C-vitest-adapter]]) or [[spec.C-custom-runner-envelope]] |
+| t-normalize | normalizing | reported | bundled-adapter normalization or envelope processing rules |
+| t-missing | detecting | reported | [[spec.C-missing-adapter]] |
+| t-no-runner | detecting | detecting | [[spec.C-custom-runner-envelope]] (no invocation without explicit config) |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|-----------|
+| P-precedence | unit | [[spec.C-detection-precedence]] | projects with configured, manifest-declared, environment-installed, and source-imported frameworks in overlapping combinations | the strongest surviving signal per test type wins; cross-language evidence never conflicts; reports carry `adapter`/`test_type`/`detection_source` |
+| P-pytest | unit | [[spec.C-pytest-adapter]] | pytest runs exiting zero and non-zero, plus JSON outputs with import, fixture, and collection errors | pass normalization and `test-failing` classification with bounded tails and correct `test.type` context |
+| P-cargo | unit | [[spec.C-cargo-adapter]] | cargo test runs exiting zero and non-zero | pass normalization and `test-failing` with bounded tails |
+| P-vitest | unit | [[spec.C-vitest-adapter]] | vitest runs exiting zero and non-zero | pass normalization and `test-failing` with bounded tails |
+| P-missing-adapter | unit | [[spec.C-missing-adapter]] | a contract declaring a test with no adapter anywhere | `missing-adapter` finding with all four fields, distinct from `no-tests-declared` |
+| P-envelope | unit | [[spec.C-custom-runner-envelope]] | runners spanning the five envelope outcomes | each outcome maps to the mandated emission; no invocation occurs without config |
 
 ## Purpose
 TBD - created by archiving change add-quality-measurement-and-adapters. Update Purpose after archive.

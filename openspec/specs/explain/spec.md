@@ -1,4 +1,52 @@
+---
+id: spec
+kind: intent
+statement: "WHEN a user runs ah explain THE playbook SHALL serve compile-enforced topics for every FindingKind, SuggestedAction, quality finding kind, and compiled-in adapter capability, with stable sorted listing, machine-readable JSON, and non-zero exit for unknown topics."
+---
+
 # explain Specification
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| C-compile-enforced | invariant | the build fails if any `FindingKind` or `SuggestedAction` enum variant lacks a playbook topic body, and succeeds enumerating all topics when complete | [[spec]] |
+| C-topic-coverage | invariant | `ah explain` provides topics for every `FindingKind` value, every `SuggestedAction` value, and a set of general topics | [[spec.C-compile-enforced]] |
+| C-json-schema | invariant | `ah explain <topic> --json` emits a valid JSON object with `topic`, `summary`, `when`, `do` (string array), `human_approval` (boolean), `related_topics` (string array), and `hints` (objects with `kind` and `message`), for every valid topic | [[spec]] |
+| C-listing-stable | invariant | `ah explain --list` prints all topic identifiers one per line, sorted alphabetically, identical across runs | [[spec.C-topic-coverage]] |
+| C-unknown-topic | invariant | an unknown topic exits non-zero with either the sorted topic list or a pointer to `ah explain --list` | [[spec]] |
+| C-quality-kinds | invariant | topics exist for the quality finding kinds `quality-mutation`, `quality-property`, `quality-snapshot`, and are subject to compile enforcement like all `FindingKind` values | [[spec.C-compile-enforced]] |
+| C-adapter-topics | invariant | progressive-enablement capability topics are included when their adapter modules are compiled in; two adapter modules registering the same topic identifier fail the build | [[spec]] |
+
+## Model
+
+### States
+
+- `compiling`
+- `serving`
+- `errored`
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| t-enforce | compiling | compiling | [[spec.C-compile-enforced]] AND [[spec.C-adapter-topics]] (duplicate registration) |
+| t-serve | compiling | serving | [[spec.C-topic-coverage]] AND [[spec.C-quality-kinds]] |
+| t-json | serving | serving | [[spec.C-json-schema]] |
+| t-list | serving | serving | [[spec.C-listing-stable]] |
+| t-unknown | serving | errored | [[spec.C-unknown-topic]] |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|-----------|
+| P-enforced | unit | [[spec.C-compile-enforced]] | a build with one variant stripped of its topic body vs the complete set | the stripped build fails naming the missing topic; the complete build succeeds and `--list` enumerates every variant |
+| P-coverage | unit | [[spec.C-topic-coverage]] | every `FindingKind` and `SuggestedAction` value plus a general topic | each resolves via `ah explain <topic>` printing guidance and exiting zero |
+| P-json | unit | [[spec.C-json-schema]] | every valid topic with `--json` | output is a valid object with exactly the required fields and typed `hints` entries |
+| P-listing | unit | [[spec.C-listing-stable]] | two successive `--list` runs | outputs are byte-identical and alphabetically sorted |
+| P-unknown | unit | [[spec.C-unknown-topic]] | `ah explain no-such-topic` | exits non-zero with the topic list or the `--list` pointer |
+| P-quality | unit | [[spec.C-quality-kinds]] | `ah explain quality-mutation`, `quality-property`, `quality-snapshot` | each prints kind-specific guidance (mutation meaning/enablement) and exits zero |
+| P-adapter | unit | [[spec.C-adapter-topics]] | a build with the pytest adapter compiled in vs two modules registering one topic id | the first serves `ah explain pytest` enablement guidance; the second fails the build naming the conflict |
 
 ## Purpose
 TBD - created by archiving change add-quality-measurement-and-adapters. Update Purpose after archive.
