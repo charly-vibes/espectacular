@@ -26,3 +26,7 @@
 - [cli — Command surface](specs/cli/spec.md)
 - [adapters — Language adapter dispatch](specs/adapters/spec.md)
 - [explain — Playbook system](specs/explain/spec.md)
+- [`cli-core`](specs/cli-core/spec.md)
+- [`config`](specs/config/spec.md)
+- [`lint`](specs/lint/spec.md)
+- [`spec-authoring`](specs/spec-authoring/spec.md)
