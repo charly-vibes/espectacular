@@ -1,4 +1,65 @@
+---
+id: spec
+kind: intent
+statement: "WHEN a user drives the ah CLI THE system SHALL provide the command surface — idempotent init with hook integration, the deterministic check gate, doctor with capability enablement, archetype docs, append-only scenario lifecycle, archive companion, upgrade drift reporting, explain playbooks, conformance reporting, recommendation findings, and static spec lint — each exiting deterministically."
+---
+
 # cli Specification
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| C-cli-name | invariant | the standalone command-line interface is exposed as `ah` | |
+| C-init-command | invariant | `ah init` is idempotent and prepares a repository for spec-test correspondence checks: it refuses without OpenSpec, stubs existing deployed scenarios, installs a supported pre-commit integration preferring lefthook before prek and falling back to prek, and reports when no hook framework is present | |
+| C-check-command | invariant | `ah check` is the deterministic gate command, operating on deployed specs and accepting an OpenSpec change overlay | |
+| C-doctor-command | invariant | `ah doctor` diagnoses project setup and correspondence wiring | |
+| C-type-commands | invariant | `ah type` exposes built-in archetype guidance: listing archetypes and showing per-archetype details | |
+| C-scenario-lifecycle | invariant | scenario lifecycle commands author append-only: creating a scenario in a change rejects without a target requirement; superseding rejects when the replacement is missing | |
+| C-archive-companion | invariant | `ah archive <change>` moves staged scenario contracts after OpenSpec archive; it refuses to run before OpenSpec archive and refuses on collision | |
+| C-upgrade-command | invariant | `ah upgrade` makes tool-version drift explicit by reporting compatibility changes | |
+| C-doctor-enable | invariant | `ah doctor --enable <capability>` for a detected inactive capability writes exactly one config table for it and prints the path and table name written; enabling an unknown capability is an error; enabling an already-active capability is a no-op | |
+| C-explain-subcommand | invariant | `ah explain <topic>` prints playbook guidance for finding kinds, suggested actions, and general topics, supports JSON output and listing, and errors on unknown topics | |
+| C-report-command | invariant | `ah report` displays a conformance coverage matrix across deployed specs and archetype tiers (modeled on the OpenTelemetry per-language compliance matrix); it exits zero when coverage is complete, non-zero when scenarios lack contracts, and supports JSON output | |
+| C-recommendation-findings | invariant | `ah doctor` emits `recommendation` findings for capabilities that are available but not yet configured; each carries its enable command and is a finding kind, not a log line | |
+| C-lint-command | invariant | `ah lint` statically analyzes OpenSpec scenario files for quality findings without modifying files or running tests, operating on deployed specs and change overlays, scoping to a single check category, supporting JSON output, and exiting zero with empty findings on a clean spec | |
+
+## Model
+
+### States
+
+- `bare`
+- `prepared`
+- `gated`
+- `advised`
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| t-init | bare | prepared | [[spec.C-init-command]] |
+| t-check | prepared | gated | [[spec.C-check-command]] ([[spec.C-lint-command]] widens quality scope) |
+| t-doctor | prepared | advised | [[spec.C-doctor-command]] ([[spec.C-doctor-enable]] and [[spec.C-recommendation-findings]] refine it) |
+| t-lifecycle | prepared | prepared | [[spec.C-scenario-lifecycle]] AND [[spec.C-archive-companion]] AND [[spec.C-upgrade-command]] |
+| t-guidance | advised | advised | [[spec.C-type-commands]] AND [[spec.C-explain-subcommand]] AND [[spec.C-report-command]] |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|-----------|
+| P-name | unit | [[spec.C-cli-name]] | invoking the binary | it answers to `ah` with help |
+| P-init | unit | [[spec.C-init-command]] | repositories with and without OpenSpec, deployed scenarios, lefthook, prek, and neither hook framework | idempotent preparation; refusal without OpenSpec; scenario stubs; hook preference order; honest missing-framework report |
+| P-check | unit | [[spec.C-check-command]] | clean scopes and change overlays | deterministic gate behavior on both scopes |
+| P-doctor | unit | [[spec.C-doctor-command]] | healthy and broken installations | diagnoses setup and correspondence wiring |
+| P-type | unit | [[spec.C-type-commands]] | `ah type` list and detail invocations | all archetypes listed; details render per archetype |
+| P-lifecycle | unit | [[spec.C-scenario-lifecycle]] | create-with and create-without target requirement, supersede with and without replacement | legal authoring succeeds append-only; both illegal cases rejected |
+| P-archive | unit | [[spec.C-archive-companion]] | archive runs before OpenSpec archive, after it, and on collision | staged contracts move only post-archive and refuse collisions |
+| P-upgrade | unit | [[spec.C-upgrade-command]] | version-drifted tool references | compatibility changes reported explicitly |
+| P-enable | unit | [[spec.C-doctor-enable]] | enabled capabilities: pytest, cargo, vitest, mutation, property, snapshot, unknown, already-active | one config table per enable with reported path/table; unknown errors; active is a no-op |
+| P-explain | unit | [[spec.C-explain-subcommand]] | finding-kind, suggested-action, and general topics with JSON, list, and unknown-topic variants | guidance printed per topic class; JSON valid; list complete; unknown errors |
+| P-report | unit | [[spec.C-report-command]] | scopes with complete coverage vs missing contracts | zero exit on completeness, non-zero on gaps, JSON output available |
+| P-recommendation | unit | [[spec.C-recommendation-findings]] | doctor runs over projects with unconfigured available capabilities | recommendation findings carry enable commands and are finding kinds |
+| P-lint | unit | [[spec.C-lint-command]] | clean specs, dirty specs, overlays, single categories, JSON output | quality findings without file modification or test execution; clean exits zero with empty findings |
 
 ## Purpose
 TBD - created by archiving change add-spec-assertions. Update Purpose after archive.
