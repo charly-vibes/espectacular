@@ -6,6 +6,16 @@ pre-commit:
 
   parallel: true
   commands:
+    # <!-- SPK:START -->
+    specodelic-gates:
+      run: spk lint openspec
+    # <!-- SPK:END -->
+    spec-corpus-staged:
+      # Frontmatter mandate over staged spec files: catches an archive strip
+      # (dual file re-deployed as plain openspec) at commit time without
+      # blocking the migration backlog. Corpus-wide mandate: just spec-lint.
+      run: >-
+        bash -c 'for f in "$@"; do [ -f "$f" ] || continue; case "$f" in openspec/*spec.md) [ "$(head -1 "$f")" = "---" ] || { echo "specodelic frontmatter missing (archive strip?): $f"; exit 1; };; esac; done' -- {staged_files}
     fmt-check:
       run: cargo fmt -- --check
     check:

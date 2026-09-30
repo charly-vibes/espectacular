@@ -7,12 +7,11 @@ section sync, `ah check`). One ticket per file, one concern per PR.
 
 ## 1. Tooling enablement
 
-- [ ] 1.1 ~~Done during proposal~~: `openspec validate --strict` rejects delta-less changes (ERROR: "Change must have at least one delta") — resolved by the `spec-authoring` delta, see design.md Decision 3
-- [x] 1.1b Record the correction in design.md
-- [ ] 1.2 `spk init` — write the SPECODELIC managed block into `AGENTS.md`
-- [ ] 1.3 `spk hooks` — wire the dual-format gate into `lefthook.yml`
-- [ ] 1.4 Add `spec-lint` to `justfile` and run `spk lint` over the corpus in CI; CI installs specodelic via the same private-git credential pattern used for `ah` (cargo install --git git@cv:…), and the lint step hard-fails if the binary is absent
-- [ ] 1.5 Gates green: `spk lint` exits zero on existing compliant files, lefthook runs the hook, CI passes
+- [x] 1.1 Done during proposal: `openspec validate --strict` rejects delta-less changes (ERROR: "Change must have at least one delta") — resolved by the `spec-authoring` delta, see design.md Decision 3
+- [x] 1.2 `spk init` — SPECODELIC managed block written into `AGENTS.md` (Revision 8)
+- [x] 1.3 `spk hooks install` — `spk lint openspec` wired into lefthook pre-commit (regression gate for dual files), plus a `spec-corpus-staged` command (frontmatter mandate over staged `spec.md` files — catches an archive strip at commit time; corpus-wide gate stays out of pre-commit so the migration backlog doesn't block every commit)
+- [x] 1.4 `spec-lint` justfile target: `spk lint openspec` + frontmatter mandate over all non-archived `spec.md` files (red = the 9-file migration backlog, by design). CI spec-gate job deferred to 4.3. Install-source correction vs EDGE-001 fix: specodelic publishes on **crates.io** (`cargo install specodelic`), not git@cv
+- [x] 1.5 Gates proven: red test — staged plain `spec.md` fails pre-commit with "specodelic frontmatter missing"; green test — real staged set passes pre-commit (exit 0); `just spec-lint` reports exactly the 9-file backlog
 
 ## 2. Change deltas (4 files — dual-format is the documented delta practice)
 
@@ -33,4 +32,4 @@ section sync, `ah check`). One ticket per file, one concern per PR.
 
 - [ ] 4.1 Update `docs/src/dual-format-authoring.md`: enforcement mandated in this repo; archive-strip + re-derivation recipe (copy frontmatter + tables from the archived delta, re-run gates)
 - [ ] 4.2 File upstream openspec issue: preserve frontmatter and four-layer tables on `openspec archive`
-- [ ] 4.3 Full-corpus gate: `spk lint` (9 files), `openspec validate --all --strict`, `ah check` all exit zero
+- [ ] 4.3 Add CI spec-gate job (`cargo install specodelic`, `just spec-lint`) and wire it into the `just ci` pipeline — corpus is green by then; full gate: `spk lint` (9 files), `openspec validate --all --strict`, `ah check` all exit zero

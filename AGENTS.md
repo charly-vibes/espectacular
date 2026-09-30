@@ -1,3 +1,41 @@
+<!-- SPECODELIC:START -->
+## Specodelic — spec format rules (managed block)
+
+This repo's `specs/`-style markdown spec files (YAML frontmatter +
+fixed-schema tables) are linted by `spk` (crates.io: specodelic).
+Write specs so `spk lint` passes; embedded format revision: specodelic.md Revision 8
+
+### Lint rules (every violation names its `rule_id`)
+
+- `linter.frontmatter_valid` — frontmatter `kind` must be `intent` — the only top-level intent kind
+- `linter.id_matches_file` — frontmatter `id` must equal the filename stem with `-` mapped to `.` (`_` is literal)
+- `linter.unique_id` — every row id in a file must be unique across all of the file's tables
+- `linter.guard_required` — every transition must carry a non-null guard that cites an invariant Constraint
+- `linter.model_present` — the Model section must contain both a States list and a Transitions table (empty-but-present beats absent)
+- `linter.ears_syntax` — the intent statement must contain an imperative `SHALL` and match one of the five EARS patterns
+- `linter.no_conjoined_id` — an id must not encode two capabilities joined by `and`/`or`
+- `linter.no_universal_in_id` — an id must not contain a universal token (all/every/any/always/never)
+- `linter.total_refs` — every structured-field [[link]] must resolve to a definition somewhere in the corpus — dual-format `id: spec` files are self-contained: their refs must resolve within the file itself
+- `linter.coverage` — every constraint must have a deriving property (`∃ property.derives_from == <constraint>`)
+- `linter.no_orphan_property` — every property must derive from at least one constraint
+- `linter.requirement_drift` — a dual-format file's ## Requirements mirror must hold the same requirement text as ## ADDED Requirements (blank lines and trailing space ignored)
+- `linter.dual_format_valid` — a file carrying `## ADDED Requirements` must be a dual-format file — declare `id: spec` and pair it with a sibling `## Requirements` section
+
+### Commands
+
+- `spk lint <dir>` — check the invariants (fails with a hint on zero files)
+- `spk graph <dir>` — typed reference graph (state edges, typing
+  violations, supersedes cycles; blast-radius lands later)
+- `spk compile <files>` — emit TOML / proptest / TLA+ artifacts
+- `spk model-check <files>` — run the model checker against compiled
+  output (stateright; reports land as `*.check.json`)
+- `spk explain [topic]` — the embedded format primer (works offline)
+- `spk doctor` — diagnose workspace + block currency
+- `spk feedback bug --dry-run` — file an issue against upstream
+
+Refresh this block after upgrading: `spk init --force`.
+<!-- SPECODELIC:END -->
+
 <!-- OPENSPEC:START -->
 # OpenSpec Instructions
 
