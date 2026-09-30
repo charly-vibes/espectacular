@@ -307,6 +307,9 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                     rec.detail, rec.apply_command
                 );
             }
+            for s in &report.session_suggestions {
+                println!("suggestion: {} — run: {}", s.detail, s.apply_command);
+            }
             if report.genesis_report.is_healthy() {
                 println!("healthy: all checks passed");
             } else {
@@ -376,6 +379,9 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                 lint::print_report(&output);
             }
             std::io::stdout().flush().unwrap_or_default();
+            // Record the completed run so `ah doctor` can suggest the first
+            // lint (advisory-only; best-effort).
+            doctor::record_lint_run(&repo_root);
             std::process::exit(lint::exit_code(&output));
         }
         Command::Init => {

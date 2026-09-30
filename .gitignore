@@ -17,3 +17,4 @@ docs/src/specs/
 .testaruda/
 .claude/settings.local.json
 .beads.gate.lock
+.espectacular/state/

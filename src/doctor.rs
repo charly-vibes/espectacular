@@ -27,6 +27,14 @@ pub struct CapabilitySuggestion {
     pub apply_command: String,
 }
 
+/// A suggested next step for the current session (advisory-only, never a
+/// gate blocker) — e.g. run `ah lint` before it has been run once.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct SessionSuggestion {
+    pub detail: String,
+    pub apply_command: String,
+}
+
 /// Outcome of a doctor run: genesis report + domain-specific detections and suggestions.
 #[derive(Debug)]
 pub struct DoctorOutcome {
@@ -36,6 +44,8 @@ pub struct DoctorOutcome {
     pub detections: Vec<FrameworkDetection>,
     /// Capability suggestions (domain-specific, not in genesis).
     pub suggestions: Vec<CapabilitySuggestion>,
+    /// Session step suggestions (advisory-only; never affect health).
+    pub session_suggestions: Vec<SessionSuggestion>,
 }
 
 #[derive(Debug)]
@@ -529,6 +539,7 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorOutcome> {
     let checks = build_checks(repo_root);
     let mut detections: Vec<FrameworkDetection> = Vec::new();
     let mut suggestions: Vec<CapabilitySuggestion> = Vec::new();
+    let mut session_suggestions: Vec<SessionSuggestion> = Vec::new();
 
     // Run genesis doctor framework
     let runner = genesis::doctor::DoctorRunner::new(checks).with_tool_name("ah");
@@ -556,10 +567,63 @@ pub fn run_doctor(repo_root: &Path) -> anyhow::Result<DoctorOutcome> {
         }
     }
 
+    if let Some(s) = lint_session_suggestion(repo_root) {
+        session_suggestions.push(s);
+    }
+
     Ok(DoctorOutcome {
         genesis_report,
         detections,
         suggestions,
+        session_suggestions,
+    })
+}
+
+/// Marker recording a completed lint run. Its absence is the doctor's signal
+/// that no lint run has completed in the session — a suggested step, never a
+/// gate blocker.
+pub fn lint_marker_path(repo_root: &Path) -> std::path::PathBuf {
+    repo_root.join(".espectacular/state/lint-last-run")
+}
+
+/// Record a completed lint run. Best-effort: only configured repos get the
+/// marker (fixture and adopting repos stay untouched), and write failures
+/// never fail the lint command.
+pub fn record_lint_run(repo_root: &Path) {
+    if !repo_root.join(crate::config::CONFIG_MARKER).exists() {
+        return;
+    }
+    let marker = lint_marker_path(repo_root);
+    if let Some(parent) = marker.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(&marker, chrono_now_iso());
+}
+
+/// Session timestamp (no chrono dependency in this tool — UTC from unix time).
+fn chrono_now_iso() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    format!("lint-run unix_ts={secs}")
+}
+
+/// Suggest `ah lint` when the repo is configured but no lint run has
+/// completed in the session. Advisory-only by construction: it lands in
+/// `session_suggestions`, which never influences the health verdict.
+fn lint_session_suggestion(repo_root: &Path) -> Option<SessionSuggestion> {
+    if !repo_root.join(crate::config::CONFIG_MARKER).exists() {
+        return None;
+    }
+    if lint_marker_path(repo_root).exists() {
+        return None;
+    }
+    Some(SessionSuggestion {
+        detail:
+            "no lint run has completed in this session — surface authoring-quality findings early"
+                .to_string(),
+        apply_command: "ah lint".to_string(),
     })
 }
 
@@ -583,11 +647,26 @@ pub fn doctor_to_envelope(outcome: &DoctorOutcome) -> serde_json::Value {
         })
         .collect();
 
+    let session_suggestions_json: Vec<serde_json::Value> = outcome
+        .session_suggestions
+        .iter()
+        .map(|s| {
+            serde_json::json!({
+                "kind": "suggestion",
+                "suggested_action": "run_ah_lint",
+                "playbook_command": "ah explain lint",
+                "apply_command": s.apply_command,
+                "detail": s.detail,
+            })
+        })
+        .collect();
+
     let data = serde_json::json!({
         "tool": outcome.genesis_report.tool,
         "checks": outcome.genesis_report.checks,
         "summary": outcome.genesis_report.summary,
         "suggestions": suggestions_json,
+        "session_suggestions": session_suggestions_json,
     });
 
     let envelope = genesis::envelope::Envelope::success(
@@ -718,7 +797,7 @@ mod tests {
     use std::fs;
     use tempfile::TempDir;
 
-    fn make_healthy_repo() -> TempDir {
+    pub(super) fn make_healthy_repo() -> TempDir {
         let dir = TempDir::new().unwrap();
         let root = dir.path();
 
@@ -1307,5 +1386,69 @@ changes = "openspec/changes"
         let report = runner.run(Path::new("/tmp"), false).unwrap();
         assert_eq!(report.tool, "test");
         assert!(report.summary.is_healthy());
+    }
+}
+
+#[cfg(test)]
+mod lint_session_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    use super::tests::make_healthy_repo;
+
+    // espectacular-eia (task 5.1): doctor suggests `ah lint` when no lint
+    // run has completed in the session. Advisory-only — never a gate blocker.
+
+    #[test]
+    fn doctor_suggests_lint_when_no_lint_run_completed() {
+        let repo = make_healthy_repo();
+        let outcome = run_doctor(repo.path()).unwrap();
+        let sugg = outcome
+            .session_suggestions
+            .iter()
+            .find(|s| s.apply_command == "ah lint");
+        assert!(sugg.is_some(), "expected an ah lint suggestion");
+        assert!(sugg.unwrap().detail.contains("lint"));
+    }
+
+    #[test]
+    fn doctor_stays_silent_after_lint_run_completed() {
+        let repo = make_healthy_repo();
+        record_lint_run(repo.path());
+        let outcome = run_doctor(repo.path()).unwrap();
+        assert!(
+            !outcome
+                .session_suggestions
+                .iter()
+                .any(|s| s.apply_command == "ah lint"),
+            "lint suggestion must disappear once a lint run completed"
+        );
+    }
+
+    #[test]
+    fn lint_suggestion_never_fails_the_doctor_run() {
+        // Anti-goal guard: a pending lint suggestion must not flip the
+        // genesis health verdict.
+        let repo = make_healthy_repo();
+        let outcome = run_doctor(repo.path()).unwrap();
+        assert!(outcome.genesis_report.is_healthy());
+        assert!(!outcome.session_suggestions.is_empty());
+    }
+
+    #[test]
+    fn record_lint_run_writes_marker_best_effort() {
+        let repo = TempDir::new().unwrap();
+        // No .espectacular dir → no marker, no error (adoption-friendly).
+        record_lint_run(repo.path());
+        assert!(!lint_marker_path(repo.path()).exists());
+        // Configured repo → marker written.
+        fs::create_dir_all(repo.path().join(".espectacular")).unwrap();
+        fs::write(
+            repo.path().join(".espectacular/config.toml"),
+            "tool_version = \"0.6.0\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\n",
+        )
+        .unwrap();
+        record_lint_run(repo.path());
+        assert!(lint_marker_path(repo.path()).exists());
     }
 }

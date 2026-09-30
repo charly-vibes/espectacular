@@ -182,3 +182,38 @@ fn ah_explain_no_toml_exits_zero_with_content() {
         "ah explain no-toml produced empty stdout"
     );
 }
+
+// espectacular-eia (task 6.1) — `ah explain <lint-kind> --json` returns a
+// topic envelope for every lint finding kind.
+#[test]
+fn ah_explain_lint_kinds_return_topic_envelopes() {
+    for kind in [
+        "vague-qualifier",
+        "imperative-step",
+        "conjunctive-bloat",
+        "missing-negative-scenario",
+        "missing-non-goals",
+        "unresolved-ambiguity",
+        "entangled-spec",
+    ] {
+        let output = String::from_utf8(
+            Command::cargo_bin("ah")
+                .unwrap()
+                .args(["explain", kind, "--json"])
+                .assert()
+                .success()
+                .get_output()
+                .stdout
+                .clone(),
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(value["topic"], kind, "topic mismatch for {kind}");
+    }
+    // The bridge playbook topic is reachable too.
+    Command::cargo_bin("ah")
+        .unwrap()
+        .args(["explain", "lint", "--json"])
+        .assert()
+        .success();
+}
