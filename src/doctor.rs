@@ -1445,7 +1445,7 @@ mod lint_session_tests {
         fs::create_dir_all(repo.path().join(".espectacular")).unwrap();
         fs::write(
             repo.path().join(".espectacular/config.toml"),
-            "tool_version = \"0.6.0\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\n",
+            concat!("tool_version = \"", env!("CARGO_PKG_VERSION"), "\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\n"),
         )
         .unwrap();
         record_lint_run(repo.path());

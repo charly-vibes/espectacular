@@ -529,7 +529,7 @@ mod tests {
         std::fs::create_dir_all(&cfg_dir).unwrap();
         std::fs::write(
             cfg_dir.join("config.toml"),
-            "tool_version = \"0.6.0\"\n[paths]\nspecs = \"custom/specs\"\nchanges = \"openspec/changes\"\n[runners]\n",
+            concat!("tool_version = \"", env!("CARGO_PKG_VERSION"), "\"\n[paths]\nspecs = \"custom/specs\"\nchanges = \"openspec/changes\"\n[runners]\n"),
         )
         .unwrap();
         let dir = specs_dir_for(repo.path()).unwrap();
