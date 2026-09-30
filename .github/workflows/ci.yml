@@ -38,8 +38,27 @@ jobs:
 
       # Run the exact same command as local development
       - name: Install specodelic (corpus gate in `just ci`)
-        run: cargo install --git https://github.com/charly-vibes/specodelic.git --locked
+        run: cargo install --locked specodelic@0.1.0
 
+      - name: Install ecosystem tools (§4 dogfood matrix, pinned)
+        run: |
+          cargo install --locked pretender@0.6.0 wai-cli@2026.9.28 dulce-de-leche@0.7.0
+          npm install -g @fission-ai/openspec@0.19.0
+      - name: Install bd (beads, pinned §4)
+        run: |
+          curl -fsSL https://github.com/gastownhall/beads/releases/download/v1.3.0/beads_1.3.0_linux_amd64.tar.gz -o bd.tgz
+          tar -xzf bd.tgz
+          sudo mv bd /usr/local/bin/bd
+      # §4 dogfood: installed tools must run, not just install
+      - name: Smoke dogfooded tools
+        env:
+          DO_NOT_TRACK: "1"
+        run: |
+          bd list >/dev/null
+          ddl status >/dev/null
+          wai status >/dev/null
+          openspec validate --all >/dev/null
+          pretender check >/dev/null
       - name: Run CI pipeline
         run: just ci
 
@@ -88,7 +107,7 @@ jobs:
         uses: extractions/setup-just@v2
 
       - name: Install specodelic
-        run: cargo install --git https://github.com/charly-vibes/specodelic.git --locked
+        run: cargo install --locked specodelic@0.1.0
 
       - name: Spec corpus mandate (spk lint + frontmatter over all non-archived spec.md)
         run: just spec-lint
