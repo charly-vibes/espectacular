@@ -9,6 +9,36 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-10-01
+
+### Added
+
+- **`falsifiability_class` contract field** — scenario contracts may declare
+  `falsifiability_class = "safety"` or `"liveness"` (optional, absent by
+  default; contracts without it validate exactly as before). Liveness claims
+  are only falsifiable under bounded execution: a liveness-tagged contract
+  whose test entries all omit `timeout_seconds` emits a
+  `missing-liveness-timeout` **warning** suggesting an explicit timeout —
+  warnings do not fail the gate.
+- **`invalid-falsifiability-class` structural finding** — an invalid value
+  fails the gate and blocks the scenario's declared tests from running.
+- **`severity` field on findings** — gate-level severity (`"error"` for
+  structural/execution findings, `"warning"` for non-gating findings);
+  external custom-runner findings that omit it default to `"error"`.
+- **`ah doctor` falsifiability nudge** — session suggestion (advisory, never
+  fails the doctor run) to tag contracts whose scenario text contains
+  "eventually" — the classic liveness marker.
+- **`ah lint` malformed-spec finding** — a spec file that cannot be parsed
+  emits an error-severity lint finding instead of aborting the walk.
+- **Mutation ownership doctor check** — raw mutator commands
+  (cargo-mutants, mutmut, stryker, pit) in `quality.mutation.command` are
+  flagged as `mutation-ownership`: pretender owns mutation execution and
+  scoring; the supported wiring is
+  `command = ["pretender", "mutation", "--format", "json"]`.
+- **Contract schema** — `falsifiability_class` added to
+  `schemas/scenario-contract.schema.json`; 7 new gate spec scenarios carry
+  repo-local proof contracts wired to their unit/CLI tests.
+
 ### Changed
 
 - **Specodelic dual-format spec corpus** — all 9 deployed specs migrated to
@@ -245,7 +275,8 @@ Initial stable release. Covers two deployed change proposals:
 
 ---
 
-[Unreleased]: https://github.com/charly-vibes/espectacular/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/charly-vibes/espectacular/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/charly-vibes/espectacular/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/charly-vibes/espectacular/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/charly-vibes/espectacular/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/charly-vibes/espectacular/releases/tag/v0.5.0

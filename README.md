@@ -85,6 +85,7 @@ dont prime --plain
 | `ah check` | Run fast structural analysis (spec/contract correspondence); use `--run-tests` to execute declared tests |
 | `ah check --run-tests` | Run structural analysis plus declared contract tests |
 | `ah check --changes <id>` | Validate deployed specs plus one or more staged change overlays |
+| `ah lint [root]` | Heuristic spec-quality checks (vague qualifiers, non-imperative steps, conjunctive bloat, missing negative scenarios/non-goals, unresolved ambiguity, entangled specs) plus a specodelic (`spk`) bridge |
 | `ah report` | Generate a spec-to-contract coverage matrix (covered/missing/failing per spec) |
 | `ah explain [topic]` | Print guidance for a finding kind or suggested action; omit topic for a list |
 | `ah explain --list` | List all explainable topics |
@@ -193,6 +194,7 @@ Required top-level fields:
 - `status` (`active` or `superseded`)
 - `superseded_by` (non-empty when `status = "superseded"`)
 - `authored_with`
+- `falsifiability_class` (optional; `"safety"` or `"liveness"` — see below)
 - `tests`
 
 Test entry rules:
@@ -200,6 +202,15 @@ Test entry rules:
 - `[[tests.shell]]` entries use `command`
 - non-shell `[[tests.<type>]]` entries use `flags`
 - `timeout_seconds` is optional but must be positive when present
+
+### `falsifiability_class`
+
+Contracts may declare an optional `falsifiability_class`:
+
+- `"safety"` — the scenario asserts a safety claim: nothing bad ever happens; falsified by a single deterministic failing run.
+- `"liveness"` — the scenario asserts a liveness claim: a good state eventually occurs. Liveness claims are only falsifiable under bounded execution, so if every test entry omits `timeout_seconds`, `ah check` emits a `missing-liveness-timeout` **warning** suggesting an explicit timeout. Warnings do not fail the gate.
+
+The field is optional and absent by default — contracts without it validate exactly as before. Invalid values emit an `invalid-falsifiability-class` structural finding and fail the gate.
 
 ## Append-only authoring workflow
 
@@ -259,6 +270,7 @@ Each finding includes:
 | --- | --- | --- |
 | `no-toml` | structural | scenario has no matching `.espectacular/.../*.toml` contract |
 | `orphan-toml` | structural | contract exists without a matching OpenSpec scenario |
+| `invalid-falsifiability-class` | structural | `falsifiability_class` value is not `safety` or `liveness`; the scenario's tests do not run |
 | `slug-collision` | structural | two scenarios in one spec slugify to the same id |
 | `id-mismatch` | structural | scenario slug, TOML filename, and TOML `id` disagree |
 | `no-tests-declared` | structural | contract has no runnable test entries |
@@ -274,9 +286,13 @@ Each finding includes:
 | `quality-property` | quality | property-based testing is active and passing |
 | `quality-snapshot` | quality | snapshot testing is active and passing |
 
+| `missing-liveness-timeout` | warning | liveness-tagged contract has no `timeout_seconds` on any test entry — liveness claims are only falsifiable under bounded execution |
+
 `test-failing` findings include test execution details: `type`, `command`, `exit_code`, `timed_out`, `stdout_tail`, and `stderr_tail`.
 
 Quality findings (`quality-*`) are informational — they appear in `counts_by_kind` but do not cause `ah check` to exit non-zero.
+
+Warning findings (`missing-liveness-timeout`) are non-gating — they set the finding `severity` to `"warning"` and `ah check` still exits 0. All other findings carry `severity = "error"`.
 
 ## Language adapter dispatch
 
@@ -427,6 +443,7 @@ Otherwise it exits non-zero and emits diagnostics such as:
 - `missing-managed-block`
 - `hook-absent`
 - `hook-wired` (lefthook detected but a stage does not run `ah check`)
+- `mutation-ownership` (a raw mutator — cargo-mutants, mutmut, stryker, pit — is wired into `quality.mutation.command`; pretender owns mutation execution and scoring)
 
 ## Archetypes
 

@@ -4,9 +4,9 @@ This page maps the deployed behavioral specs to the commands and capabilities th
 
 ## Deployed specs
 
-### `gate` — Core verification engine (13 scenarios)
+### `gate` — Core verification engine (72 scenarios)
 
-Covers what `ah check` does: scenario discovery, contract correspondence, test execution, and JSON output.
+Covers what `ah check` does: scenario discovery, contract correspondence, test execution, JSON output, falsifiability classification, and quality signals.
 
 | Scenario | What it verifies |
 |----------|-----------------|
@@ -18,21 +18,23 @@ Covers what `ah check` does: scenario discovery, contract correspondence, test e
 | Change Overlay Scope | `--changes` adds staged scenarios to scope |
 | Non-Regression Archetype | `NR` contracts are checked without special treatment |
 | Deterministic Scope Boundary | scope is stable across repeated runs |
-| JSON finding schema includes agent-action fields | findings carry `suggested_action` and `playbook_command` |
+| Finding severity | findings carry `severity` (`"error"` gate-failing, `"warning"` non-gating); warning-only runs exit 0 |
+| Falsifiability classification | `falsifiability_class = "safety"` / `"liveness"`; invalid values fail the gate; liveness without bounded timeout warns |
 | Quality measurement capabilities | `quality-*` findings are emitted and informational |
-| Quality contract schema | quality fields validate in the contract schema |
 | Conformance coverage matrix | all finding kinds are covered by at least one contract |
-| apply_command is conditionally present | `apply_command` appears only when applicable |
 
-### `cli` — Command surface (15 scenarios)
+(All 72 gate scenarios have active contracts — run `ah report` for the full per-scenario matrix.)
 
-Covers the full `ah` command interface: init, check, doctor, report, explain, type, scenario, archive, upgrade.
+### `cli` — Command surface (47 scenarios)
+
+Covers the full `ah` command interface: init, check, doctor, report, explain, type, scenario, archive, upgrade, lint, signals, feedback, completions.
 
 | Scenario | What it verifies |
 |----------|-----------------|
 | CLI Command Name | binary is named `ah` |
 | Project Initialization | `ah init` creates `.espectacular/` and hook integration |
 | Correspondence Check Command | `ah check` validates specs and runs tests |
+| Spec Quality Lint Command | `ah lint` analyzes spec files for authoring-quality findings |
 | Health Check Command | `ah doctor` diagnoses config, paths, hooks, archetypes |
 | Archetype Documentation Commands | `ah type` lists and explains archetypes |
 | Scenario Lifecycle Commands | `ah scenario new` and `ah scenario supersede` |
@@ -41,12 +43,21 @@ Covers the full `ah` command interface: init, check, doctor, report, explain, ty
 | Doctor enable flag | `ah doctor --enable <capability>` writes config blocks |
 | Explain subcommand | `ah explain` prints guidance for finding kinds and actions |
 | Coverage report command | `ah report` displays a conformance coverage matrix |
-| Recommendation findings | `ah doctor` emits recommendations for detected-but-unconfigured adapters |
-| Recommendation findings as JSON | `ah doctor --json` emits structured recommendation findings |
-| Report JSON output | `ah report --json` emits a machine-readable conformance matrix |
-| Report exit codes | `ah report` exits 0 when coverage is complete, 1 when gaps exist |
 
-### `adapters` — Language adapter dispatch (6 scenarios)
+### `lint` — Spec-quality heuristics (26 scenarios)
+
+Covers the `ah lint` checks: vague qualifiers, imperative steps, conjunctive bloat, missing negative scenarios, missing non-goals, unresolved ambiguity, entangled specs, and the specodelic bridge.
+
+| Scenario | What it verifies |
+|----------|-----------------|
+| Flag unbound qualifier / Do not flag bounded qualifier | vague-qualifier precision |
+| Flag explicit click / URL navigation steps | imperative-step detection |
+| Flag overlong scenario / Default maximum is configurable | conjunctive-bloat with configurable limit |
+| Flag requirement with only happy-path scenarios | missing-negative-scenario |
+| Missing non-goals / unresolved ambiguity / entangled spec detection | structural authoring checks |
+| Malformed spec file | emits an error-severity finding instead of aborting |
+
+### `adapters` — Language adapter dispatch (25 scenarios)
 
 Covers how `ah check` maps test types to runners and normalizes output.
 
@@ -59,7 +70,7 @@ Covers how `ah check` maps test types to runners and normalizes output.
 | No-adapter-configured path | `missing-runner` finding when type has no runner |
 | Custom runner plugin protocol | custom runners emit JSON envelopes parsed by `ah check` |
 
-### `explain` — Playbook system (7 scenarios)
+### `explain` — Playbook system (15 scenarios)
 
 Covers the `ah explain` topic system and its compile-time completeness guarantee.
 
@@ -68,35 +79,17 @@ Covers the `ah explain` topic system and its compile-time completeness guarantee
 | Playbook is compile-enforced | every finding kind has an `ah explain` topic at compile time |
 | Topic coverage | all finding kinds and suggested actions are covered |
 | Structured JSON output | `--json` emits a machine-readable topic list |
-| Topic listing | `--list` enumerates all topics |
 | Unknown topic handling | unknown topics exit 1 with "did you mean" suggestions |
-| Quality finding kind topics | `quality-*` finding kinds have topics |
-| Adapter topics ship with adapters | adapter-specific topics exist for each adapter |
 
----
+### `config`, `cli-core`, `spec-authoring` — Infrastructure (8 scenarios)
 
-## In progress
-
-### `add-spec-quality-checks` — `ah lint` command (0/21 tasks)
-
-Adds spec quality linting: `ah lint` checks spec files for vague qualifiers, imperative steps, conjunctive bloat, missing negative scenarios, missing non-goals, and unresolved ambiguities.
-
-| Scenario | Status |
-|----------|--------|
-| Spec Lint Command | planned |
-| Vague Qualifier Detection | planned |
-| Imperative Step Detection | planned |
-| Conjunctive Step Bloat Detection | planned |
-| Missing Negative Scenario Detection | planned |
-| Missing Non-Goals Detection | planned |
-| Unresolved Ambiguity Detection | planned |
-| Lint Finding Schema | planned |
+Config store/registry wiring (3), genesis guide/ErrorSink integration (2), dual-format spec authoring and migration (3).
 
 ---
 
 ## How to read this page
 
 - **Deployed** means the scenario has a passing contract in `ah check` on `main`.
-- **Planned** means the scenario is staged in an OpenSpec change but not yet implemented.
+- **Planned** means the scenario is staged in an OpenSpec change but not yet implemented (none currently — all active changes are fully implemented and archived).
 - Run `ah check` locally to see current pass/fail state.
 - Spec source lives in [`openspec/specs/`](https://github.com/charly-vibes/espectacular/tree/main/openspec/specs).

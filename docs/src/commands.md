@@ -119,6 +119,35 @@ ah explain run_ah_scenario_new
 
 ---
 
+## `ah lint`
+
+Statically analyze spec files for authoring-quality findings. Heuristic checks plus a [specodelic](https://crates.io/crates/specodelic) (`spk lint`) bridge.
+
+```
+ah lint [<root>] [--changes <id>] [--check <kind>]
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `<root>` | Optional repo root to lint (defaults to the current directory) |
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--changes <id>` | Lint a change's spec overlay in addition to deployed specs |
+| `--check <kind>` | Run only a single check category (e.g. `vague-qualifier`) |
+
+**Checks:** `vague-qualifier`, `imperative-step`, `conjunctive-bloat` (configurable max `and`-steps, default 5), `missing-negative-scenario`, `missing-non-goals`, `unresolved-ambiguity`, `entangled-spec`, plus `spk.<rule_id>` relays from the specodelic linter.
+
+A spec file that cannot be parsed emits an error-severity finding instead of aborting the walk.
+
+**Exit codes:** 0 always — lint findings are advisory; they do not gate.
+
+---
+
 ## `ah doctor`
 
 Detect configured frameworks and diagnose config, path, hook, and archetype issues.
