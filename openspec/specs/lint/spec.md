@@ -1,0 +1,180 @@
+# lint Specification
+
+## Purpose
+TBD - created by archiving change add-spec-quality-checks. Update Purpose after archive.
+## Requirements
+### Requirement: Vague Qualifier Detection
+The system SHALL flag requirements and scenario steps that contain unbound qualitative terms without an adjacent numeric measurement.
+
+#### Scenario: Flag unbound qualifier in requirement
+- **GIVEN** a requirement body contains the word "fast" without a numeric time bound
+- **WHEN** `ah lint` runs
+- **THEN** the command emits a `vague-qualifier` finding for that requirement
+- **AND** the finding suggests adding a measurable response condition (e.g., "within 200 ms")
+
+#### Scenario: Do not flag bounded qualifier
+- **GIVEN** a requirement body contains "fast (p95 < 200 ms)"
+- **WHEN** `ah lint` runs
+- **THEN** no `vague-qualifier` finding is emitted for that requirement
+
+#### Scenario: Flag qualifier in scenario step
+- **GIVEN** a THEN step contains "the response is user-friendly"
+- **WHEN** `ah lint` runs
+- **THEN** the command emits a `vague-qualifier` finding for that scenario step
+
+### Requirement: Imperative Step Detection
+The system SHALL flag WHEN and THEN steps that describe UI mechanics rather than business intent, coupling the spec to implementation details.
+
+#### Scenario: Flag explicit click step
+- **GIVEN** a WHEN step contains "clicks the Submit button"
+- **WHEN** `ah lint` runs
+- **THEN** the command emits an `imperative-step` finding
+- **AND** the finding suggests rephrasing to describe the business action (e.g., "submits the form")
+
+#### Scenario: Flag URL navigation step
+- **GIVEN** a WHEN step contains "navigates to /dashboard/settings"
+- **WHEN** `ah lint` runs
+- **THEN** the command emits an `imperative-step` finding
+
+#### Scenario: Do not flag declarative business steps
+- **GIVEN** a WHEN step contains "the user submits a payment"
+- **WHEN** `ah lint` runs
+- **THEN** no `imperative-step` finding is emitted
+
+### Requirement: Conjunctive Step Bloat Detection
+The system SHALL flag scenarios that chain more than the configured maximum number of AND-linked steps, indicating a scenario that tests multiple behaviors at once.
+
+#### Scenario: Flag overlong scenario
+- **GIVEN** a scenario has eight AND-linked steps
+- **AND** the configured maximum is five
+- **WHEN** `ah lint` runs
+- **THEN** the command emits a `conjunctive-bloat` finding
+- **AND** the finding suggests splitting the scenario into focused single-behavior scenarios
+
+#### Scenario: Accept scenario within limit
+- **GIVEN** a scenario has four AND-linked steps
+- **AND** the configured maximum is five
+- **WHEN** `ah lint` runs
+- **THEN** no `conjunctive-bloat` finding is emitted for that scenario
+
+#### Scenario: Scenario exactly at limit is accepted
+- **GIVEN** a scenario has five AND-linked steps
+- **AND** the configured maximum is five
+- **WHEN** `ah lint` runs
+- **THEN** no `conjunctive-bloat` finding is emitted for that scenario
+
+#### Scenario: Default maximum is configurable
+- **GIVEN** `.espectacular/config.toml` sets `[lint] max_and_steps = 3`
+- **WHEN** `ah lint` runs
+- **THEN** the command uses 3 as the maximum AND-step count
+
+### Requirement: Missing Negative Scenario Detection
+The system SHALL flag requirements that have no scenario exercising an error condition, rejection, or boundary violation, indicating incomplete behavioral specification.
+
+#### Scenario: Flag requirement with only happy-path scenarios
+- **GIVEN** a requirement has two scenarios, both describing successful outcomes
+- **AND** no scenario contains rejection, error, or boundary language
+- **WHEN** `ah lint` runs
+- **THEN** the command emits a `missing-negative-scenario` finding
+- **AND** the finding suggests adding a scenario for the corresponding failure mode
+
+#### Scenario: Accept requirement with at least one negative scenario
+- **GIVEN** a requirement has a scenario whose THEN step contains "the command exits non-zero"
+- **WHEN** `ah lint` runs
+- **THEN** no `missing-negative-scenario` finding is emitted for that requirement
+
+### Requirement: Missing Non-Goals Detection
+The system SHALL flag spec capability files that lack an explicit Non-Goals or Out-of-Scope section, since their absence enables silent scope creep during AI-assisted implementation.
+
+#### Scenario: Flag spec without non-goals section
+- **GIVEN** a `spec.md` file contains no heading matching `Non-Goals`, `Non Goals`, `non-goals`, or `Out of Scope`
+- **WHEN** `ah lint` runs
+- **THEN** the command emits a `missing-non-goals` finding for that spec file
+
+#### Scenario: Accept spec with non-goals section
+- **GIVEN** a `spec.md` file contains a `## Non-Goals` heading
+- **WHEN** `ah lint` runs
+- **THEN** no `missing-non-goals` finding is emitted for that file
+
+### Requirement: Unresolved Ambiguity Detection
+The system SHALL flag requirements and scenarios that contain `[NEEDS CLARIFICATION` markers, indicating authoring-time decisions deferred but not yet resolved.
+
+#### Scenario: Flag needs-clarification marker
+- **GIVEN** a requirement body contains `[NEEDS CLARIFICATION: which auth provider?]`
+- **WHEN** `ah lint` runs
+- **THEN** the command emits an `unresolved-ambiguity` finding
+- **AND** the finding includes the marker text as context
+
+#### Scenario: Accept requirement with no ambiguity markers
+- **GIVEN** a requirement body contains no `[NEEDS CLARIFICATION` substring
+- **WHEN** `ah lint` runs
+- **THEN** no `unresolved-ambiguity` finding is emitted for that requirement
+
+### Requirement: Entangled Specification Detection
+The system SHALL flag scenarios whose contract archetype is `PF` or `SA` but whose text references presentation-layer primitives (buttons, modals, colors, CSS selectors, component names, client routes), since the archetype declares the scenario belongs to a layer where UI mechanics must not appear. The same text in a `BP` scenario is not flagged, as transport mechanics are legitimate at a boundary seam.
+
+#### Scenario: Flag UI primitive in PF scenario
+- **GIVEN** a scenario with contract archetype `PF` whose THEN step contains "a green notification banner is displayed"
+- **WHEN** `ah lint` runs
+- **THEN** the command emits an `entangled-spec` finding
+- **AND** the finding suggests specifying the domain event or state instead of the visual primitive
+
+#### Scenario: Do not flag transport mechanics in BP scenario
+- **GIVEN** a scenario with contract archetype `BP` whose WHEN step contains "navigates to /dashboard/settings"
+- **WHEN** `ah lint` runs
+- **THEN** no `entangled-spec` finding is emitted for that scenario
+
+#### Scenario: Do not flag domain language resembling UI terms
+- **GIVEN** a scenario with contract archetype `SA` whose text contains "the event routing layer delivers the message"
+- **WHEN** `ah lint` runs
+- **THEN** no `entangled-spec` finding is emitted, as the matcher list excludes domain-legitimate uses of superficially similar terms
+
+### Requirement: Lint Finding Schema
+The system SHALL emit lint findings using the same stable JSON envelope as `ah check`, enabling agent harnesses to consume both without separate parsing logic.
+
+#### Scenario: Lint findings share check finding fields
+- **GIVEN** `ah lint --json` produces findings
+- **WHEN** the JSON output is inspected
+- **THEN** each finding contains `kind`, `severity`, `spec_path`, `message`, `suggested_action`, and `playbook_command`
+- **AND** findings that reference a specific scenario also contain `scenario_id` and `scenario_title`
+
+#### Scenario: Lint findings are warning severity by default
+- **GIVEN** `ah lint` produces warning-severity findings for any lint check category
+- **WHEN** the JSON output is inspected
+- **THEN** every finding has `severity = "warning"`
+
+#### Scenario: Malformed spec file is error severity
+- **GIVEN** a spec file contains invalid Markdown that prevents scenario parsing
+- **WHEN** `ah lint` runs
+- **THEN** the command emits a finding with `severity = "error"`
+- **AND** exits non-zero
+
+### Requirement: Dual-Format Lint Bridge
+The system SHALL relay specodelic lint findings for dual-format spec files into the shared lint finding schema by invoking `spk lint`, without reimplementing specodelic rules.
+
+#### Scenario: Relay specodelic findings for dual-format files
+- **GIVEN** a spec file carries `id: spec` frontmatter (dual-format)
+- **AND** `spk lint` reports findings for that file
+- **WHEN** `ah lint` runs
+- **THEN** each specodelic finding appears in the output with `kind = "spk.<rule_id>"`
+- **AND** every relayed finding has `severity = "warning"`
+
+#### Scenario: Bridge is inert for plain openspec files
+- **GIVEN** a spec file contains no dual-format frontmatter
+- **WHEN** `ah lint` runs
+- **THEN** no specodelic invocation occurs and the output is identical to pre-bridge behavior
+
+#### Scenario: Missing spk binary is advisory only
+- **GIVEN** a dual-format spec file
+- **AND** the `spk` binary is not available on PATH
+- **WHEN** `ah lint` runs
+- **THEN** the command emits a single advisory `spk-unavailable` finding
+- **AND** the exit code is unchanged relative to a successful warning-only lint run
+
+#### Scenario: Specodelic invocation failure does not hard-fail
+- **GIVEN** a dual-format spec file
+- **AND** `spk lint` exits with a non-envelope error or unparseable output
+- **WHEN** `ah lint` runs
+- **THEN** the command emits a single advisory finding describing the failure
+- **AND** continues linting the remaining spec files
+
