@@ -44,6 +44,7 @@ enum FindingKind {
     SlugCollision,
     IdMismatch,
     InvalidStatus,
+    InvalidFalsifiabilityClass,
     NoTestsDeclared,
     MissingRunner,
     MissingAdapter,
@@ -76,6 +77,7 @@ const ALL_FINDING_KINDS: &[FindingKind] = &[
     FindingKind::SlugCollision,
     FindingKind::IdMismatch,
     FindingKind::InvalidStatus,
+    FindingKind::InvalidFalsifiabilityClass,
     FindingKind::NoTestsDeclared,
     FindingKind::MissingRunner,
     FindingKind::MissingAdapter,
@@ -133,6 +135,7 @@ fn finding_kind_entry(kind: FindingKind) -> &'static TopicEntry {
         FindingKind::SlugCollision => &SLUG_COLLISION,
         FindingKind::IdMismatch => &ID_MISMATCH,
         FindingKind::InvalidStatus => &INVALID_STATUS,
+        FindingKind::InvalidFalsifiabilityClass => &INVALID_FALSIFIABILITY_CLASS,
         FindingKind::NoTestsDeclared => &NO_TESTS_DECLARED,
         FindingKind::MissingRunner => &MISSING_RUNNER,
         FindingKind::MissingAdapter => &MISSING_ADAPTER,
@@ -624,6 +627,27 @@ value.
     do_action: "Set `status` to `active` or `superseded` in the .toml file.",
     human_approval: false,
     related_topics: &["malformed-contract", "review_and_apply"],
+    hints: &[],
+};
+
+static INVALID_FALSIFIABILITY_CLASS: TopicEntry = TopicEntry {
+    slug: "invalid-falsifiability-class",
+    summary: "A contract has a `falsifiability_class` that is not `safety` or `liveness`.",
+    body: "## invalid-falsifiability-class — Unknown falsifiability class
+
+The optional `falsifiability_class` field in a contract `.toml` holds an
+unrecognised value. Valid values are `safety` (bad states never occur — one
+deterministic test can falsify the claim) and `liveness` (good states
+eventually occur — only falsifiable under bounded execution).
+
+**Why it appears**: a typo, or a value borrowed from another taxonomy.
+
+**How to fix**: set `falsifiability_class` to `safety` or `liveness`, or
+remove the field entirely — an absent field is always valid.",
+    when: "A contract's `falsifiability_class` field is neither `safety` nor `liveness`.",
+    do_action: "Set `falsifiability_class` to `safety` or `liveness`, or delete the field.",
+    human_approval: false,
+    related_topics: &["invalid-status", "review_and_apply"],
     hints: &[],
 };
 
@@ -1551,12 +1575,12 @@ mod tests {
     #[test]
     fn topic_count_is_complete() {
         let topics = all_topics();
-        // 18 finding kinds + 7 suggested actions + 5 general (incl. lint)
-        // + 3 adapter + 7 lint kinds (espectacular-eia) = 40
+        // 19 finding kinds + 7 suggested actions + 5 general (incl. lint)
+        // + 3 adapter + 7 lint kinds (espectacular-eia) = 41
         assert_eq!(
             topics.len(),
-            40,
-            "expected 40 topics (18 finding + 7 action + 5 general + 3 adapter + 7 lint kinds), got {}",
+            41,
+            "expected 41 topics (19 finding + 7 action + 5 general + 3 adapter + 7 lint kinds), got {}",
             topics.len()
         );
     }

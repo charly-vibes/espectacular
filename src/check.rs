@@ -507,6 +507,20 @@ fn collect_structural_findings(
                 if contract.id != scenario.id {
                     findings.push(structural_report(scenario, specs_root, "id-mismatch", None));
                 }
+                if !contract.falsifiability_class.is_empty()
+                    && !contracts::FALSIFIABILITY_CLASSES
+                        .contains(&contract.falsifiability_class.as_str())
+                {
+                    findings.push(structural_report(
+                        scenario,
+                        specs_root,
+                        "invalid-falsifiability-class",
+                        Some(format!(
+                            "unknown falsifiability_class: {} (valid values: safety, liveness)",
+                            contract.falsifiability_class
+                        )),
+                    ));
+                }
                 if contract.tests.is_empty()
                     || contract.tests.values().all(|entries| entries.is_empty())
                 {
@@ -772,6 +786,7 @@ fn suggested_action_for(kind: &str) -> &'static str {
         | "slug-collision"
         | "id-mismatch"
         | "invalid-status"
+        | "invalid-falsifiability-class"
         | "no-tests-declared"
         | "malformed-contract"
         | "missing-replacement"
@@ -875,6 +890,74 @@ mod tests {
     fn duplicate_id_finding_present() {
         let findings = structural_findings(SPECS, CONTRACTS).unwrap();
         assert!(findings.iter().any(|f| f.kind == "slug-collision"));
+    }
+
+    #[test]
+    fn invalid_falsifiability_class_emits_structural_finding() {
+        let dir = success_repo();
+        let contract = dir.path().join(".espectacular/compiler/green-path.toml");
+        let text = fs::read_to_string(&contract).unwrap();
+        fs::write(
+            &contract,
+            text.replace(
+                "status = \"active\"",
+                "status = \"active\"\nfalsifiability_class = \"eventual\"",
+            ),
+        )
+        .unwrap();
+
+        let specs = dir.path().join("openspec/specs");
+        let contracts = dir.path().join(".espectacular");
+        let findings =
+            structural_findings(specs.to_str().unwrap(), contracts.to_str().unwrap()).unwrap();
+        assert!(findings
+            .iter()
+            .any(|f| f.kind == "invalid-falsifiability-class"));
+    }
+
+    #[test]
+    fn invalid_falsifiability_class_blocks_scenario_execution() {
+        let dir = success_repo();
+        let contract = dir.path().join(".espectacular/compiler/green-path.toml");
+        let text = fs::read_to_string(&contract).unwrap();
+        fs::write(
+            &contract,
+            text.replace(
+                "status = \"active\"",
+                "status = \"active\"\nfalsifiability_class = \"eventual\"",
+            ),
+        )
+        .unwrap();
+
+        let output = run_check(dir.path(), &[], true).unwrap();
+        assert!(output
+            .findings
+            .iter()
+            .any(|f| f.kind == "invalid-falsifiability-class"));
+        assert_eq!(output.summary.passed, 0, "declared tests must not run");
+    }
+
+    #[test]
+    fn valid_falsifiability_class_values_pass_and_run_tests() {
+        for value in ["safety", "liveness"] {
+            let dir = success_repo();
+            let contract = dir.path().join(".espectacular/compiler/green-path.toml");
+            let text = fs::read_to_string(&contract).unwrap();
+            fs::write(
+                &contract,
+                text.replace(
+                    "status = \"active\"",
+                    &format!("status = \"active\"\nfalsifiability_class = \"{value}\""),
+                ),
+            )
+            .unwrap();
+            let output = run_check(dir.path(), &[], true).unwrap();
+            assert!(
+                output.findings.is_empty(),
+                "falsifiability_class = {value} must not produce findings"
+            );
+            assert_eq!(output.summary.passed, 1);
+        }
     }
 
     fn write_executable(path: &Path, body: &str) {

@@ -18,6 +18,12 @@ pub struct Contract {
     pub tests: HashMap<String, Vec<TestEntry>>,
 }
 
+/// Closed set for `falsifiability_class` (gate delta C-falsifiability-class-values).
+/// Validation of the value lives with the gate's structural findings (check.rs),
+/// not in `validate_contract` — an invalid class must emit its own finding kind,
+/// not a generic malformed-contract error.
+pub const FALSIFIABILITY_CLASSES: &[&str] = &["safety", "liveness"];
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct TestEntry {
     pub flags: Option<String>,

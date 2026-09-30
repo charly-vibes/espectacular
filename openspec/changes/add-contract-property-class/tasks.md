@@ -6,12 +6,12 @@ Each numbered group is one TDD cycle: red (failing test) → green (implementati
 
 - [x] 1.1 Failing unit test: contract with `falsifiability_class = "safety"` parses; contract without the field parses with empty default (red)
 - [x] 1.2 Add optional `falsifiability_class` to contract struct in `src/contracts.rs`, defaulting to empty (green)
-- [ ] 1.3 Refactor: shared enum parsing with `status` if duplication emerges
+- [x] 1.3 Refactor: shared enum parsing with `status` if duplication emerges (condition evaluated 2026-10-02: no duplication emerged — status validates in `contracts.rs` bail-path, falsifiability_class validates in `check.rs` via `FALSIFIABILITY_CLASSES` by design, per gate delta C-falsifiability-class-values)
 
 ## 2. Structural validation
 
-- [ ] 2.1 Failing unit test: `falsifiability_class = "eventual"` produces `invalid-falsifiability-class` finding, non-zero exit (red)
-- [ ] 2.2 Implement validation mirroring `invalid-status` handling in `src/contracts.rs`/`src/check.rs`; register `invalid-falsifiability-class` in the finding `kind` enum (`schemas/check-output.schema.json`) and in `FindingKind` (`src/explain.rs`, mirroring the `invalid-status` registration) (green)
+- [x] 2.1 Failing unit test: `falsifiability_class = "eventual"` produces `invalid-falsifiability-class` finding, non-zero exit (red)
+- [x] 2.2 Implement validation mirroring `invalid-status` handling in `src/contracts.rs`/`src/check.rs`; register `invalid-falsifiability-class` in the finding `kind` enum (`schemas/check-output.schema.json`) and in `FindingKind` (`src/explain.rs`, mirroring the `invalid-status` registration) (green)
 
 ## 3. Liveness timeout warning + severity field
 
@@ -26,7 +26,7 @@ Each numbered group is one TDD cycle: red (failing test) → green (implementati
 
 - [ ] 4.1 Update `schemas/scenario-contract.schema.json` with the optional enum field
 - [ ] 4.2 Update `docs/src/concepts.md` contract section (field, semantics, warning behavior; `safety` is annotation-only in v1)
-- [ ] 4.3 Add `ah explain` topics for `invalid-falsifiability-class` and `missing-liveness-timeout` (compile-enforced per explain spec)
+- [ ] 4.3 Add `ah explain` topics for `invalid-falsifiability-class` and `missing-liveness-timeout` (compile-enforced per explain spec) — first topic landed with cycle 2 (registration is compile-forced); `missing-liveness-timeout` topic lands with cycle 3
 - [ ] 4.4 `ah doctor` suggests tagging contracts whose scenario text contains "eventually" (advisory nudge, per design risk mitigation) — MUST use the suggestion path, NOT a finding: genesis maps any LintResult (incl. Advisory) to CheckStatus::Warn → `ah doctor` exits 1; a failing nudge would recreate the mu5/djw foot-gun (Rule of 5 review 2026-10-01, EXCL-003)
 - [ ] 4.5 Dogfood: audit espectacular's own `.espectacular/` contracts and tag any obvious liveness/safety claims (e.g., timeout-related scenarios)
 
