@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-precedence@bb996ad1e591"
+description = "the strongest surviving signal per test type wins; cross-language evidence never conflicts; reports carry `adapter`/`test_type`/`detection_source`"
+falsifiability_class = "safety"
+id = "p-precedence"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_precedence"
+timeout_seconds = 120

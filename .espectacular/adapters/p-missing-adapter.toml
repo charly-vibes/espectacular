@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-missing-adapter@16a33c141dee"
+description = "`missing-adapter` finding with all four fields, distinct from `no-tests-declared`"
+falsifiability_class = "safety"
+id = "p-missing-adapter"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_missing_adapter"
+timeout_seconds = 120

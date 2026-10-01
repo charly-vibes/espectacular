@@ -379,4 +379,14 @@ mod tests {
 
         assert_eq!(result.test_type, "pytest-collection-error");
     }
+
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_pytest() {
+        detects_pytest_via_pyproject();
+        normalize_classifies_import_errors_from_json_report();
+        normalize_classifies_fixture_errors_from_json_report();
+        normalize_classifies_collection_errors_from_json_report();
+    }
 }

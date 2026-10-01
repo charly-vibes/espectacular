@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-cargo@f3d5e135e398"
+description = "pass normalization and `test-failing` with bounded tails"
+falsifiability_class = "safety"
+id = "p-cargo"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_cargo"
+timeout_seconds = 120

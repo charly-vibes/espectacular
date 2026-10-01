@@ -272,4 +272,13 @@ mod tests {
 
         assert_eq!(result.test_type, "cargo");
     }
+
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_cargo() {
+        detects_cargo_via_cargo_toml();
+        normalize_passes_through_successful_result();
+        normalize_classifies_test_failures_without_compile_error();
+    }
 }

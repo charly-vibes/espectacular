@@ -212,4 +212,13 @@ mod tests {
         assert_eq!(planned.argv, vec!["cargo", "test", "crate::tests::works"]);
         assert_eq!(planned.timeout_seconds, 9);
     }
+
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_precedence() {
+        pytest_dispatch_prefers_explicit_config();
+        detect_dispatch_reports_pytest_precedence();
+        non_pytest_dispatch_falls_back_to_generic_runner();
+    }
 }

@@ -336,4 +336,13 @@ mod tests {
 
         assert_eq!(result.test_type, "vitest");
     }
+
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_vitest() {
+        detects_vitest_via_package_json_devdependency();
+        normalize_passes_through_successful_result();
+        normalize_classifies_test_failures_without_transform_error();
+    }
 }

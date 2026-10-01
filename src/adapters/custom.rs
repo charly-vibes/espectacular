@@ -283,4 +283,22 @@ mod tests {
             "must error when no custom runner is configured"
         );
     }
+
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_envelope() {
+        valid_passed_envelope_is_passed();
+        envelope_with_findings_produces_envelope_findings();
+        non_zero_exit_produces_test_failing();
+        process_failure_overrides_valid_passed_envelope();
+        envelope_failure_overrides_zero_exit();
+        invalid_envelope_json_on_zero_exit_produces_test_failing();
+        missing_runner_config_returns_error();
+    }
+
+    #[test]
+    fn p_missing_adapter() {
+        missing_runner_config_returns_error();
+    }
 }
