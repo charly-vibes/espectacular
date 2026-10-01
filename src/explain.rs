@@ -1735,6 +1735,51 @@ mod tests {
             }
         }
     }
+
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_enforced() {
+        every_finding_kind_has_a_topic();
+        every_suggested_action_has_a_topic();
+        no_duplicate_slugs();
+    }
+
+    #[test]
+    fn p_coverage() {
+        every_finding_kind_has_a_topic();
+        every_suggested_action_has_a_topic();
+        general_topics_present();
+        topic_count_is_complete();
+    }
+
+    #[test]
+    fn p_json() {
+        json_fields_present_on_all_topics();
+    }
+
+    #[test]
+    fn p_listing() {
+        list_is_sorted();
+        topic_count_is_complete();
+    }
+
+    #[test]
+    fn p_unknown() {
+        unknown_topic_returns_none();
+        did_you_mean_returns_suggestions();
+    }
+
+    #[test]
+    fn p_quality() {
+        quality_finding_kinds_present();
+    }
+
+    #[test]
+    fn p_adapter() {
+        adapter_topics_present();
+        adapter_topic_bodies_non_empty();
+    }
 }
 
 #[cfg(test)]

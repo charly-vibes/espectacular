@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-json@912bd6e99e7e"
+description = "output is a valid object with exactly the required fields and typed `hints` entries"
+falsifiability_class = "safety"
+id = "p-json"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_json"
+timeout_seconds = 120

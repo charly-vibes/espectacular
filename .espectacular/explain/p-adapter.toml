@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-adapter@b8d51e6d253c"
+description = "the first serves `ah explain pytest` enablement guidance; the second fails the build naming the conflict"
+falsifiability_class = "safety"
+id = "p-adapter"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_adapter"
+timeout_seconds = 120

@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-coverage@e1568811a4b8"
+description = "each resolves via `ah explain <topic>` printing guidance and exiting zero"
+falsifiability_class = "safety"
+id = "p-coverage"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_coverage"
+timeout_seconds = 120

@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-unknown@ba691750f4f8"
+description = "exits non-zero with the topic list or the `--list` pointer"
+falsifiability_class = "safety"
+id = "p-unknown"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_unknown"
+timeout_seconds = 120

@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-listing@b954eeaa2b30"
+description = "outputs are byte-identical and alphabetically sorted"
+falsifiability_class = "safety"
+id = "p-listing"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_listing"
+timeout_seconds = 120

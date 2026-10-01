@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-enforced@54bbb0edb107"
+description = "the stripped build fails naming the missing topic; the complete build succeeds and `--list` enumerates every variant"
+falsifiability_class = "safety"
+id = "p-enforced"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_enforced"
+timeout_seconds = 120

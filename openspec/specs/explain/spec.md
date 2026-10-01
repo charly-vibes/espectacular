@@ -2,6 +2,7 @@
 id: spec
 kind: intent
 statement: "WHEN a user runs ah explain THE playbook SHALL serve compile-enforced topics for every FindingKind, SuggestedAction, quality finding kind, and compiled-in adapter capability, with stable sorted listing, machine-readable JSON, and non-zero exit for unknown topics."
+
 ---
 
 # explain Specification
@@ -50,7 +51,9 @@ statement: "WHEN a user runs ah explain THE playbook SHALL serve compile-enforce
 
 ## Purpose
 TBD - created by archiving change add-quality-measurement-and-adapters. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Playbook is compile-enforced
 The system SHALL fail to build if any `FindingKind` or `SuggestedAction` enum variant lacks a corresponding `ah explain` topic body.
 
@@ -58,11 +61,13 @@ The system SHALL fail to build if any `FindingKind` or `SuggestedAction` enum va
 - **GIVEN** a `FindingKind` or `SuggestedAction` variant has no associated playbook body
 - **WHEN** the project is built with `cargo build`
 - **THEN** the build fails with an error identifying the missing topic
+- **VERIFIES** [[spec.P-enforced]]
 
 #### Scenario: All variants have topics at build time
 - **GIVEN** all enum variants have associated playbook bodies
 - **WHEN** the project is built
 - **THEN** the build succeeds and `ah explain --list` enumerates them all
+- **VERIFIES** [[spec.P-coverage]]
 
 ### Requirement: Topic coverage
 The system SHALL provide `ah explain` topics for every `FindingKind` value, every `SuggestedAction` value, and a set of general topics.
@@ -70,14 +75,17 @@ The system SHALL provide `ah explain` topics for every `FindingKind` value, ever
 #### Scenario: Finding kind topic exists
 - **WHEN** a user runs `ah explain no-toml`
 - **THEN** the command prints guidance for the `no-toml` finding kind and exits zero
+- **VERIFIES** [[spec.P-coverage]]
 
 #### Scenario: Suggested action topic exists
 - **WHEN** a user runs `ah explain run_ah_scenario_new`
 - **THEN** the command prints guidance for the `run_ah_scenario_new` action and exits zero
+- **VERIFIES** [[spec.P-coverage]]
 
 #### Scenario: General topic exists
 - **WHEN** a user runs `ah explain workflow`
 - **THEN** the command prints general workflow guidance and exits zero
+- **VERIFIES** [[spec.P-coverage]]
 
 ### Requirement: Structured JSON output
 The system SHALL support `--json` output for `ah explain` that emits a machine-readable object.
@@ -86,11 +94,13 @@ The system SHALL support `--json` output for `ah explain` that emits a machine-r
 - **WHEN** a user runs `ah explain no-toml --json`
 - **THEN** the output is a valid JSON object containing: `topic` (string), `summary` (string), `when` (string), `do` (array of strings), `human_approval` (boolean), `related_topics` (array of strings), `hints` (array of objects)
 - **AND** each `hints` item contains `kind` (string) and `message` (string)
+- **VERIFIES** [[spec.P-json]]
 
 #### Scenario: JSON output is valid for every topic
 - **GIVEN** any valid topic identifier
 - **WHEN** `ah explain <topic> --json` is run
 - **THEN** the output passes JSON schema validation
+- **VERIFIES** [[spec.P-json]]
 
 ### Requirement: Topic listing
 The system SHALL enumerate all available topics on demand.
@@ -98,10 +108,12 @@ The system SHALL enumerate all available topics on demand.
 #### Scenario: List enumerates all topics
 - **WHEN** a user runs `ah explain --list`
 - **THEN** the command prints all topic identifiers, one per line, and exits zero
+- **VERIFIES** [[spec.P-listing]]
 
 #### Scenario: List is stable across runs
 - **WHEN** `ah explain --list` is run twice in succession
 - **THEN** the output is identical (topics are sorted alphabetically)
+- **VERIFIES** [[spec.P-listing]]
 
 ### Requirement: Unknown topic handling
 When a user requests an unknown `ah explain` topic, the system SHALL exit non-zero and print either `Run ah explain --list` or the sorted list of available topic identifiers.
@@ -110,6 +122,7 @@ When a user requests an unknown `ah explain` topic, the system SHALL exit non-ze
 - **WHEN** a user runs `ah explain no-such-topic`
 - **THEN** the command exits non-zero
 - **AND** the error message lists available topics or directs the user to `ah explain --list`
+- **VERIFIES** [[spec.P-unknown]]
 
 ### Requirement: Quality finding kind topics
 The system SHALL provide `ah explain` topics for every quality finding kind introduced by this change: `quality-mutation`, `quality-property`, `quality-snapshot`. These are `FindingKind` values and are therefore subject to the compile-enforcement requirement.
@@ -117,14 +130,17 @@ The system SHALL provide `ah explain` topics for every quality finding kind intr
 #### Scenario: quality-mutation topic exists
 - **WHEN** a user runs `ah explain quality-mutation`
 - **THEN** the command prints guidance explaining what the mutation score means, how to enable mutation testing, and when the finding appears
+- **VERIFIES** [[spec.P-quality]]
 
 #### Scenario: quality-property topic exists
 - **WHEN** a user runs `ah explain quality-property`
 - **THEN** the command prints guidance for the `quality-property` finding kind and exits zero
+- **VERIFIES** [[spec.P-quality]]
 
 #### Scenario: quality-snapshot topic exists
 - **WHEN** a user runs `ah explain quality-snapshot`
 - **THEN** the command prints guidance for the `quality-snapshot` finding kind and exits zero
+- **VERIFIES** [[spec.P-quality]]
 
 ### Requirement: Adapter topics ship with adapters
 The system SHALL include `ah explain` topics for progressive-enablement capabilities when their adapter modules are compiled in.
@@ -133,9 +149,10 @@ The system SHALL include `ah explain` topics for progressive-enablement capabili
 - **GIVEN** the pytest adapter is compiled into the binary
 - **WHEN** a user runs `ah explain pytest`
 - **THEN** the command prints guidance for enabling and using the pytest adapter
+- **VERIFIES** [[spec.P-adapter]]
 
 #### Scenario: Duplicate topic registration is a compile error
 - **GIVEN** two adapter modules attempt to register the same topic identifier
 - **WHEN** the project is built
 - **THEN** the build fails identifying the conflicting topic name
-
+- **VERIFIES** [[spec.P-enforced]]

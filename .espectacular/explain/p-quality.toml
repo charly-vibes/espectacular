@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-quality@a113f4bec8a3"
+description = "each prints kind-specific guidance (mutation meaning/enablement) and exits zero"
+falsifiability_class = "safety"
+id = "p-quality"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_quality"
+timeout_seconds = 120
