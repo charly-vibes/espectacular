@@ -100,6 +100,14 @@ struct ResolvedScope {
     contract_files: Vec<(String, String, PathBuf)>,
     changes: Vec<String>,
     findings: Vec<ReportFinding>,
+    /// VERIFIES coverage (derive-contracts-from-specodelic task 4.1):
+    /// (spec_path, scenario_id) → derived contract id. A scenario whose body
+    /// carries `- **VERIFIES** [[spec.P-x]]` is covered by the property's
+    /// derived contract (`.espectacular/<spec>/<slug>.toml`) when it exists
+    /// (design D1); the entry is absent when no derived contract backs the
+    /// link, leaving the scenario's own contract requirement unchanged
+    /// (C-unlinked-unchanged).
+    covered: BTreeMap<(String, String), String>,
 }
 
 pub fn run_check(
@@ -132,12 +140,15 @@ pub fn structural_findings(specs_dir: &str, contracts_dir: &str) -> anyhow::Resu
         })
         .collect();
     let contract_files = collect_base_contract_files(Path::new(contracts_dir));
-    Ok(
-        collect_structural_findings(&resolved, &contract_files, Path::new(specs_dir))
-            .into_iter()
-            .map(|finding| Finding::structural(&finding.spec, &finding.scenario.id, &finding.kind))
-            .collect(),
+    Ok(collect_structural_findings(
+        &resolved,
+        &contract_files,
+        Path::new(specs_dir),
+        &BTreeMap::new(),
     )
+    .into_iter()
+    .map(|finding| Finding::structural(&finding.spec, &finding.scenario.id, &finding.kind))
+    .collect())
 }
 
 fn resolve_scope(
@@ -275,12 +286,54 @@ fn resolve_scope(
         }
     }
 
+    let covered = resolve_verifies_coverage(&mut scenarios, contracts_dir);
+
     Ok(ResolvedScope {
         scenarios: scenarios.into_values().collect(),
         contract_files,
         changes,
         findings,
+        covered,
     })
+}
+
+/// Extract property ids from `- **VERIFIES** [[spec.P-x]]` bullets in a
+/// scenario body (design D1 coverage convention).
+fn verifies_property_ids(body: &str) -> Vec<String> {
+    let mut ids = Vec::new();
+    for line in body.lines() {
+        let Some(rest) = line.trim().strip_prefix("- **VERIFIES** [[spec.") else {
+            continue;
+        };
+        if let Some(id) = rest.strip_suffix("]]") {
+            if !id.is_empty() {
+                ids.push(id.to_string());
+            }
+        }
+    }
+    ids
+}
+
+/// Redirect VERIFIES-linked scenarios at their property's derived contract
+/// and record the coverage map. A link whose derived contract file is absent
+/// leaves the scenario untouched (falls back to its own contract path).
+fn resolve_verifies_coverage(
+    scenarios: &mut BTreeMap<(String, String), ResolvedScenario>,
+    contracts_dir: &Path,
+) -> BTreeMap<(String, String), String> {
+    let mut covered = BTreeMap::new();
+    for ((spec, id), resolved) in scenarios.iter_mut() {
+        for property_id in verifies_property_ids(&resolved.scenario.body) {
+            let contract_id = crate::sync::slugify_property_id(&property_id);
+            let path = contracts_dir.join(spec).join(format!("{contract_id}.toml"));
+            if path.exists() {
+                resolved.contract_path = path;
+                covered.insert((spec.clone(), id.clone()), contract_id);
+                break;
+            }
+        }
+    }
+    covered
 }
 
 fn evaluate_scope(
@@ -296,6 +349,7 @@ fn evaluate_scope(
         &scope.scenarios,
         &scope.contract_files,
         specs_root,
+        &scope.covered,
     ));
 
     let blocked = blocked_scenarios(&findings);
@@ -462,6 +516,7 @@ fn collect_structural_findings(
     scenarios: &[ResolvedScenario],
     contract_files: &[(String, String, PathBuf)],
     specs_root: &Path,
+    covered: &BTreeMap<(String, String), String>,
 ) -> Vec<ReportFinding> {
     let mut findings = Vec::new();
     let bare_scenarios: Vec<_> = scenarios
@@ -523,7 +578,12 @@ fn collect_structural_findings(
 
         match contracts::load_contract(resolved.contract_path.to_str().unwrap()) {
             Ok(contract) => {
-                if contract.id != scenario.id {
+                // A VERIFIES-covered scenario resolves to its property's
+                // derived contract, whose id is the slugified property id —
+                // not the scenario id — so the mismatch check does not apply.
+                let covered_via_link =
+                    covered.contains_key(&(scenario.spec_path.clone(), scenario.id.clone()));
+                if !covered_via_link && contract.id != scenario.id {
                     findings.push(structural_report(scenario, specs_root, "id-mismatch", None));
                 }
                 if !contract.falsifiability_class.is_empty()
@@ -601,7 +661,12 @@ fn collect_structural_findings(
         }
     }
 
-    findings.extend(orphan_reports(contract_files, &scenario_map, specs_root));
+    findings.extend(orphan_reports(
+        contract_files,
+        &scenario_map,
+        specs_root,
+        covered,
+    ));
     findings.sort_by(report_finding_cmp);
     findings
 }
@@ -610,7 +675,14 @@ fn orphan_reports(
     contract_files: &[(String, String, PathBuf)],
     scenarios: &BTreeMap<(String, String), &ResolvedScenario>,
     specs_root: &Path,
+    covered: &BTreeMap<(String, String), String>,
 ) -> Vec<ReportFinding> {
+    // Derived contracts referenced by a VERIFIES link are in use even though
+    // no scenario shares their id — never orphans (task 4.1).
+    let covered_contract_keys: HashSet<(String, String)> = covered
+        .iter()
+        .map(|((spec, _), contract_id)| (spec.clone(), contract_id.clone()))
+        .collect();
     let mut findings = Vec::new();
     let mut seen = HashSet::new();
     for (spec, id, path) in contract_files {
@@ -618,6 +690,9 @@ fn orphan_reports(
             continue;
         }
         if scenarios.contains_key(&(spec.clone(), id.clone())) {
+            continue;
+        }
+        if covered_contract_keys.contains(&(spec.clone(), id.clone())) {
             continue;
         }
         findings.push(report_finding(
@@ -944,6 +1019,110 @@ mod tests {
         assert!(findings
             .iter()
             .any(|f| f.kind == "invalid-falsifiability-class"));
+    }
+
+    // ---- VERIFIES coverage (derive-contracts-from-specodelic task 4.1) ----
+
+    const LINKED_BODY: &str = "- **WHEN** a token is checked\n- **THEN** invalid tokens are rejected\n- **VERIFIES** [[spec.P-token]]\n";
+    const UNLINKED_BODY: &str =
+        "- **WHEN** a token is checked\n- **THEN** invalid tokens are rejected\n";
+
+    const DERIVED_CONTRACT: &str = "id = \"p-token\"\ndescription = \"invalid tokens rejected\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.9.0\"\nfalsifiability_class = \"safety\"\nderived_from = \"P-token@0123456789ab\"\n\n[[tests.cargo]]\nflags = \"p_token::case1\"\n";
+
+    fn verifies_repo(scenario_bodies: &[&str], contracts: &[(&str, &str)]) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        fs::create_dir_all(repo.join("openspec/specs/auth")).unwrap();
+        fs::create_dir_all(repo.join(".espectacular/auth")).unwrap();
+        fs::write(
+            repo.join(".espectacular/config.toml"),
+            "tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\n",
+        ).unwrap();
+        let mut spec = String::from("# Capability: auth\n");
+        for (i, body) in scenario_bodies.iter().enumerate() {
+            spec.push_str(&format!("\n#### Scenario: Token check {i}\n{body}\n"));
+        }
+        fs::write(repo.join("openspec/specs/auth/spec.md"), spec).unwrap();
+        for (name, content) in contracts {
+            fs::write(repo.join(".espectacular/auth").join(name), content).unwrap();
+        }
+        dir
+    }
+
+    #[test]
+    fn verifies_linked_scenario_is_covered_by_derived_contract() {
+        let dir = verifies_repo(&[LINKED_BODY], &[("p-token.toml", DERIVED_CONTRACT)]);
+        let output = run_check(dir.path(), &[], false).unwrap();
+        for kind in ["no-toml", "no-tests-declared", "orphan-toml", "id-mismatch"] {
+            assert!(
+                !output.findings.iter().any(|f| f.kind == kind),
+                "VERIFIES-linked scenario must not emit {kind}; got: {:?}",
+                output.findings
+            );
+        }
+    }
+
+    #[test]
+    fn covered_scenario_executes_derived_contract_tests() {
+        let dir = verifies_repo(&[LINKED_BODY], &[("p-token.toml", DERIVED_CONTRACT)]);
+        // Swap the derived contract's tests for a passing shell entry to prove
+        // the redirect feeds the execution path, not just the structural pass.
+        let contract = dir.path().join(".espectacular/auth/p-token.toml");
+        let text = fs::read_to_string(&contract).unwrap();
+        fs::write(
+            &contract,
+            text.replace(
+                "[[tests.cargo]]\nflags = \"p_token::case1\"",
+                "[[tests.shell]]\ncommand = \"exit 0\"",
+            ),
+        )
+        .unwrap();
+        let output = run_check(dir.path(), &[], true).unwrap();
+        assert_eq!(
+            output.summary.passed, 1,
+            "derived contract tests must run; got: {:?}",
+            output.findings
+        );
+    }
+
+    #[test]
+    fn unlinked_scenario_still_requires_own_contract() {
+        let dir = verifies_repo(&[UNLINKED_BODY], &[("p-token.toml", DERIVED_CONTRACT)]);
+        let output = run_check(dir.path(), &[], false).unwrap();
+        assert!(
+            output.findings.iter().any(|f| f.kind == "no-toml"),
+            "unlinked scenario must still emit no-toml; got: {:?}",
+            output.findings
+        );
+    }
+
+    #[test]
+    fn link_to_testless_derived_contract_still_flags_no_tests_declared() {
+        // The link alone is not enough: the covering derived contract must
+        // actually declare tests (C-verifies-covers covers the scenario; the
+        // contract's own no-tests-declared check still applies).
+        let empty = DERIVED_CONTRACT.replace("\n[[tests.cargo]]\nflags = \"p_token::case1\"", "");
+        let dir = verifies_repo(&[LINKED_BODY], &[("p-token.toml", empty.as_str())]);
+        let output = run_check(dir.path(), &[], false).unwrap();
+        assert!(
+            output
+                .findings
+                .iter()
+                .any(|f| f.kind == "no-tests-declared"),
+            "testless derived contract must still emit no-tests-declared; got: {:?}",
+            output.findings
+        );
+    }
+
+    #[test]
+    fn verifies_link_to_absent_property_keeps_own_contract_requirement() {
+        let dir = verifies_repo(&[LINKED_BODY], &[]);
+        let output = run_check(dir.path(), &[], false).unwrap();
+        assert!(
+            output.findings.iter().any(|f| f.kind == "no-toml"),
+            "link without a derived contract must still emit no-toml; got: {:?}",
+            output.findings
+        );
     }
 
     #[test]
