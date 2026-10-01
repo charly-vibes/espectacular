@@ -2,6 +2,7 @@
 id: spec
 kind: intent
 statement: "WHEN the tool adopts genesis::config THE tool SHALL implement ConfigFile, delegate all config file I/O to genesis, register its config with ConfigRegistry at startup, and remove dead config code without new clippy warnings."
+
 ---
 
 # config spec delta: adopt genesis::config
@@ -48,6 +49,7 @@ implements `ConfigFile`, all file I/O delegates to genesis, startup registers
 with `ConfigRegistry`, and dead local config code is removed cleanly.
 
 ## Requirements
+
 ### Requirement: Shared config management
 
 The tool SHALL adopt `genesis::config` for shared config management.
@@ -59,6 +61,8 @@ The tool SHALL adopt `genesis::config` for shared config management.
 - **THEN** the tool's config SHALL implement `genesis::config::ConfigFile`
 - **AND** all config file I/O (read, write, parse) SHALL delegate to genesis
 - **AND** `cargo test` SHALL pass
+- **VERIFIES** [[spec.P-configfile]]
+- **VERIFIES** [[spec.P-configstore]]
 
 #### Scenario: config registered at startup
 
@@ -66,6 +70,7 @@ The tool SHALL adopt `genesis::config` for shared config management.
 - **WHEN** it initializes
 - **THEN** it SHALL register its config struct with `ConfigRegistry`
 - **AND** it SHOULD use `ConfigStore` for config discovery and validation
+- **VERIFIES** [[spec.P-registration]]
 
 #### Scenario: dead config code removed
 
@@ -73,4 +78,4 @@ The tool SHALL adopt `genesis::config` for shared config management.
 - **WHEN** the old config parsing code is removed
 - **THEN** `cargo clippy` SHALL introduce no new warnings
 - **AND** `cargo test` SHALL pass
-
+- **VERIFIES** [[spec.P-prune]]

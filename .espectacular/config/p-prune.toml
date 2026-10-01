@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-prune@2cfd3ab31d26"
+description = "no old config parsing code remains; `cargo clippy` adds no new warnings and `cargo test` passes"
+falsifiability_class = "safety"
+id = "p-prune"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_prune"
+timeout_seconds = 120

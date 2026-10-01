@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-configstore@56b2a438371f"
+description = "they use `ConfigStore` where the advisory is honored"
+falsifiability_class = "safety"
+id = "p-configstore"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_configstore"
+timeout_seconds = 120

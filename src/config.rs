@@ -404,4 +404,29 @@ bad = [""]
             .iter()
             .any(|v| v.field == "lint.max_and_steps" && v.severity == ValidationSeverity::Error));
     }
+
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_configfile() {
+        config_implements_config_file();
+    }
+
+    #[test]
+    fn p_configstore() {
+        config_implements_config_file();
+        config_path_uses_espectacular_marker();
+    }
+
+    #[test]
+    fn p_registration() {
+        registry_registers_espectacular_config();
+    }
+
+    #[test]
+    fn p_prune() {
+        config_implements_config_file();
+        registry_registers_espectacular_config();
+        config_path_uses_espectacular_marker();
+    }
 }

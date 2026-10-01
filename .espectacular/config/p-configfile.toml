@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-configfile@a0ccd57236ca"
+description = "it implements `ConfigFile`; every read, write, and parse call routes through genesis; tests pass"
+falsifiability_class = "safety"
+id = "p-configfile"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_configfile"
+timeout_seconds = 120

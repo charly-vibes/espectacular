@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-registration@119bd785820c"
+description = "the config struct is registered with `ConfigRegistry` before config is first read"
+falsifiability_class = "safety"
+id = "p-registration"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_registration"
+timeout_seconds = 120
