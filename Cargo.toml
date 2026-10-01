@@ -23,6 +23,7 @@ jsonschema = "0.18"
 anyhow = "1"
 genesis-vibes = "0.10"
 libc = "0.2"
+sha2 = "0.11.0"
 
 [dev-dependencies]
 assert_cmd = "2"

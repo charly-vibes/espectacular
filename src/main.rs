@@ -4,6 +4,9 @@ mod archive;
 mod check;
 mod config;
 mod contracts;
+// Consumer (ah sync) lands with task group 3 of derive-contracts-from-specodelic.
+#[allow(dead_code)]
+mod derive;
 mod doctor;
 mod explain;
 mod fsutil;

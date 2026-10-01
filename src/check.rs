@@ -1125,7 +1125,7 @@ mod tests {
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].severity, "error");
         // byte-compatibility: serialized JSON keeps every pre-existing field
-        let json = serde_json::to_value(&findings[0]).unwrap();
+        let json = serde_json::to_value(findings[0].clone()).unwrap();
         for key in [
             "kind",
             "category",

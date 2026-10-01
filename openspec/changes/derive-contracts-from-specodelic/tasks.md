@@ -13,10 +13,10 @@
 
 ## 2. Derivation core (TDD)
 
-- [ ] 2.1 Failing tests: `spk parse --json` IR deserialization (properties with `id|kind|derives_from|generator|predicate` cells), tolerant of unknown envelope fields and `data: null`
-- [ ] 2.2 Failing tests: row canonical-JSON hash stability (whitespace reordering does not change the hash; editing a cell does)
-- [ ] 2.3 Failing tests: archetype / falsifiability inference per design D5 table
-- [ ] 2.4 Implement the derivation module; add optional `derived_from` to `schemas/scenario-contract.schema.json`
+- [x] 2.1 Failing tests: `spk parse --json` IR deserialization (properties with `id|kind|derives_from|generator|predicate` cells), tolerant of unknown envelope fields and `data: null`
+- [x] 2.2 Failing tests: row canonical-JSON hash stability (whitespace reordering does not change the hash; editing a cell does)
+- [x] 2.3 Failing tests: archetype / falsifiability inference per design D5 table
+- [x] 2.4 Implement the derivation module; add optional `derived_from` to `schemas/scenario-contract.schema.json`
 
 ## 3. `ah sync`
 
