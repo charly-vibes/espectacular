@@ -234,7 +234,11 @@ fn update_managed_file(path: &Path, result: &mut InitResult) -> anyhow::Result<(
     Ok(())
 }
 
-const LEFTHOOK_AH_COMMAND: &str = "  ah-check:\n    run: ah check\n";
+// Leading \n keeps the start marker on its own line: ensure_wired
+// concatenates marker + content verbatim, and without it the glued line
+// begins with "#" — YAML comments swallow the ah-check key (genesis-au8
+// glue pattern). Found while pinning espectacular-n4v.
+const LEFTHOOK_AH_COMMAND: &str = "\n  ah-check:\n    run: ah check\n";
 
 fn install_lefthook(repo_root: &Path, result: &mut InitResult) -> anyhow::Result<()> {
     // Managed block wired through genesis::git_hooks::lefthook::ensure_wired
