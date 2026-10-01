@@ -7,3 +7,10 @@ changes = "openspec/changes"
 [runners]
 pytest = ["pytest"]
 cargo = ["cargo", "test"]
+
+# Pinned specodelic (spk) version for derivation + lint relay.
+# specodelic is pre-1.0 — derive only from lint-clean specs parsed by this
+# exact version. Consumer (version-mismatch fail-closed) lands with the
+# derivation module (derive-contracts-from-specodelic, task group 2).
+[spk]
+version = "0.3.0"

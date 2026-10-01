@@ -89,6 +89,26 @@ espectacular SHALL provide a `feedback` subcommand that files a structured issue
 - **THEN** it SHALL render the coverage matrix as before (the `report` verb is NOT repurposed for issue filing).
 ## Requirements
 
+### Requirement: Correspondence Check Command
+
+`ah check` JSON output SHALL wrap its payload in `genesis::envelope::Envelope`, mapping `findings` and `summary` under `data`, so espectacular's JSON shape matches wai/dont/pretender/testaruda across the suite.
+
+#### Scenario: check emits shared envelope
+
+- **WHEN** `ah check --json` is run after adopting genesis
+- **THEN** the emitted JSON SHALL have top-level keys `ok`, `envelope_version`, `cli_version`, `envelope_kind`, `data`, `warnings`, `hints`, `meta`
+- **AND** the existing `findings`/`summary` fields SHALL be nested under `data`.
+
+### Requirement: Project Initialization
+
+`ah init` SHALL source its managed-block injector mechanics from `genesis::managed_block`, while retaining espectacular's block content.
+
+#### Scenario: init injects managed blocks via genesis
+
+- **WHEN** `ah init` is run after adopting genesis
+- **THEN** the `<!-- …:START -->`/`# ah:managed:start` blocks SHALL be injected via `genesis::managed_block`
+- **AND** no local injector code SHALL remain.
+
 ### Requirement: feedback subcommand
 
 espectacular SHALL provide a `feedback` subcommand that files a structured issue against espectacular's upstream repo via `gh`, wrapping `genesis::feedback`. The `report` verb is unchanged and keeps its "coverage matrix" meaning.

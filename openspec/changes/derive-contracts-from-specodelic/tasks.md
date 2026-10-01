@@ -9,7 +9,7 @@
 
 ## 1. Upstream dependency (specodelic)
 
-- [ ] 1.1 `spk parse --json` implemented, released, and pinned: track specodelic change `add-parse-command`; bump `versions.ddl.toml` / CI pin; re-validate the archive round-trip with `spk archive-companion` once available (Open question 5)
+- [x] 1.1 `spk parse --json` implemented, released, and pinned: specodelic `add-parse-command` shipped in specodelic 0.3.0 (crates.io); CI pin moved from git-main to `--version 0.3.0`; `specodelic = "0.3.0"` added to `versions.ddl.toml`; spk pin recorded in `.espectacular/config.toml` `[spk]` (consumer lands with group 2); archive round-trip re-validated with `spk archive-companion --dry-run` (resolves cli-core, gate, lint restore plan; Open question 5)
 
 ## 2. Derivation core (TDD)
 
@@ -52,4 +52,4 @@
 - [ ] 7.1 `spk lint openspec/changes/derive-contracts-from-specodelic/specs` exits zero
 - [ ] 7.2 `openspec validate derive-contracts-from-specodelic --strict` exits zero
 - [ ] 7.3 `ah check --changes derive-contracts-from-specodelic` reports no mirror-duplication conflicts
-- [ ] 7.4 Archive round-trip (Open question 5): validate against plain `openspec archive` now; re-validate with `spk archive-companion` after group 1
+- [ ] 7.4 Archive round-trip (Open question 5). Known issue: spk 0.3.0's widened mirror rule is unsatisfiable for dual-format files carrying both ADDED and MODIFIED deltas — filed upstream as specodelic#8; `just spec-lint` stays red on the archived adopt-genesis cli file until the fix (extended mirror committed here is the correct mirror for the per-requirement-containment fix): validate against plain `openspec archive` now; re-validate with `spk archive-companion` after group 1

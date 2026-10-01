@@ -112,10 +112,13 @@ follow the same recipe, gated on the byte-identical regression task.
    Decide during task group 3.
 4. ~~`id: spec` constraint.~~ **Non-issue**: all deployed capability files are
    `id: spec`, and `spk parse` exports per-file IR anyway.
-5. **Archive round-trip.** `spk archive-companion` (deploys the dual-format
-   layer verbatim, fail-closed) resolves the design — but it is on specodelic
-   main only, not in any release (spk 0.2.0 rejects it). Until the release +
-   pin bump, validate round-trip behavior against plain `openspec archive`;
-   re-validate with archive-companion after task group 1.
+5. ~~**Archive round-trip.**~~ **Resolved 2026-10-01**: spk 0.3.0 shipped
+   `archive-companion`; `spk archive-companion --dry-run
+   derive-contracts-from-specodelic` resolves the restore plan
+   (cli-core, gate, lint deltas → verbatim deploy). This change must archive
+   via the companion, not plain `openspec archive`. (Empirical negative
+   result: running the companion on an *already-archived* change re-applies
+   the stale delta and clobbers the deployed spec — companion is an
+   at-archive-time tool only.)
 6. **Commit policy for derived contracts** (D8): needs explicit human
    confirmation in task 6.1 before the pilot writes any derived TOMLs.
