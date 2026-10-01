@@ -1416,6 +1416,84 @@ mod tests {
         );
     }
 
+    // ---- Regression: plain + Properties-less specs unaffected (task 4.5) ----
+    // C-plain-unaffected: plain openspec specs and dual-format specs without
+    // Properties rows discover and check exactly as before this change.
+
+    #[test]
+    fn plain_spec_with_derived_named_contract_is_unaffected() {
+        // Pre-change corpus shape: no VERIFIES bullet anywhere, but a
+        // hand-written contract whose id matches no scenario → no-toml for
+        // the scenario plus orphan-toml for the stray contract, exactly as
+        // before coverage existed.
+        let dir = verifies_repo(&[UNLINKED_BODY], &[("p-token.toml", DERIVED_CONTRACT)]);
+        let output = run_check(dir.path(), &[], false).unwrap();
+        assert!(output.findings.iter().any(|f| f.kind == "no-toml"));
+        assert!(output
+            .findings
+            .iter()
+            .any(|f| f.kind == "orphan-toml" && f.scenario.id == "p-token"));
+    }
+
+    #[test]
+    fn plain_spec_verifies_bullet_without_derived_contract_changes_nothing() {
+        // A bullet in a plain (frontmatter-less) spec is inert when no
+        // derived contract backs it: same single no-toml finding as without
+        // the bullet.
+        let with_link = verifies_repo(&[LINKED_BODY], &[]);
+        let without_link = verifies_repo(&[UNLINKED_BODY], &[]);
+        let extract = |output: &crate::check::CheckOutput| {
+            let mut kinds: Vec<(String, String)> = output
+                .findings
+                .iter()
+                .map(|f| (f.kind.clone(), f.scenario.id.clone()))
+                .collect();
+            kinds.sort();
+            format!("{kinds:?}")
+        };
+        let a = run_check(with_link.path(), &[], false).unwrap();
+        let b = run_check(without_link.path(), &[], false).unwrap();
+        assert_eq!(
+            extract(&a),
+            extract(&b),
+            "bullet must be inert without a derived contract"
+        );
+        assert!(a.findings.iter().any(|f| f.kind == "no-toml"));
+    }
+
+    #[test]
+    fn propertiesless_dual_format_spec_is_unaffected() {
+        // Dual-format frontmatter (id: spec) but no Properties rows: the
+        // bullet must not suppress the scenario's own contract requirement.
+        let dir = verifies_repo(&[LINKED_BODY], &[]);
+        fs::write(
+            dir.path().join("openspec/specs/auth/spec.md"),
+            "---\nid: spec\nkind: intent\nstatement: \"WHEN checked THE system SHALL reject invalid tokens\"\n---\n\n# Capability: auth\n\n#### Scenario: Token check 0\n- **WHEN** a token is checked\n- **THEN** invalid tokens are rejected\n- **VERIFIES** [[spec.P-token]]\n",
+        )
+        .unwrap();
+        let output = run_check(dir.path(), &[], false).unwrap();
+        assert!(
+            output.findings.iter().any(|f| f.kind == "no-toml"),
+            "Properties-less dual-format spec must keep the contract requirement; got: {:?}",
+            output.findings
+        );
+    }
+
+    #[test]
+    fn discovery_output_is_identical_for_bullet_bearing_scenarios() {
+        // Discovery is text-faithful: a VERIFIES bullet is part of the body
+        // and must not change scenario ids, headings, or line numbers.
+        let dir = verifies_repo(&[LINKED_BODY], &[]);
+        let scenarios = crate::openspec::discover_scenarios(
+            dir.path().join("openspec/specs").to_str().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(scenarios.len(), 1);
+        assert_eq!(scenarios[0].id, "token-check-0");
+        assert_eq!(scenarios[0].heading, "Token check 0");
+        assert!(scenarios[0].body.contains("**VERIFIES** [[spec.P-token]]"));
+    }
+
     #[test]
     fn invalid_falsifiability_class_blocks_scenario_execution() {
         let dir = success_repo();
