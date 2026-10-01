@@ -119,6 +119,14 @@ follow the same recipe, gated on the byte-identical regression task.
    follow-up proposal rather than growing an override syntax now.
 4. ~~`id: spec` constraint.~~ **Non-issue**: all deployed capability files are
    `id: spec`, and `spk parse` exports per-file IR anyway.
+5. ~~**Derived-contract commit policy.**~~ **Resolved (task 6.1, human-confirmed
+   2026-10-02)**: derived contracts are committed artifacts refreshed by sync
+   (lockfile-like) — the repo rule "don't commit `.espectacular/` state" is
+   amended to name the carve-out: contract files (`.espectacular/<capability>/*
+   .toml`) are committed, sync-owned derived fields authoritative, human-owned
+   `tests`/`status`/`superseded_by` never overwritten; only `.espectacular/state/`
+   and runtime state stay uncommitted. Confirmed verbatim by the human operator
+   before any sync writes TOMLs.
 5. ~~**Archive round-trip.**~~ **Resolved 2026-10-01**: spk 0.3.0 shipped
    `archive-companion`; `spk archive-companion --dry-run
    derive-contracts-from-specodelic` resolves the restore plan

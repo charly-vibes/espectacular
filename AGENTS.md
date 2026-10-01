@@ -140,7 +140,7 @@ deliberate intent.
 - **DON'T** break backward compatibility of emitted test archetypes without a deprecation cycle
 - **DON'T** modify managed blocks (`<!-- WAI: -->`, `<!-- OPENSPEC: -->`, `<!-- DONT: -->`, `<!-- ah:managed: -->`)
 - **DON'T** introduce new parallel types for patterns that genesis already provides — file a genesis change first
-- **DON'T** commit generated artifacts or `.espectacular/` state files that are tool-managed
+- **DON'T** commit generated artifacts or `.espectacular/` state files that are tool-managed — **except contract files (`.espectacular/<capability>/*.toml`), which are committed spec artifacts refreshed by `ah sync` (lockfile-like: derived fields are sync-owned, `tests`/`status`/`superseded_by` are human-owned); only `.espectacular/state/` and runtime state stay uncommitted**
 
 ### Stop and Ask
 
