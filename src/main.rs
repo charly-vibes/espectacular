@@ -771,4 +771,21 @@ mod tests {
             "AH_COMMANDS entries not in clap subcommands (stale typo targets): {missing_from_clap:?}"
         );
     }
+
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_guide_builder() {
+        guide_registers_all_commands_and_config();
+    }
+
+    #[test]
+    fn p_handlers() {
+        error_sink_is_configured_for_ah();
+    }
+
+    #[test]
+    fn p_selfheal() {
+        error_sink_is_configured_for_ah();
+    }
 }

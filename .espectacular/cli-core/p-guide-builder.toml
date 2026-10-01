@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-guide-builder@6c09235f1620"
+description = "CLI setup is constructed via `Guide::builder()` and tests pass"
+falsifiability_class = "safety"
+id = "p-guide-builder"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_guide_builder"
+timeout_seconds = 120

@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-selfheal@238fc538ece5"
+description = "the error prints with a suggestion footer and lands in the error scratch readable by `--from-last-error`"
+falsifiability_class = "safety"
+id = "p-selfheal"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_selfheal"
+timeout_seconds = 120

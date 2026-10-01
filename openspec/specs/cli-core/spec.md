@@ -2,6 +2,7 @@
 id: spec
 kind: intent
 statement: "WHEN the tool adopts genesis::guide THE CLI scaffold SHALL be built via Guide::builder, with command handlers returning Output or using ErrorSink and errors surfaced with suggestion footers."
+
 ---
 
 # cli-core spec delta: adopt genesis::guide
@@ -45,6 +46,7 @@ ad-hoc setup, handlers standardize on `Output<T>`/`ErrorSink`, and errors
 become self-healing via suggestion footers and the error scratch.
 
 ## Requirements
+
 ### Requirement: CLI scaffold uses Guide
 
 The tool's `main.rs` CLI setup SHALL use `genesis::guide::Guide::builder()`
@@ -57,6 +59,7 @@ maintainer — this spec defines the contract for how to do it.
 - **WHEN** `main.rs` is updated to use `Guide::builder(...)`
 - **THEN** command handlers SHOULD return `Output<T>` or use `ErrorSink`
 - **AND** `cargo test` SHALL pass
+- **VERIFIES** [[spec.P-guide-builder]]
 
 #### Scenario: ErrorSink for self-healing errors
 
@@ -64,4 +67,5 @@ maintainer — this spec defines the contract for how to do it.
 - **WHEN** a command returns an error
 - **THEN** `ErrorSink` SHOULD print the error with a suggestion footer
 - **AND** it SHOULD write to the error scratch (for `--from-last-error`)
-
+- **VERIFIES** [[spec.P-handlers]]
+- **VERIFIES** [[spec.P-selfheal]]
