@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::Path;
 
+use anyhow::Context;
+
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Scenario {
@@ -30,7 +32,9 @@ pub fn discover_scenarios(specs_dir: &str) -> anyhow::Result<Vec<Scenario>> {
     let mut scenarios = Vec::new();
     let specs_path = Path::new(specs_dir);
 
-    for spec_entry in fs::read_dir(specs_path)? {
+    for spec_entry in fs::read_dir(specs_path)
+        .with_context(|| format!("reading specs directory `{}`", specs_path.display()))?
+    {
         let spec_entry = spec_entry?;
         let spec_name = spec_entry.file_name().to_string_lossy().into_owned();
         let spec_file = spec_entry.path().join("spec.md");
@@ -129,6 +133,19 @@ mod tests {
 
     const FIXTURE: &str = "tests/fixtures/simple/openspec/specs";
     const COLLISION_FIXTURE: &str = "tests/fixtures/collision/openspec/specs";
+
+    #[test]
+    fn missing_dir_error_names_the_path() {
+        // espectacular-iq4 / GH#28.2: a bare "No such file or directory (os
+        // error 2)" cost the reporter an hour — any IO failure from this
+        // function must name the directory it was reading.
+        let err = discover_scenarios("/nonexistent/ah-iq4-specs").unwrap_err();
+        let msg = format!("{err:#}");
+        assert!(
+            msg.contains("/nonexistent/ah-iq4-specs"),
+            "error must name the specs dir; got: {msg}"
+        );
+    }
 
     #[test]
     fn discovers_scenarios_from_headings() {

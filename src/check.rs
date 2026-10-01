@@ -146,7 +146,16 @@ fn resolve_scope(
     changes_dir: &Path,
     selected_changes: &[String],
 ) -> anyhow::Result<ResolvedScope> {
-    let base_scenarios = openspec::discover_scenarios(specs_dir.to_str().unwrap())?;
+    // GH#28.2 / espectacular-iq4: a repo with no deployed specs yet (changes
+    // only) is a legitimate state — ah doctor classifies a missing specs dir
+    // as a missing-specs-dir finding, so check degrades consistently to an
+    // empty base scope instead of failing closed with a bare ENOENT (0.3.0
+    // parity). A selected change with missing staged specs still bails below.
+    let base_scenarios = if specs_dir.exists() {
+        openspec::discover_scenarios(specs_dir.to_str().unwrap())?
+    } else {
+        Vec::new()
+    };
     let mut scenarios: BTreeMap<(String, String), ResolvedScenario> = base_scenarios
         .into_iter()
         .map(|scenario| {
@@ -1225,6 +1234,21 @@ mod tests {
         .unwrap();
         write_executable(&repo.join("runner.sh"), "printf '%s' \"$1\"");
         dir
+    }
+
+    #[test]
+    fn run_check_missing_specs_dir_degrades_to_clean_zero_findings() {
+        // GH#28.2 / espectacular-iq4: a repo with no deployed specs yet (changes
+        // only) must not hard-fail with a bare ENOENT — ah doctor classifies a
+        // missing specs dir as a missing-specs-dir finding, so check degrades
+        // consistently (0.3.0 parity: clean, zero structural).
+        let dir = success_repo();
+        fs::remove_dir_all(dir.path().join("openspec/specs")).unwrap();
+        fs::remove_dir_all(dir.path().join(".espectacular/compiler")).unwrap();
+
+        let output = run_check(dir.path(), &[], true).unwrap();
+        assert!(output.findings.is_empty());
+        assert_eq!(output.summary.passed, 0);
     }
 
     #[test]
