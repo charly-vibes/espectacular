@@ -3,7 +3,7 @@ use crate::config;
 use crate::contracts;
 use crate::openspec::{self, Scenario};
 use crate::quality;
-use crate::runner::TestResult;
+use crate::runner::{self, TestResult};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
@@ -394,7 +394,7 @@ fn evaluate_scope(
                     };
                     if result.timed_out || result.exit_code != Some(0) {
                         findings.push(execution_report(scenario, specs_root, result));
-                    } else if test_type == "shell" && zero_tests_ran(&result) {
+                    } else if runner::matched_zero_tests(&result) {
                         findings.push(no_tests_ran_report(scenario, specs_root, result));
                     } else {
                         passed += 1;
@@ -790,31 +790,6 @@ fn report_finding(
         test,
         message,
     }
-}
-
-fn zero_tests_ran(result: &TestResult) -> bool {
-    let has_zero_line = result.stdout_tail.contains("test result: ok. 0 passed")
-        || result.stderr_tail.contains("test result: ok. 0 passed");
-    if !has_zero_line {
-        return false;
-    }
-    // Check that no "N passed" (N > 0) line appears anywhere in the output.
-    // This handles `cargo test` running multiple binaries — the last binary
-    // may print "0 passed" even though earlier binaries ran tests successfully.
-    !has_positive_passed(&result.stdout_tail) && !has_positive_passed(&result.stderr_tail)
-}
-
-fn has_positive_passed(output: &str) -> bool {
-    output.lines().any(|line| {
-        if let Some(rest) = line.strip_prefix("test result: ok. ") {
-            if let Some(num_str) = rest.split(' ').next() {
-                if let Ok(n) = num_str.parse::<u64>() {
-                    return n > 0;
-                }
-            }
-        }
-        false
-    })
 }
 
 fn no_tests_ran_report(scenario: &Scenario, specs_root: &Path, test: TestResult) -> ReportFinding {
@@ -1714,6 +1689,54 @@ mod tests {
         assert!(
             !output.findings.iter().any(|f| f.kind == "no-tests-ran"),
             "plain exit 0 must not emit no-tests-ran"
+        );
+        assert_eq!(output.summary.passed, 1);
+    }
+
+    fn cargo_check_repo(cargo_shim_body: &str) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        fs::create_dir_all(repo.join("openspec/specs/app")).unwrap();
+        fs::create_dir_all(repo.join(".espectacular/app")).unwrap();
+        fs::write(
+            repo.join("openspec/specs/app/spec.md"),
+            "# Capability: app\n\n#### Scenario: Cargo token\n- **WHEN** the token is checked\n- **THEN** tests pass\n",
+        ).unwrap();
+        fs::write(
+            repo.join(".espectacular/config.toml"),
+            format!("tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\ncargo = [\"{}\"]\n", repo.join("cargo").display()),
+        ).unwrap();
+        write_executable(&repo.join("cargo"), cargo_shim_body);
+        fs::write(
+            repo.join(".espectacular/app/cargo-token.toml"),
+            "id = \"cargo-token\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.cargo]]\nflags = \"p_token::case1\"\n",
+        ).unwrap();
+        dir
+    }
+
+    // Task 4.3 (derive-contracts-from-specodelic): a `flags` binding whose
+    // runner matched zero tests must fail the gate instead of passing —
+    // `cargo test -- nonexistent-filter` exits 0 with "0 passed".
+    #[test]
+    fn cargo_flags_binding_matching_zero_tests_emits_no_tests_ran() {
+        let dir =
+            cargo_check_repo("printf 'test result: ok. 0 passed; 1 filtered out; 0 finished\\n'");
+        let output = run_check(dir.path(), &[], true).unwrap();
+        assert!(
+            output.findings.iter().any(|f| f.kind == "no-tests-ran"),
+            "expected no-tests-ran for zero-matched cargo binding; got: {:?}",
+            output.findings
+        );
+        assert_eq!(output.summary.passed, 0);
+    }
+
+    #[test]
+    fn cargo_flags_binding_with_passes_still_counts_passed() {
+        let dir = cargo_check_repo("printf 'test result: ok. 2 passed; 0 failed\\n'");
+        let output = run_check(dir.path(), &[], true).unwrap();
+        assert!(
+            !output.findings.iter().any(|f| f.kind == "no-tests-ran"),
+            "unexpected no-tests-ran for positive cargo output"
         );
         assert_eq!(output.summary.passed, 1);
     }
