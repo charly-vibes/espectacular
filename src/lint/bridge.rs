@@ -56,11 +56,11 @@ struct SpkWarning {
 }
 
 #[derive(Deserialize)]
-struct SpkIssue {
-    rule_id: String,
-    message: String,
+pub(crate) struct SpkIssue {
+    pub(crate) rule_id: String,
+    pub(crate) message: String,
     #[serde(default)]
-    rule_semantics: String,
+    pub(crate) rule_semantics: String,
 }
 
 /// Relay spk findings for every dual-format spec. Plain openspec files never
@@ -118,14 +118,14 @@ pub(crate) fn relay_with(program: &str, specs: &[SpecFile], findings: &mut Vec<L
     }
 }
 
-enum Failure {
+pub(crate) enum Failure {
     Unavailable(String),
     Broken(String),
 }
 
 /// Invoke `spk lint <path> --json` and extract its issues. Every failure mode
 /// maps to an advisory [`Failure`] — the bridge never hard-fails the lint run.
-fn invoke(program: &str, path: &str) -> Result<Vec<SpkIssue>, Failure> {
+pub(crate) fn invoke(program: &str, path: &str) -> Result<Vec<SpkIssue>, Failure> {
     let output = Command::new(program)
         .args(["lint", path, "--json"])
         .output()

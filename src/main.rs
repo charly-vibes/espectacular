@@ -18,6 +18,7 @@ mod report;
 mod runner;
 mod scenario;
 mod signals;
+mod sync;
 mod upgrade;
 
 use anyhow::Context;
@@ -119,6 +120,12 @@ enum Command {
     },
     /// Read dont rejection events and emit drift signals as JSON.
     Signals,
+    /// Create or refresh property-derived contracts from lint-clean Properties rows
+    Sync {
+        /// CI mode: write nothing, exit non-zero on drift or missing contracts
+        #[arg(long)]
+        check: bool,
+    },
     /// Generate shell completions
     Completions {
         /// Shell to generate completions for (bash, zsh, fish, powershell, elvish)
@@ -169,6 +176,7 @@ const AH_COMMANDS: &[&str] = &[
     "upgrade",
     "scenario",
     "signals",
+    "sync",
     "completions",
     "feedback",
 ];
@@ -445,6 +453,34 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             let drift = signals::collect_drift_signals(&project_root);
             println!("{}", to_json_envelope(EnvelopeKind::Stats, &drift));
             Ok(())
+        }
+        Command::Sync { check } => {
+            let project_root = std::env::current_dir()?;
+            let outcome = sync::run_sync("spk", &project_root, check)?;
+            if cli.json {
+                println!("{}", to_json_envelope(EnvelopeKind::Ok, &outcome));
+            } else {
+                if let Some(msg) = &outcome.spk_unavailable {
+                    eprintln!("spk-unavailable: {msg}");
+                }
+                for (file, reason) in &outcome.refusals {
+                    eprintln!("refused: {file}: {reason}");
+                }
+                for path in &outcome.missing {
+                    eprintln!("missing contract: {path}");
+                }
+                for path in &outcome.stale {
+                    eprintln!("contract stale: {path}");
+                }
+                for path in &outcome.fresh {
+                    println!("fresh: {path}");
+                }
+                for path in &outcome.wrote {
+                    println!("wrote: {path}");
+                }
+            }
+            // C-sync-refusal / C-sync-check: non-zero without further action.
+            std::process::exit(if outcome.is_ok() { 0 } else { 1 });
         }
         Command::Feedback {
             kind,

@@ -20,11 +20,11 @@
 
 ## 3. `ah sync`
 
-- [ ] 3.1 Register `sync` in the `Command` enum in `src/main.rs` per `cli-core` conventions (this delta's cli-core requirement)
-- [ ] 3.2 Failing tests: refuses to write when `spk lint` fails or `spk` is missing; exits non-zero with a reason (`spk-unavailable` for missing binary)
-- [ ] 3.3 Implement create-or-refresh preserving `tests`, `status`, `superseded_by`
-- [ ] 3.4 `--check` mode: no writes, non-zero exit on drift or missing contracts
-- [ ] 3.5 Resolve the overrides question (design Open question 3) and record the decision in the design doc
+- [x] 3.1 Register `sync` in the `Command` enum in `src/main.rs` per `cli-core` conventions (this delta's cli-core requirement)
+- [x] 3.2 Failing tests: refuses to write when `spk lint` fails or `spk` is missing; exits non-zero with a reason (`spk-unavailable` for missing binary)
+- [x] 3.3 Implement create-or-refresh preserving `tests`, `status`, `superseded_by`
+- [x] 3.4 `--check` mode: no writes, non-zero exit on drift or missing contracts
+- [x] 3.5 Resolve the overrides question (design Open question 3) and record the decision in the design doc
 
 ## 4. Gate integration
 

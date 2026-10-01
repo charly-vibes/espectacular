@@ -107,9 +107,16 @@ follow the same recipe, gated on the byte-identical regression task.
 2. ~~`openspec validate --strict` and the `**VERIFIES**` bullet.~~ **Resolved
    by spike**: accepted inside a scenario body (exit 0); keep the link in the
    bullets.
-3. **Overrides.** Hand-edited derived fields make a contract stale. Options:
-   an `override_*` namespace honored by sync, or a Properties-row annotation.
-   Decide during task group 3.
+3. ~~**Overrides.**~~ **Resolved (task 3.5)**: no override namespace and no
+   Properties-row annotation — sync-owned fields (D3) are authoritative.
+   Hand-edited derived fields make the contract stale and `ah sync --check`
+   reports it (drift detection is the feature, not a bug to route around);
+   `ah sync` overwrites them on the next write-mode run. An author who wants
+   a different archetype/class changes the spec row (property kind, or the
+   constraint citations the row's states/transitions carry) and re-syncs —
+   one source of truth, no third field lineage. If a real need for
+   per-contract deviation emerges in the pilot (task 6.3), revisit with a
+   follow-up proposal rather than growing an override syntax now.
 4. ~~`id: spec` constraint.~~ **Non-issue**: all deployed capability files are
    `id: spec`, and `spk parse` exports per-file IR anyway.
 5. ~~**Archive round-trip.**~~ **Resolved 2026-10-01**: spk 0.3.0 shipped
