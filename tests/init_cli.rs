@@ -69,4 +69,10 @@ fn ah_init_anchors_lefthook_with_comments_mentioning_stage() {
         "block must not duplicate on re-init:\n{yml2}"
     );
     assert_eq!(yml2, yml, "re-init must leave the file byte-identical");
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_init() {
+        ah_init_anchors_lefthook_with_comments_mentioning_stage();
+    }
 }

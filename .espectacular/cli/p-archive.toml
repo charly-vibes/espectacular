@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-archive@ea50ac12a3a2"
+description = "staged contracts move only post-archive and refuse collisions"
+falsifiability_class = "safety"
+id = "p-archive"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_archive"
+timeout_seconds = 180

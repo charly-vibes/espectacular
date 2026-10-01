@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-explain@12ab0314aa61"
+description = "guidance printed per topic class; JSON valid; list complete; unknown errors"
+falsifiability_class = "safety"
+id = "p-explain"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_explain"
+timeout_seconds = 180

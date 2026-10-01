@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-lint@1beb12063671"
+description = "quality findings without file modification or test execution; clean exits zero with empty findings"
+falsifiability_class = "safety"
+id = "p-lint"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_lint"
+timeout_seconds = 180

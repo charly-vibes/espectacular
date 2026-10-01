@@ -144,4 +144,14 @@ fn ah_scenario_supersede_fails_when_new_id_not_in_scope() {
         ])
         .assert()
         .failure();
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_lifecycle() {
+        ah_scenario_new_exits_zero_and_prints_paths();
+        ah_scenario_new_fails_when_change_spec_missing();
+        ah_scenario_new_fails_when_requirement_missing();
+        ah_scenario_supersede_exits_zero_and_prints_path();
+        ah_scenario_supersede_fails_when_new_id_not_in_scope();
+    }
 }

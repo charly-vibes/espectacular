@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-type@85de4408e744"
+description = "all archetypes listed; details render per archetype"
+falsifiability_class = "safety"
+id = "p-type"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_type"
+timeout_seconds = 180

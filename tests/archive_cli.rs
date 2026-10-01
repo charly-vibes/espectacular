@@ -82,4 +82,12 @@ fn ah_archive_exits_nonzero_when_no_staged_change() {
         .assert()
         .failure()
         .stderr(predicates::str::contains("no staged contracts"));
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_archive() {
+        ah_archive_exits_zero_and_prints_archived_path();
+        ah_archive_exits_nonzero_on_collision();
+        ah_archive_exits_nonzero_when_no_staged_change();
+    }
 }

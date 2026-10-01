@@ -97,4 +97,12 @@ fn ah_upgrade_does_not_modify_authored_with_in_contracts() {
         contract_text.contains("authored_with = \"0.0.9\""),
         "authored_with must not be modified by upgrade: {contract_text}"
     );
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_upgrade() {
+        ah_upgrade_exits_zero_when_config_matches_binary();
+        ah_upgrade_reports_old_and_new_version_on_drift();
+        ah_upgrade_updates_config_tool_version_on_drift();
+    }
 }

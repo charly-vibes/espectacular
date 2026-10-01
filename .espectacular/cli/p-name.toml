@@ -1,0 +1,12 @@
+archetype = "PF"
+authored_with = "0.8.0"
+derived_from = "P-name@35e80aad841b"
+description = "it answers to `ah` with help"
+falsifiability_class = "safety"
+id = "p-name"
+status = "active"
+superseded_by = ""
+
+[[tests.shell]]
+command = "cargo run -q --bin ah -- --help >/dev/null"
+timeout_seconds = 120

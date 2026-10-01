@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-lifecycle@e4b7e14e3aa5"
+description = "legal authoring succeeds append-only; both illegal cases rejected"
+falsifiability_class = "safety"
+id = "p-lifecycle"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_lifecycle"
+timeout_seconds = 180

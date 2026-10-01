@@ -216,4 +216,15 @@ fn ah_explain_lint_kinds_return_topic_envelopes() {
         .args(["explain", "lint", "--json"])
         .assert()
         .success();
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_explain() {
+        ah_explain_finding_kind_prints_body();
+        ah_explain_suggested_action_prints_body();
+        ah_explain_general_topics();
+        ah_explain_json_has_required_fields();
+        ah_explain_list_is_sorted();
+        ah_explain_unknown_topic_exits_nonzero();
+    }
 }

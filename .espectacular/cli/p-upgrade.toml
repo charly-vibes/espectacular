@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-upgrade@0c6bf7e2c626"
+description = "compatibility changes reported explicitly"
+falsifiability_class = "safety"
+id = "p-upgrade"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_upgrade"
+timeout_seconds = 180

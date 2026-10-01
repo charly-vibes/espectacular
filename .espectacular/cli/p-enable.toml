@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-enable@bf0ed2824a5a"
+description = "one config table per enable with reported path/table; unknown errors; active is a no-op"
+falsifiability_class = "safety"
+id = "p-enable"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_enable"
+timeout_seconds = 180

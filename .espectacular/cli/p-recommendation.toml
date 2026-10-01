@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-recommendation@01980950b75e"
+description = "recommendation findings carry enable commands and are finding kinds"
+falsifiability_class = "safety"
+id = "p-recommendation"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_recommendation"
+timeout_seconds = 180

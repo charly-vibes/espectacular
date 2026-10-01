@@ -77,4 +77,11 @@ fn ah_type_unknown_archetype_suggests_did_you_mean() {
         .failure()
         .stderr(contains("Did you mean"))
         .stderr(contains("NR"));
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_type() {
+        ah_type_lists_all_archetypes();
+        ah_type_known_archetype_prints_full_body();
+    }
 }

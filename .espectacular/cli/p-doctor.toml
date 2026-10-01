@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-doctor@e811b8dec324"
+description = "diagnoses setup and correspondence wiring"
+falsifiability_class = "safety"
+id = "p-doctor"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_doctor"
+timeout_seconds = 180
