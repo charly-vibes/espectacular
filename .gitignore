@@ -18,3 +18,5 @@ docs/src/specs/
 # testaruda store (local SQLite DB)
 # §6: generated from Cargo.toml by docs.yml — never committed
 docs/src/release.md
+docs/_book/
+docs/src/https:/
