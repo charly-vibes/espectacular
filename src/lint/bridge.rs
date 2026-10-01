@@ -73,6 +73,20 @@ pub fn relay_dual_format(specs: &[SpecFile], findings: &mut Vec<LintFinding>) {
 pub(crate) fn relay_with(program: &str, specs: &[SpecFile], findings: &mut Vec<LintFinding>) {
     for spec in specs {
         if !is_dual_format(&spec.raw) {
+            // Task 5.1: a kind-intent file the bridge would otherwise skip
+            // with a bare `continue` is a silent miss. Flag the frontmatter
+            // mismatch instead of skipping silently.
+            if let Some(msg) = intent_mismatch(spec) {
+                findings.push(LintFinding::warning(
+                    "spk-frontmatter-mismatch",
+                    &spec.spec_path,
+                    "",
+                    &msg,
+                    "set the frontmatter id to the expected value (filename stem with '-' mapped to '.') or drop the kind: intent frontmatter if the file is not meant to be specodelic",
+                    "edit_spec",
+                    "ah explain spk-frontmatter-mismatch",
+                ));
+            }
             continue;
         }
         let Some(path) = spec.source_path.to_str() else {
@@ -80,6 +94,7 @@ pub(crate) fn relay_with(program: &str, specs: &[SpecFile], findings: &mut Vec<L
         };
         match invoke(program, path) {
             Ok(issues) => {
+                relay_graph(program, spec, path, findings);
                 for issue in issues {
                     findings.push(LintFinding::warning(
                         &format!("spk.{}", issue.rule_id),
@@ -121,6 +136,123 @@ pub(crate) fn relay_with(program: &str, specs: &[SpecFile], findings: &mut Vec<L
 pub(crate) enum Failure {
     Unavailable(String),
     Broken(String),
+}
+
+/// Task 5.1: a non-dual-format file whose frontmatter declares `kind: intent`.
+/// Returns the mismatch finding message when the frontmatter id does not match
+/// the filename stem (or is absent) — the file declares itself specodelic but
+/// the bridge's `id: spec` activation rule skips it.
+fn intent_mismatch(spec: &SpecFile) -> Option<String> {
+    let rest = spec.raw.strip_prefix("---")?;
+    let end = rest.find("\n---")?;
+    let front = &rest[..end];
+    let mut is_intent = false;
+    let mut id: Option<&str> = None;
+    for line in front.lines() {
+        if line.trim() == "kind: intent" {
+            is_intent = true;
+        } else if let Some(v) = line.trim().strip_prefix("id:") {
+            id = Some(v.trim());
+        }
+    }
+    if !is_intent {
+        return None;
+    }
+    let stem = spec
+        .source_path
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    // spk's id_matches_file convention: filename stem, '-' mapped to '.'.
+    let expected = stem.replace('-', ".");
+    match id {
+        Some(found) if found == expected => None,
+        Some(found) => Some(format!(
+            "file declares kind: intent but its frontmatter id `{found}` does not match the filename stem (expected `{expected}`) — the dual-format bridge skips it silently"
+        )),
+        None => Some(format!(
+            "file declares kind: intent but has no frontmatter id (expected `{expected}`) — the dual-format bridge skips it silently"
+        )),
+    }
+}
+
+// ---- spk graph relay (task 5.2) -------------------------------------------
+
+#[derive(Deserialize)]
+struct SpkGraphEnvelope {
+    #[serde(default)]
+    data: Option<SpkGraphData>,
+}
+
+#[derive(Deserialize)]
+struct SpkGraphData {
+    #[serde(default)]
+    violations: Vec<SpkGraphViolation>,
+    #[serde(default)]
+    dangling: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct SpkGraphViolation {
+    #[serde(default)]
+    edge_kind: String,
+    #[serde(default)]
+    from: String,
+    #[serde(default)]
+    to: String,
+    #[serde(default)]
+    reason: String,
+}
+
+/// Relay `spk graph` typing violations and dangling references as
+/// `spk.graph.*` warnings. Degrades silently on invocation failure — the lint
+/// relay already surfaces an spk-unavailable/spk-bridge-failure advisory, and
+/// graph is additive signal (design D2: ah consumes, spk owns validity).
+pub(crate) fn relay_graph(
+    program: &str,
+    spec: &SpecFile,
+    path: &str,
+    findings: &mut Vec<LintFinding>,
+) {
+    let output = match Command::new(program)
+        .args(["graph", path, "--json"])
+        .output()
+    {
+        Ok(o) => o,
+        Err(_) => return,
+    };
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let Ok(envelope) = serde_json::from_str::<SpkGraphEnvelope>(stdout.trim()) else {
+        return;
+    };
+    let Some(data) = envelope.data else {
+        return;
+    };
+    for v in &data.violations {
+        findings.push(LintFinding::warning(
+            "spk.graph.typing",
+            &spec.spec_path,
+            "",
+            &format!(
+                "typing violation on {} {} → {}: {}",
+                v.edge_kind, v.from, v.to, v.reason
+            ),
+            "resolve the spk graph typing violation — the cited row has the wrong kind for this edge",
+            "edit_spec",
+            "ah explain lint",
+        ));
+    }
+    for d in &data.dangling {
+        findings.push(LintFinding::warning(
+            "spk.graph.dangling",
+            &spec.spec_path,
+            "",
+            d,
+            "resolve the dangling reference — the target is not defined in any spec file",
+            "edit_spec",
+            "ah explain lint",
+        ));
+    }
 }
 
 /// Invoke `spk lint <path> --json` and extract its issues. Every failure mode
@@ -187,6 +319,178 @@ echo '{"ok":true,"envelope_version":"0.1","cli_version":"0.1.0","envelope_kind":
 
     const PLAIN_RAW: &str =
         "# Capability: auth\n\n## Requirements\n\n### Requirement: Login\nThe system SHALL log in.\n";
+
+    const INTENT_MISMATCH_RAW: &str = "---\nid: wrong\nkind: intent\nstatement: \"do it\"\n---\n\n## Requirements\n\n### Requirement: Login\nThe system SHALL log in.\n";
+
+    const INTENT_NO_ID_RAW: &str = "---\nkind: intent\nstatement: \"do it\"\n---\n\n## Requirements\n\n### Requirement: Login\nThe system SHALL log in.\n";
+
+    const GRAPH_ENVELOPE: &str = r#"#!/bin/sh
+if [ "$1" = "graph" ]; then
+echo '{"ok":true,"envelope_version":"0.1","cli_version":"0.1.0","envelope_kind":"ok","data":{"nodes":2,"files":1,"edges":[],"dangling":["spec → [[spec.C-b]]"],"violations":[{"edge_kind":"transitions.guard","from":"spec.t-a","to":"spec.P-a","reason":"guard must resolve to an invariant Constraint"}],"fan_in":{},"fan_out":{},"external_boundaries":[],"supersedes_cycles":[]},"warnings":[],"hints":[],"meta":{}}'
+else
+echo '{"ok":true,"envelope_version":"0.1","cli_version":"0.1.0","envelope_kind":"ok","data":{"files_linted":1,"issues":[]},"warnings":[],"hints":[],"meta":{}}'
+fi
+"#;
+
+    const GRAPH_CLEAN_ENVELOPE: &str = r#"#!/bin/sh
+if [ "$1" = "graph" ]; then
+echo '{"ok":true,"envelope_version":"0.1","cli_version":"0.1.0","envelope_kind":"ok","data":{"nodes":2,"files":1,"edges":[],"dangling":[],"violations":[],"fan_in":{},"fan_out":{},"external_boundaries":[],"supersedes_cycles":[]},"warnings":[],"hints":[],"meta":{}}'
+else
+echo '{"ok":true,"envelope_version":"0.1","cli_version":"0.1.0","envelope_kind":"ok","data":{"files_linted":1,"issues":[]},"warnings":[],"hints":[],"meta":{}}'
+fi
+"#;
+
+    // ---- task 5.1 — spk-frontmatter-mismatch closes the bare-continue gap --
+
+    #[test]
+    fn mismatched_kind_intent_file_emits_spk_frontmatter_mismatch() {
+        // Nonexistent spk program proves the finding is emitted WITHOUT an
+        // invocation — a second (spk-unavailable) finding would mean the
+        // bridge still tried to relay it.
+        let specs = vec![spec_with_raw("auth", INTENT_MISMATCH_RAW)];
+        let mut findings = Vec::new();
+        relay_with("/nonexistent/path/spk", &specs, &mut findings);
+        assert_eq!(findings.len(), 1, "exactly one mismatch finding");
+        let f = &findings[0];
+        assert_eq!(f.kind, "spk-frontmatter-mismatch");
+        assert_eq!(f.severity, crate::lint::Severity::Warning);
+        assert_eq!(f.spec_path, "auth");
+        assert!(f.message.contains("wrong"), "names the file's id: {f:?}");
+        assert!(f.message.contains("spec"), "names the expected id: {f:?}");
+    }
+
+    #[test]
+    fn kind_intent_file_without_id_emits_mismatch_naming_expected_id() {
+        let specs = vec![spec_with_raw("auth", INTENT_NO_ID_RAW)];
+        let mut findings = Vec::new();
+        relay_with("/nonexistent/path/spk", &specs, &mut findings);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].kind, "spk-frontmatter-mismatch");
+        let msg = &findings[0].message;
+        assert!(msg.contains("spec"), "expected id: {msg}");
+    }
+
+    #[test]
+    fn plain_and_dual_format_files_emit_no_mismatch() {
+        // Plain (no frontmatter) stays untouched; dual-format is relayed and
+        // must not double-report a mismatch.
+        for raw in [PLAIN_RAW, DUAL_RAW] {
+            let specs = vec![spec_with_raw("auth", raw)];
+            let mut findings = Vec::new();
+            relay_with("/nonexistent/path/spk", &specs, &mut findings);
+            assert!(
+                findings
+                    .iter()
+                    .all(|f| f.kind != "spk-frontmatter-mismatch"),
+                "no mismatch finding for plain/dual file: {findings:?}"
+            );
+        }
+    }
+
+    // ---- task 5.2 — spk graph relay --------------------------------------
+
+    #[test]
+    fn graph_typing_violation_and_dangling_ref_are_relayed() {
+        let dir = tempfile::tempdir().unwrap();
+        let shim = write_shim(dir.path(), "spk", GRAPH_ENVELOPE);
+        let specs = vec![spec_with_raw("auth", DUAL_RAW)];
+        let mut findings = Vec::new();
+        relay_with(shim.to_str().unwrap(), &specs, &mut findings);
+        let kinds: Vec<&str> = findings.iter().map(|f| f.kind.as_str()).collect();
+        assert!(
+            kinds.contains(&"spk.graph.typing"),
+            "typing violation relayed: {kinds:?}"
+        );
+        assert!(
+            kinds.contains(&"spk.graph.dangling"),
+            "dangling ref relayed: {kinds:?}"
+        );
+        for f in findings.iter().filter(|f| f.kind.starts_with("spk.graph.")) {
+            assert_eq!(f.severity, crate::lint::Severity::Warning);
+            assert_eq!(f.spec_path, "auth");
+        }
+        let typing = findings
+            .iter()
+            .find(|f| f.kind == "spk.graph.typing")
+            .unwrap();
+        assert!(
+            typing.message.contains("spec.t-a"),
+            "names the edge: {typing:?}"
+        );
+        let dangling = findings
+            .iter()
+            .find(|f| f.kind == "spk.graph.dangling")
+            .unwrap();
+        assert!(
+            dangling.message.contains("spec.C-b"),
+            "names the ref: {dangling:?}"
+        );
+    }
+
+    #[test]
+    fn clean_graph_output_emits_no_graph_findings() {
+        let dir = tempfile::tempdir().unwrap();
+        let shim = write_shim(dir.path(), "spk", GRAPH_CLEAN_ENVELOPE);
+        let specs = vec![spec_with_raw("auth", DUAL_RAW)];
+        let mut findings = Vec::new();
+        relay_with(shim.to_str().unwrap(), &specs, &mut findings);
+        assert!(findings.is_empty(), "clean corpus: {findings:?}");
+    }
+
+    #[test]
+    fn graph_failure_degrades_silently() {
+        // Broken shim: the lint relay already surfaces spk-bridge-failure;
+        // the graph relay must not add a duplicate noise finding.
+        let dir = tempfile::tempdir().unwrap();
+        let shim = write_shim(dir.path(), "spk", GARBAGE);
+        let specs = vec![spec_with_raw("auth", DUAL_RAW)];
+        let mut findings = Vec::new();
+        relay_with(shim.to_str().unwrap(), &specs, &mut findings);
+        assert!(
+            findings.iter().all(|f| !f.kind.starts_with("spk.graph.")),
+            "graph errors never surface: {findings:?}"
+        );
+    }
+
+    #[test]
+    fn graph_is_inert_for_plain_openspec_files() {
+        let specs = vec![spec_with_raw("auth", PLAIN_RAW)];
+        let mut findings = Vec::new();
+        relay_with("/nonexistent/path/spk", &specs, &mut findings);
+        assert!(findings.is_empty());
+    }
+
+    // ---- real-spk end-to-end (skips gracefully without spk) ---------------
+
+    #[test]
+    fn real_spk_graph_relay_if_installed() {
+        if std::process::Command::new("spk")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
+            eprintln!("spk not installed; skipping");
+            return;
+        }
+        // Typing violation (guard cites a Property) + dangling derives_from.
+        let raw = "---\nid: spec\nkind: intent\nstatement: \"WHEN x THE system SHALL y.\"\n---\n\n# Spec\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| C-a | invariant | foo | [[spec]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t-a | s1 | s1 | [[spec.P-a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| P-a | unit | [[spec.C-missing]] | input | output |\n";
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("spec.md");
+        std::fs::write(&path, raw).unwrap();
+        let mut spec = walker::parse_spec(raw, "auth");
+        spec.source_path = path.clone();
+        let mut findings = Vec::new();
+        relay_dual_format(std::slice::from_ref(&spec), &mut findings);
+        let kinds: Vec<&str> = findings.iter().map(|f| f.kind.as_str()).collect();
+        assert!(
+            kinds.contains(&"spk.graph.typing"),
+            "typing violation relayed from real spk: {kinds:?}"
+        );
+        assert!(
+            kinds.contains(&"spk.graph.dangling"),
+            "dangling ref relayed from real spk: {kinds:?}"
+        );
+    }
 
     #[test]
     fn is_dual_format_detects_id_spec_frontmatter() {

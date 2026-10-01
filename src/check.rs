@@ -299,7 +299,7 @@ fn resolve_scope(
 
 /// Extract property ids from `- **VERIFIES** [[spec.P-x]]` bullets in a
 /// scenario body (design D1 coverage convention).
-fn verifies_property_ids(body: &str) -> Vec<String> {
+pub(crate) fn verifies_property_ids(body: &str) -> Vec<String> {
     let mut ids = Vec::new();
     for line in body.lines() {
         let Some(rest) = line.trim().strip_prefix("- **VERIFIES** [[spec.") else {

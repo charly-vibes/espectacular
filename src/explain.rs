@@ -124,6 +124,8 @@ enum LintCheckKind {
     EntangledSpec,
     SpkFrontmatterMismatch,
     VerifiesDangling,
+    ScenarioUnlinked,
+    PropertyUntraced,
 }
 
 const ALL_LINT_KINDS: &[LintCheckKind] = &[
@@ -136,6 +138,8 @@ const ALL_LINT_KINDS: &[LintCheckKind] = &[
     LintCheckKind::EntangledSpec,
     LintCheckKind::SpkFrontmatterMismatch,
     LintCheckKind::VerifiesDangling,
+    LintCheckKind::ScenarioUnlinked,
+    LintCheckKind::PropertyUntraced,
 ];
 
 fn finding_kind_entry(kind: FindingKind) -> &'static TopicEntry {
@@ -175,6 +179,8 @@ fn lint_kind_entry(kind: LintCheckKind) -> &'static TopicEntry {
         LintCheckKind::EntangledSpec => &LINT_ENTANGLED_SPEC,
         LintCheckKind::SpkFrontmatterMismatch => &LINT_SPK_FRONTMATTER_MISMATCH,
         LintCheckKind::VerifiesDangling => &LINT_VERIFIES_DANGLING,
+        LintCheckKind::ScenarioUnlinked => &LINT_SCENARIO_UNLINKED,
+        LintCheckKind::PropertyUntraced => &LINT_PROPERTY_UNTRACED,
     }
 }
 
@@ -403,6 +409,27 @@ static LINT_VERIFIES_DANGLING: TopicEntry = TopicEntry {
     do_action: "Fix the property id in the VERIFIES bullet (or add the missing Properties row).",
     human_approval: false,
     related_topics: &["lint", "no-tests-declared", "contract-stale"],
+    hints: &[],
+};
+static LINT_SCENARIO_UNLINKED: TopicEntry = TopicEntry {
+    slug: "scenario-unlinked",
+    summary: "A scenario in a dual-format file with Properties rows carries no VERIFIES link.",
+    body: "## scenario-unlinked — Scenario without a VERIFIES link\n\nThe file declares Properties rows, but this scenario carries no\n`- **VERIFIES** [[spec.P-id]]` bullet. Under design D1 it falls back to\nits own contract toml — legitimate, but it is not covered by a\nproperty-derived contract.\n\n**Why it matters**: the coverage convention is how specodelic properties\nbecome executable contracts; a scenario outside the convention needs\nmanual contract maintenance that sync cannot refresh.\n\n**How to fix**: add a `- **VERIFIES** [[spec.P-id]]` bullet linking the\nscenario to the property it verifies (then run `ah sync`), or keep the\nscenario's own contract if the fallback is deliberate.",
+    when: "A dual-format file with Properties rows contains a scenario without a VERIFIES bullet.",
+    do_action: "Add a `- **VERIFIES** [[spec.P-id]]` bullet to the scenario, then run `ah sync` to derive the property's contract.",
+    human_approval: false,
+    related_topics: &["verifies-dangling", "run_ah_sync", "property-untraced"],
+    hints: &[],
+};
+
+static LINT_PROPERTY_UNTRACED: TopicEntry = TopicEntry {
+    slug: "property-untraced",
+    summary: "A Properties row is cited by no scenario's VERIFIES bullet.",
+    body: "## property-untraced — Property no scenario verifies\n\nThe Properties row exists, but no scenario in the file carries a\n`- **VERIFIES** [[spec.P-id]]` bullet naming it. The property is\nuntestable-as-written: its derived contract declares no covering\nscenario.\n\n**Why it matters**: an untraced property's contract cannot map to real\nbehavior — the specodelic row is dead weight unless a scenario adopts it.\n\n**How to fix**: add a VERIFIES bullet to a covering scenario, or\nsupersede/remove the row if it is no longer testable.",
+    when: "A dual-format file with Properties rows contains a property no scenario cites.",
+    do_action: "Add a `- **VERIFIES** [[spec.P-id]]` bullet to a covering scenario, or supersede the row.",
+    human_approval: false,
+    related_topics: &["verifies-dangling", "scenario-unlinked"],
     hints: &[],
 };
 
@@ -1572,6 +1599,8 @@ mod tests {
             "run_ah_sync",
             "spk-frontmatter-mismatch",
             "verifies-dangling",
+            "scenario-unlinked",
+            "property-untraced",
         ] {
             let entry = lookup(slug).unwrap_or_else(|| panic!("missing topic: {slug}"));
             assert_eq!(entry.slug, slug);
@@ -1686,11 +1715,12 @@ mod tests {
         let topics = all_topics();
         // 20 finding kinds + 7 suggested actions + 5 general (incl. lint)
         // + 3 adapter + 7 lint kinds (espectacular-eia) = 42; +2 finding/action
-        // + 2 lint kinds from derive-contracts-from-specodelic (4.2/4.4) = 46
+        // + 2 lint kinds from derive-contracts-from-specodelic (4.2/4.4)
+        // + 2 trace kinds from 5.3 = 48
         assert_eq!(
             topics.len(),
-            46,
-            "expected 46 topics (21 finding + 8 action + 5 general + 3 adapter + 9 lint kinds), got {}",
+            48,
+            "expected 48 topics (21 finding + 8 action + 5 general + 3 adapter + 11 lint kinds), got {}",
             topics.len()
         );
     }

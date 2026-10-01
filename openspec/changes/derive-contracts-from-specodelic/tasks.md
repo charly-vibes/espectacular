@@ -36,9 +36,9 @@
 
 ## 5. Lint
 
-- [ ] 5.1 `spk-frontmatter-mismatch` for `kind: intent` files the bridge would otherwise skip (bare `continue` in `relay_with`)
-- [ ] 5.2 Relay `spk graph` typing violations and dangling refs as `spk.graph.*` warnings
-- [ ] 5.3 Trace checks: `verifies-dangling`, advisory `scenario-unlinked` and `property-untraced`; none affect exit code
+- [x] 5.1 `spk-frontmatter-mismatch` for `kind: intent` files the bridge would otherwise skip (bare `continue` in `relay_with`)
+- [x] 5.2 Relay `spk graph` typing violations and dangling refs as `spk.graph.*` warnings
+- [x] 5.3 Trace checks: `verifies-dangling`, advisory `scenario-unlinked` and `property-untraced`; none affect exit code
 
 ## 6. Docs, governance, pilot
 

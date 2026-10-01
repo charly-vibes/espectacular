@@ -4,6 +4,7 @@
 
 pub mod flow;
 pub mod shape;
+pub mod trace;
 
 /// Lowercase tokenization shared by line-level matchers: keeps hyphenated
 /// terms (`user-friendly`) intact and strips punctuation (`fast.` → `fast`).

@@ -127,6 +127,9 @@ pub(crate) fn checks(cfg: &crate::config::LintConfig) -> Vec<Box<dyn LintCheck>>
         Box::new(checks::shape::MissingNonGoalsCheck),
         Box::new(checks::shape::UnresolvedAmbiguityCheck),
         Box::new(checks::shape::EntangledSpecCheck),
+        Box::new(checks::trace::VerifiesDanglingCheck),
+        Box::new(checks::trace::ScenarioUnlinkedCheck),
+        Box::new(checks::trace::PropertyUntracedCheck),
     ]
 }
 
@@ -520,6 +523,50 @@ mod tests {
             .filter(|f| f.severity == Severity::Warning && f.spec_path == "good")
             .collect();
         assert!(!good_warnings.is_empty());
+    }
+
+    #[test]
+    fn trace_findings_are_advisory_and_exit_zero() {
+        // Deployed derive-contracts lint delta (task 5.3): verifies-dangling,
+        // scenario-unlinked, and property-untraced never affect the exit code.
+        let tmp = tempfile::tempdir().unwrap();
+        let specs = tmp.path().join("specs");
+        std::fs::create_dir_all(specs.join("auth")).unwrap();
+        std::fs::write(
+            specs.join("auth/spec.md"),
+            "---\nid: spec\nkind: intent\nstatement: \"WHEN x THE system SHALL y.\"\n---\n\n# Spec\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| P-a | unit | [[spec.C-a]] | input | output |\n\n## Requirements\n\n### Requirement: Login\nThe system SHALL log in.\n\n#### Scenario: dangling\n- **WHEN** a token is checked\n- **VERIFIES** [[spec.P-missing]]\n\n#### Scenario: unlinked\n- **WHEN** a session expires\n- **THEN** the user is logged out\n",
+        )
+        .unwrap();
+        let registered = select_checks(&crate::config::LintConfig::default(), None).unwrap();
+        let output = run_lint_with(&specs, &registered).unwrap();
+        let trace_kinds: Vec<&str> = output
+            .findings
+            .iter()
+            .filter(|f| {
+                matches!(
+                    f.kind.as_str(),
+                    "verifies-dangling" | "scenario-unlinked" | "property-untraced"
+                )
+            })
+            .map(|f| f.kind.as_str())
+            .collect();
+        assert!(
+            trace_kinds.contains(&"verifies-dangling"),
+            "dangling link flagged: {trace_kinds:?}"
+        );
+        assert!(
+            trace_kinds.contains(&"scenario-unlinked"),
+            "unlinked scenario flagged: {trace_kinds:?}"
+        );
+        assert!(
+            trace_kinds.contains(&"property-untraced"),
+            "untraced property flagged: {trace_kinds:?}"
+        );
+        assert_eq!(
+            exit_code(&output),
+            0,
+            "advisory trace findings must not gate"
+        );
     }
 
     #[test]
