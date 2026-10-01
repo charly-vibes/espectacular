@@ -13,4 +13,4 @@ cargo = ["cargo", "test"]
 # exact version. Consumer (version-mismatch fail-closed) lands with the
 # derivation module (derive-contracts-from-specodelic, task group 2).
 [spk]
-version = "0.3.0"
+version = "0.3.1"

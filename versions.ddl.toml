@@ -5,9 +5,10 @@
 # tests/standard_conformance.rs) requires this file to exist.
 #
 # §4 matrix row (espectacular): pretender ✅ · wai ✅ · bd ✅ · openspec ✅ · ddl ✅
-# specodelic is now a crates.io pin (0.3.0 carries spk parse --json and
-# archive-companion, required by derive-contracts-from-specodelic) — not yet a
-# §4 matrix column.
+# specodelic is now a crates.io pin (0.3.1 fixes linter.requirement_drift for
+# mixed ADDED+MODIFIED dual-format files, specodelic#8; 0.3.0+ carries spk
+# parse --json and archive-companion, required by derive-contracts-from-
+# specodelic) — not yet a §4 matrix column.
 
 [tools]
 wai = "2026.9.28"          # crates.io: wai-cli
@@ -15,4 +16,4 @@ pretender = "0.7.0"        # crates.io — 0.7.0: gate-by-default + advisory lea
 dulce-de-leche = "0.7.0"   # crates.io (bin: ddl)
 openspec = "0.19.0"        # npm: @fission-ai/openspec
 bd = "1.3.0"               # beads — pinned GitHub release download (no versioned homebrew-core formula)
-specodelic = "0.3.0"       # crates.io (bin: spk; parse --json + archive-companion)
+specodelic = "0.3.1"       # crates.io (bin: spk; parse --json + archive-companion; #8 fix)
