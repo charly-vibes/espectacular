@@ -140,11 +140,32 @@ ah lint [<root>] [--changes <id>] [--check <kind>]
 | `--changes <id>` | Lint a change's spec overlay in addition to deployed specs |
 | `--check <kind>` | Run only a single check category (e.g. `vague-qualifier`) |
 
-**Checks:** `vague-qualifier`, `imperative-step`, `conjunctive-bloat` (configurable max `and`-steps, default 5), `missing-negative-scenario`, `missing-non-goals`, `unresolved-ambiguity`, `entangled-spec`, plus `spk.<rule_id>` relays from the specodelic linter.
+**Checks:** `vague-qualifier`, `imperative-step`, `conjunctive-bloat` (configurable max `and`-steps, default 5), `missing-negative-scenario`, `missing-non-goals`, `unresolved-ambiguity`, `entangled-spec`, `verifies-dangling`, `scenario-unlinked`, `property-untraced`, plus `spk.<rule_id>` relays from the specodelic linter and `spk.graph.typing` / `spk.graph.dangling` relays from `spk graph`.
 
-A spec file that cannot be parsed emits an error-severity finding instead of aborting the walk.
+A spec file that cannot be parsed emits an error-severity finding instead of aborting the walk. A `kind: intent` file the dual-format bridge would skip emits `spk-frontmatter-mismatch` naming the expected id.
 
 **Exit codes:** 0 always — lint findings are advisory; they do not gate.
+
+---
+
+## `ah sync`
+
+Create or refresh property-derived contracts from lint-clean specodelic Properties rows (design D1/D3 of `derive-contracts-from-specodelic`). See [dual-format authoring](dual-format-authoring.md) for the coverage convention.
+
+```
+ah sync [--check] [--json]
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--check` | CI mode: write nothing; report missing and stale contracts; exit non-zero on drift |
+| `--json` | Machine-readable envelope |
+
+`ah sync` runs `spk lint` first and refuses to derive from a lint-dirty file; missing `spk` fails with `spk-unavailable`. Sync-owned fields (`id`, `description`, `archetype`, `falsifiability_class`, `derived_from`) are authoritative and rewritten; human-owned fields (`tests`, `status`, `superseded_by`) are never overwritten.
+
+**Exit codes:** 0 on success; 1 on refusal, unavailable spk, or drift/missing in `--check` mode.
 
 ---
 

@@ -214,7 +214,7 @@ mod tests {
 
     // ---- fixture helpers ------------------------------------------------
 
-    const CONFIG_TOML: &str = "tool_version = \"0.8.0\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\npytest = [\"pytest\"]\ncargo = [\"cargo\", \"test\"]\n";
+    const CONFIG_TOML: &str = "tool_version = \"0.9.0\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\npytest = [\"pytest\"]\ncargo = [\"cargo\", \"test\"]\n";
 
     const SPEC_MD: &str = "---\nid: spec\nkind: intent\nstatement: \"WHEN auth is exercised THE system SHALL reject bad tokens\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| C-token | invariant | invalid tokens are rejected | [[spec]] |\n\n## Model\n\n### States\n\n- `checking`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t-reject | checking | checking | [[spec.C-token]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| P-token | unit | [[spec.C-token]] | valid vs invalid tokens | invalid tokens rejected with 401 |\n\n## Requirements\n\n### Requirement: Token check\n\nThe system SHALL reject invalid tokens.\n";
 

@@ -263,6 +263,27 @@ impl DoctorCheck for OrphanContractCheck {
             .iter()
             .map(|s| (s.spec_path.clone(), s.id.clone()))
             .collect();
+        // Derived contracts referenced by VERIFIES bullets are in use even
+        // though no scenario shares their filename — same suppression as the
+        // ah check gate (task 4.1 / full-corpus migration).
+        let mut linked_contract_ids: HashSet<(String, String)> = HashSet::new();
+        for s in scenarios {
+            for line in s.body.lines() {
+                let Some(rest) = line.trim().strip_prefix("- **VERIFIES** [[spec.") else {
+                    continue;
+                };
+                let Some(property_id) = rest.strip_suffix("]]") else {
+                    continue;
+                };
+                if property_id.is_empty() {
+                    continue;
+                }
+                linked_contract_ids.insert((
+                    s.spec_path.clone(),
+                    crate::sync::slugify_property_id(property_id),
+                ));
+            }
+        }
 
         let espectacular_dir = self.repo_root.join(".espectacular");
         let mut results = Vec::new();
@@ -287,7 +308,9 @@ impl DoctorCheck for OrphanContractCheck {
                             continue;
                         }
                         let slug = cp.file_stem().unwrap().to_string_lossy().to_string();
-                        if !known_spec_slugs.contains(&(spec_name.clone(), slug.clone())) {
+                        if !known_spec_slugs.contains(&(spec_name.clone(), slug.clone()))
+                            && !linked_contract_ids.contains(&(spec_name.clone(), slug.clone()))
+                        {
                             results.push(LintResult::new(
                                 format!(
                                     "contract {}/{}.toml has no matching scenario",
@@ -1169,6 +1192,34 @@ changes = "openspec/changes"
         assert!(
             has_issue(&report, "orphan-contracts"),
             "orphan contract must emit orphan-contracts diagnostic; got: {:?}",
+            issues(&report)
+        );
+    }
+
+    #[test]
+    fn derived_contract_referenced_by_verifies_link_is_not_orphan() {
+        // Full-corpus migration: derived p-* contracts are referenced by
+        // VERIFIES bullets, not by scenario-slug filenames — doctor must not
+        // flag them as orphans (same suppression as the ah check gate).
+        let repo = make_healthy_repo();
+        let spec_dir = repo.path().join("openspec/specs/auth");
+        fs::create_dir_all(&spec_dir).unwrap();
+        fs::write(
+            spec_dir.join("spec.md"),
+            "---\nid: spec\nkind: intent\nstatement: \"WHEN checked THE system SHALL reject invalid tokens\"\n---\n\n# Capability: auth\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| P-token | unit | [[spec.C-a]] | input | output |\n\n## Requirements\n\n### Requirement: Token check\nThe system SHALL reject invalid tokens.\n\n#### Scenario: Token rejected\n- **WHEN** a token is checked\n- **THEN** invalid tokens are rejected\n- **VERIFIES** [[spec.P-token]]\n",
+        )
+        .unwrap();
+        let contract_dir = repo.path().join(".espectacular/auth");
+        fs::create_dir_all(&contract_dir).unwrap();
+        fs::write(
+            contract_dir.join("p-token.toml"),
+            "id = \"p-token\"\ndescription = \"invalid tokens rejected\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n[tests]\n",
+        )
+        .unwrap();
+        let report = run_doctor(repo.path()).unwrap();
+        assert!(
+            !has_issue(&report, "orphan-contracts"),
+            "VERIFIES-referenced derived contract must not be orphan; got: {:?}",
             issues(&report)
         );
     }

@@ -90,7 +90,8 @@ dont prime --plain
 | `ah check` | Run fast structural analysis (spec/contract correspondence); use `--run-tests` to execute declared tests |
 | `ah check --run-tests` | Run structural analysis plus declared contract tests |
 | `ah check --changes <id>` | Validate deployed specs plus one or more staged change overlays |
-| `ah lint [root]` | Heuristic spec-quality checks (vague qualifiers, non-imperative steps, conjunctive bloat, missing negative scenarios/non-goals, unresolved ambiguity, entangled specs) plus a specodelic (`spk`) bridge |
+| `ah lint [root]` | Heuristic spec-quality checks (vague qualifiers, non-imperative steps, conjunctive bloat, missing negative scenarios/non-goals, unresolved ambiguity, entangled specs, scenario-to-property trace gaps) plus a specodelic (`spk`) bridge |
+| `ah sync` | Derive property contracts from lint-clean specodelic Properties rows (`--check` for CI drift mode) |
 | `ah report` | Generate a spec-to-contract coverage matrix (covered/missing/failing per spec) |
 | `ah explain [topic]` | Print guidance for a finding kind or suggested action; omit topic for a list |
 | `ah explain --list` | List all explainable topics |
@@ -292,6 +293,8 @@ Each finding includes:
 | `quality-snapshot` | quality | snapshot testing is active and passing |
 
 | `missing-liveness-timeout` | warning | liveness-tagged contract has no `timeout_seconds` on any test entry — liveness claims are only falsifiable under bounded execution |
+| `no-tests-ran` | execution | a runner matched zero tests (cargo-style `0 passed; N filtered out`) — a binding that executes nothing is not a pass |
+| `contract-stale` | structural | a derived contract's `derived_from` hash no longer matches its specodelic source Properties row — run `ah sync` to refresh |
 
 `test-failing` findings include test execution details: `type`, `command`, `exit_code`, `timed_out`, `stdout_tail`, and `stderr_tail`.
 

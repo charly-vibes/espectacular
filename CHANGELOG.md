@@ -9,6 +9,66 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-10-02
+
+### Added
+
+- **`ah sync` — property-derived contracts** — derive scenario contracts from
+  lint-clean specodelic Properties rows (`spk parse --json` IR). Refuses to
+  derive from lint-dirty files; missing `spk` fails with `spk-unavailable`.
+  Sync-owned fields (`id`, `description`, `archetype`, `falsifiability_class`,
+  `derived_from`) are authoritative; human-owned fields (`tests`, `status`,
+  `superseded_by`) are never overwritten. `ah sync --check` reports missing and
+  stale contracts without writing (CI mode).
+- **`contract-stale` structural finding** — a derived contract whose
+  `derived_from` hash no longer matches its source Properties row (canonical
+  sha256 over the parsed row); `ah sync` refreshes it.
+- **VERIFIES coverage in the gate** — a scenario carrying
+  `- **VERIFIES** [[spec.P-x]]` is covered by the property's derived contract
+  when it exists; multi-link scenarios cover every linked contract. Unlinked
+  scenarios keep today's rule (their own contract).
+- **`no-tests-ran` execution finding** — a runner whose output reports zero
+  passing tests (`cargo`'s `0 passed; N filtered out`) fails the gate instead
+  of passing vacuously.
+- **Advisory trace checks in `ah lint`** — `verifies-dangling`,
+  `scenario-unlinked`, and `property-untraced` report the VERIFIES coverage
+  convention's gaps without affecting the exit code.
+- **`spk graph` relay in `ah lint`** — specodelic graph typing violations and
+  dangling references relay as `spk.graph.*` warnings; silent-degrade on
+  invocation failure.
+- **`spk-frontmatter-mismatch` lint finding** — a `kind: intent` file the
+  dual-format bridge would skip silently is named with its expected frontmatter
+  id.
+- **Four new `ah explain` topics** — `contract-stale`, `run_ah_sync`,
+  `spk-frontmatter-mismatch`, `verifies-dangling` (plus `scenario-unlinked`,
+  `property-untraced`); topic count 42 → 48.
+
+### Changed
+
+- **genesis-vibes 0.11.1** — pin bumped from 0.11.
+- **specodelic 0.4.0** — pinned (Rev 7 kinds, tiered `single_root_reachable`,
+  interface-shaped graph dangling messages); CI installs from crates.io.
+- **Full corpus on property-derived contracts** — all 60 specodelic Properties
+  rows across 8 capabilities are VERIFIES-linked to covering scenarios with
+  sync-derived, committed `p-*` contracts; CI runs `spk graph` and
+  `ah sync --check` beside the spec corpus mandate.
+
+### Fixed
+
+- **`ah feedback` in non-Rust git repos** — a missing `Cargo.toml` no longer
+  hard-fails; the tool degrades to the default target repo (GH#28.3).
+- **`ah check` on a missing specs directory** — degrades to a clean zero-
+  finding result with named IO errors instead of a bare ENOENT (GH#28.2).
+- **`ah init` false unanchorable-stage error** — hook-marker comments
+  mentioning a stage name no longer abort init (genesis-side fix, GH#28.1,
+  pinned by an e2e test plus the lefthook marker glue fix).
+
+### Infrastructure
+
+- **Governance** — derived contracts are committed artifacts refreshed by sync
+  (lockfile-like); the repo rule "don't commit `.espectacular/` state" names
+  the contract carve-out explicitly.
+
 ## [0.8.0] — 2026-10-01
 
 ### Added
@@ -275,7 +335,8 @@ Initial stable release. Covers two deployed change proposals:
 
 ---
 
-[Unreleased]: https://github.com/charly-vibes/espectacular/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/charly-vibes/espectacular/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/charly-vibes/espectacular/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/charly-vibes/espectacular/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/charly-vibes/espectacular/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/charly-vibes/espectacular/compare/v0.5.0...v0.6.0
