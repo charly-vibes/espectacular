@@ -21,7 +21,6 @@ mod signals;
 mod sync;
 mod upgrade;
 
-use anyhow::Context;
 use clap::{CommandFactory, Parser, Subcommand};
 use genesis::cli::{generate_completions, maybe_print_version_json};
 use genesis::envelope::{Envelope, EnvelopeKind};
@@ -509,10 +508,13 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                 eprintln!("Warning: this will file a real issue. Use --dry-run to preview first.");
             }
 
+            // Missing Cargo.toml = not a Rust workspace (espectacular-qyu,
+            // GH#28 item 3): degrade to the default target repo instead of
+            // erroring, so non-Rust projects can still file feedback.
             let repo = std::env::current_dir()?;
-            let manifest_path = repo.join("Cargo.toml");
-            let manifest = fs::read_to_string(&manifest_path).context("cannot read Cargo.toml")?;
-            let target_repo = extract_repository(&manifest)
+            let target_repo = fs::read_to_string(repo.join("Cargo.toml"))
+                .ok()
+                .and_then(|manifest| extract_repository(&manifest))
                 .unwrap_or_else(|| "charly-vibes/espectacular".to_string());
 
             // Build issue body
