@@ -1,6 +1,7 @@
 # Summary
 
 [Introduction](index.md)
+[Release Status](./release.md)
 
 ---
 

@@ -16,3 +16,5 @@ docs/src/specs/
 .espectacular/state/
 .testaruda/
 # testaruda store (local SQLite DB)
+# §6: generated from Cargo.toml by docs.yml — never committed
+docs/src/release.md
