@@ -107,7 +107,7 @@ struct ResolvedScope {
     /// (design D1); the entry is absent when no derived contract backs the
     /// link, leaving the scenario's own contract requirement unchanged
     /// (C-unlinked-unchanged).
-    covered: BTreeMap<(String, String), String>,
+    covered: BTreeMap<(String, String), Vec<String>>,
 }
 
 pub fn run_check(
@@ -317,19 +317,27 @@ pub(crate) fn verifies_property_ids(body: &str) -> Vec<String> {
 /// Redirect VERIFIES-linked scenarios at their property's derived contract
 /// and record the coverage map. A link whose derived contract file is absent
 /// leaves the scenario untouched (falls back to its own contract path).
+/// Multi-link scenarios (two VERIFIES bullets) redirect at the first link's
+/// contract but record every linked contract as in use — the second derived
+/// contract must never be orphaned.
 fn resolve_verifies_coverage(
     scenarios: &mut BTreeMap<(String, String), ResolvedScenario>,
     contracts_dir: &Path,
-) -> BTreeMap<(String, String), String> {
+) -> BTreeMap<(String, String), Vec<String>> {
     let mut covered = BTreeMap::new();
+    let mut redirected = std::collections::HashSet::new();
     for ((spec, id), resolved) in scenarios.iter_mut() {
         for property_id in verifies_property_ids(&resolved.scenario.body) {
             let contract_id = crate::sync::slugify_property_id(&property_id);
             let path = contracts_dir.join(spec).join(format!("{contract_id}.toml"));
             if path.exists() {
-                resolved.contract_path = path;
-                covered.insert((spec.clone(), id.clone()), contract_id);
-                break;
+                if redirected.insert((spec.clone(), id.clone())) {
+                    resolved.contract_path = path;
+                }
+                covered
+                    .entry((spec.clone(), id.clone()))
+                    .or_insert_with(Vec::new)
+                    .push(contract_id);
             }
         }
     }
@@ -518,7 +526,7 @@ fn collect_structural_findings(
     scenarios: &[ResolvedScenario],
     contract_files: &[(String, String, PathBuf)],
     specs_root: &Path,
-    covered: &BTreeMap<(String, String), String>,
+    covered: &BTreeMap<(String, String), Vec<String>>,
 ) -> Vec<ReportFinding> {
     let mut findings = Vec::new();
     let bare_scenarios: Vec<_> = scenarios
@@ -677,13 +685,17 @@ fn orphan_reports(
     contract_files: &[(String, String, PathBuf)],
     scenarios: &BTreeMap<(String, String), &ResolvedScenario>,
     specs_root: &Path,
-    covered: &BTreeMap<(String, String), String>,
+    covered: &BTreeMap<(String, String), Vec<String>>,
 ) -> Vec<ReportFinding> {
     // Derived contracts referenced by a VERIFIES link are in use even though
     // no scenario shares their id — never orphans (task 4.1).
     let covered_contract_keys: HashSet<(String, String)> = covered
         .iter()
-        .map(|((spec, _), contract_id)| (spec.clone(), contract_id.clone()))
+        .flat_map(|((spec, _), contract_ids)| {
+            contract_ids
+                .iter()
+                .map(move |cid| (spec.clone(), cid.clone()))
+        })
         .collect();
     let mut findings = Vec::new();
     let mut seen = HashSet::new();
@@ -815,12 +827,14 @@ fn contract_stale_findings(
     let covering: BTreeMap<(String, String), &Scenario> = scope
         .covered
         .iter()
-        .filter_map(|((spec, scenario_id), contract_id)| {
-            scope
-                .scenarios
-                .iter()
-                .find(|r| r.scenario.spec_path == *spec && r.scenario.id == *scenario_id)
-                .map(|r| ((spec.clone(), contract_id.clone()), &r.scenario))
+        .flat_map(|((spec, scenario_id), contract_ids)| {
+            contract_ids.iter().filter_map(move |contract_id| {
+                scope
+                    .scenarios
+                    .iter()
+                    .find(|r| r.scenario.spec_path == *spec && r.scenario.id == *scenario_id)
+                    .map(|r| ((spec.clone(), contract_id.clone()), &r.scenario))
+            })
         })
         .collect();
 
@@ -1133,6 +1147,8 @@ mod tests {
 
     const DERIVED_CONTRACT: &str = "id = \"p-token\"\ndescription = \"invalid tokens rejected\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.9.0\"\nfalsifiability_class = \"safety\"\nderived_from = \"P-token@0123456789ab\"\n\n[[tests.cargo]]\nflags = \"p_token::case1\"\n";
 
+    const OTHER_DERIVED_CONTRACT: &str = "id = \"p-other\"\ndescription = \"second property covered by the same scenario\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.9.0\"\nfalsifiability_class = \"safety\"\nderived_from = \"P-other@0123456789ab\"\n\n[[tests.cargo]]\nflags = \"p_other::case1\"\n";
+
     fn verifies_repo(scenario_bodies: &[&str], contracts: &[(&str, &str)]) -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         let repo = dir.path();
@@ -1164,6 +1180,27 @@ mod tests {
                 output.findings
             );
         }
+    }
+
+    #[test]
+    fn scenario_with_two_links_covers_both_derived_contracts() {
+        // A scenario carrying two VERIFIES bullets asserts both properties;
+        // both derived contracts are in use — neither may be orphan-toml.
+        // (Full-corpus migration: P-handlers/P-selfheal share one scenario.)
+        const TWO_LINKS: &str = "- **WHEN** a token is checked\n- **THEN** invalid tokens are rejected\n- **VERIFIES** [[spec.P-token]]\n- **VERIFIES** [[spec.P-other]]\n";
+        let dir = verifies_repo(
+            &[TWO_LINKS],
+            &[
+                ("p-token.toml", DERIVED_CONTRACT),
+                ("p-other.toml", OTHER_DERIVED_CONTRACT),
+            ],
+        );
+        let output = run_check(dir.path(), &[], false).unwrap();
+        assert!(
+            !output.findings.iter().any(|f| f.kind == "orphan-toml"),
+            "both linked contracts are in use; got: {:?}",
+            output.findings
+        );
     }
 
     #[test]
@@ -1353,7 +1390,7 @@ mod tests {
         let (dir, mut scope) = stale_fixture("P-token@deadbeefcafe");
         scope.covered.insert(
             ("auth".to_string(), "token-check".to_string()),
-            "p-token".to_string(),
+            vec!["p-token".to_string()],
         );
         scope.scenarios.push(ResolvedScenario {
             scenario: crate::openspec::Scenario {

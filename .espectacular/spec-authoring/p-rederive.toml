@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-rederive@3a22757c5e54"
+description = "after re-derivation, constraint and property rows cover both pre-existing and newly merged requirements, and `spk lint` exits zero"
+falsifiability_class = "safety"
+id = "p-rederive"
+status = "active"
+superseded_by = ""
+
+[[tests.shell]]
+command = "just spec-lint"
+timeout_seconds = 300

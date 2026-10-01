@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-corpus@4c33807c5a31"
+description = "the file parses as dual format: frontmatter plus all three tables present"
+falsifiability_class = "safety"
+id = "p-corpus"
+status = "active"
+superseded_by = ""
+
+[[tests.shell]]
+command = "just spec-lint"
+timeout_seconds = 300

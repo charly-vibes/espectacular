@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-lint@479e9c49116a"
+description = "`spk lint` exits zero"
+falsifiability_class = "safety"
+id = "p-lint"
+status = "active"
+superseded_by = ""
+
+[[tests.shell]]
+command = "just spec-lint"
+timeout_seconds = 300
