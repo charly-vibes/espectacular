@@ -7,8 +7,7 @@
 > espectacular is the behavioral verification layer of the charly ecosystem,
 > stress-testing agent outputs against hostile scenarios and stakeholder
 > evaluations before they ship.
-> **Status:** [beta](docs/src/status.md) · adversarial evaluation workflows shipped · [Motivation & design](docs/src/index.md)
-
+> **Status:** [beta](docs/src/status.md) · adversarial evaluation workflows shipped · [Motivation & design](docs/src/index.md) · [charly-vibes Tool Ecosystem](https://charly-vibes.github.io/dulce-de-leche/ecosystem-map.html)
 [![tracked with wai](https://img.shields.io/badge/tracked%20with-wai-blue)](https://github.com/charly-vibes/wai)
 
 Behavioral verification layer for the charly AI development ecosystem.
