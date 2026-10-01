@@ -46,9 +46,12 @@ jobs:
           npm install -g @fission-ai/openspec@0.19.0
       - name: Install bd (beads, pinned §4)
         run: |
-          curl -fsSL https://github.com/gastownhall/beads/releases/download/v1.3.0/beads_1.3.0_linux_amd64.tar.gz -o bd.tgz
-          tar -xzf bd.tgz
-          sudo mv bd /usr/local/bin/bd
+          tmp=$(mktemp -d)
+          curl -fsSL https://github.com/gastownhall/beads/releases/download/v1.3.0/beads_1.3.0_linux_amd64.tar.gz -o "$tmp/bd.tgz"
+          # extract only the binary — the tarball also ships README/LICENSE/CHANGELOG
+          # which must not clobber the repo checkout
+          tar -xzf "$tmp/bd.tgz" -C "$tmp" bd
+          sudo mv "$tmp/bd" /usr/local/bin/bd
       # §4 dogfood: installed tools must run, not just install
       - name: Smoke dogfooded tools
         env:
