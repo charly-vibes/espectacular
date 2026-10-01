@@ -11,13 +11,12 @@
 //! `falsifiability_class`, `derived_from`; humans own `tests`, `status`,
 //! `superseded_by` (and `authored_with` provenance, preserved on refresh).
 
-use crate::contracts::load_contract;
 use crate::derive::{canonical_hash, infer, parse_ir, ParseData};
 use crate::lint::bridge::{invoke as spk_lint, Failure};
 use crate::lint::walker;
 use anyhow::anyhow;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
 /// Result of a sync run; the CLI layer maps it to an exit code.
@@ -210,6 +209,7 @@ pub(crate) fn run_sync(spk: &str, repo_root: &Path, check: bool) -> anyhow::Resu
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+    use std::path::PathBuf;
     use tempfile::TempDir;
 
     // ---- fixture helpers ------------------------------------------------
@@ -228,9 +228,7 @@ mod tests {
     /// A fake spk whose `lint` reports clean and whose `parse` emits a valid
     /// IR envelope for the auth fixture spec.
     fn clean_spk_shim(dir: &Path) -> String {
-        let parse_output = format!(
-            r#"{{"ok":true,"data":{{"properties":[{{"id":"P-token","kind":"unit","cells":{{"id":"P-token","kind":"unit","derives_from":"[[spec.C-token]]","generator":"valid vs invalid tokens","predicate":"invalid tokens rejected with 401"}}}}],"constraints":[{{"id":"C-token","kind":"invariant","cells":{{}}}}],"states":[],"transitions":[]}}}}"#
-        );
+        let parse_output = r#"{"ok":true,"data":{"properties":[{"id":"P-token","kind":"unit","cells":{"id":"P-token","kind":"unit","derives_from":"[[spec.C-token]]","generator":"valid vs invalid tokens","predicate":"invalid tokens rejected with 401"}}],"constraints":[{"id":"C-token","kind":"invariant","cells":{}}],"states":[],"transitions":[]}}"#;
         let body = format!(
             "#!/bin/sh\nif [ \"$1\" = lint ]; then\n  echo '{{\"ok\":true,\"data\":{{\"issues\":[]}}}}'\nelse\n  cat <<'JSON'\n{}\nJSON\nfi\n",
             parse_output
