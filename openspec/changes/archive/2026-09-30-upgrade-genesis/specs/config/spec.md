@@ -30,7 +30,6 @@ statement: "WHEN the tool adopts genesis::config THE tool SHALL implement Config
 | t-adopt | own-config | genesis-config | [[spec.C-configfile-impl]] |
 | t-register | genesis-config | registered | [[spec.C-startup-registration]] |
 | t-prune | registered | registered | [[spec.C-dead-code-removed]] |
-| t-store | registered | registered | [[spec.C-configstore-advisory]] |
 
 ## Properties
 

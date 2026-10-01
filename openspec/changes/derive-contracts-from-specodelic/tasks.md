@@ -43,9 +43,9 @@
 ## 6. Docs, governance, pilot
 
 - [x] 6.1 **Governance decision (human-confirmed)**: settle the derived-contract commit policy per design D8 — amend the "don't commit `.espectacular/` state" rule with the committed-artifact carve-out before any sync writes TOMLs
-- [ ] 6.2 Extend `docs/src/dual-format-authoring.md`: the `VERIFIES` convention, derived vs owned fields, test naming rule
-- [ ] 6.3 Pilot on the `lint` capability: add links, `ah sync`, bind tests, delete redundant contracts
-- [ ] 6.4 CI: run `ah sync --check` and `spk lint`/`spk graph` directly alongside `ah check`
+- [x] 6.2 Extend `docs/src/dual-format-authoring.md`: the `VERIFIES` convention, derived vs owned fields, test naming rule
+- [x] 6.3 Pilot on the `lint` capability: add links, `ah sync`, bind tests, delete redundant contracts
+- [x] 6.4 CI: run `ah sync --check` and `spk lint`/`spk graph` directly alongside `ah check`
 
 ## 7. Validation
 

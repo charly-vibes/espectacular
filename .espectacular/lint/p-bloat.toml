@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-bloat@8fd03df01a7d"
+description = "finding only above the configured limit; exact limit accepted"
+falsifiability_class = "safety"
+id = "p-bloat"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_bloat"
+timeout_seconds = 120

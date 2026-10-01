@@ -1,4 +1,4 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
 derived_from = "P-selfheal@238fc538ece5"
 description = "the error prints with a suggestion footer and lands in the error scratch readable by `--from-last-error`"

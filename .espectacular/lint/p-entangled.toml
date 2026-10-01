@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-entangled@292822d0736c"
+description = "findings exactly in the PF/SA primitive cases"
+falsifiability_class = "safety"
+id = "p-entangled"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_entangled"
+timeout_seconds = 120

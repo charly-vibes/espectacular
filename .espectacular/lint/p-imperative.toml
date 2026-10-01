@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-imperative@535b3a3cdade"
+description = "findings exactly in the mechanical cases, with business-action suggestions"
+falsifiability_class = "safety"
+id = "p-imperative"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_imperative"
+timeout_seconds = 120

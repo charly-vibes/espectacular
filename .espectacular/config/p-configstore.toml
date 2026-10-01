@@ -1,4 +1,4 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
 derived_from = "P-configstore@56b2a438371f"
 description = "they use `ConfigStore` where the advisory is honored"

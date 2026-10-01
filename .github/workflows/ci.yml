@@ -114,3 +114,9 @@ jobs:
 
       - name: Spec corpus mandate (spk lint + frontmatter over all non-archived spec.md)
         run: just spec-lint
+
+      - name: spk graph (typing violations + dangling refs over the corpus)
+        run: spk graph openspec --json > /dev/null
+
+      - name: ah sync --check (derived contracts fresh, zero writes)
+        run: cargo build --locked && target/debug/ah sync --check

@@ -21,15 +21,12 @@ statement: "WHEN the tool adopts genesis::guide THE CLI scaffold SHALL be built 
 
 - `ad-hoc-cli`
 - `guide-built`
-- `self-healing`
 
 ### Transitions
 
 | id | from | to | guard |
 |----|------|----|-------|
 | t-build | ad-hoc-cli | guide-built | [[spec.C-guide-builder]] |
-| t-handlers | guide-built | guide-built | [[spec.C-output-handlers]] |
-| t-sink | guide-built | self-healing | [[spec.C-errorsink-selfheal]] |
 
 ## Properties
 

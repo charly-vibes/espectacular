@@ -1,0 +1,83 @@
+/* charly — ecosystem mdBook theme, derived from microdancing palette.
+ * Vendored per-repo at theme/charly.css; restyles the built-in `coal` (dark,
+ * default) and `light` themes. See dulce-de-leche/docs/standardization.md §3.
+ * Tokens: bg #1e1c32/#F5F5F5 · bg-alt #2C2A4A/#82B1FF · fg #EAE1DF/#2D1B14
+ *         accent #FF007F/#E91E63 · highlight #FFC107 · muted #B392AC/#6b5d58
+ *         ok #2E7D32 */
+
+/* ---------- dark (restyles coal — the default) ---------- */
+.coal {
+  --bg: #1e1c32;
+  --fg: #EAE1DF;
+  --headers: #EAE1DF;
+  --links: #FF007F;
+  --sidebar-bg: #2C2A4A;
+  --sidebar-fg: #EAE1DF;
+  --sidebar-non-existant: #B392AC;
+  --sidebar-active: #FF007F;
+  --sidebar-spacer: #2C2A4A;
+  --scrollbar: #B392AC;
+  --icons: #B392AC;
+  --icons-hover: #FF007F;
+  --copy-button-fg: #EAE1DF;
+  --inline-code-color: #FFC107;
+  --theme-popup-bg: #2C2A4A;
+  --theme-popup-border: #B392AC;
+  --theme-hover: #1e1c32;
+  --quote-bg: #2C2A4A;
+  --quote-border: #FF007F;
+  --table-border-color: #B392AC;
+  --table-header-bg: #2C2A4A;
+  --table-alternate-bg: #1e1c32;
+  --searchbar-border-color: #B392AC;
+  --searchbar-bg: #1e1c32;
+  --searchbar-fg: #EAE1DF;
+  --searchbar-shadow-color: #1e1c32;
+  --searchresults-header-fg: #EAE1DF;
+  --searchresults-border-color: #B392AC;
+  --searchresults-li-bg: #2C2A4A;
+  --search-mark-bg: #FFC107;
+}
+
+.coal h1, .coal h2, .coal h3 { color: #EAE1DF; }
+.coal a:hover { color: #FFC107; }
+.coal blockquote { border-left: 4px solid #FF007F; }
+.coal .warning { color: #FFC107; }
+
+/* ---------- light (restyles light) ---------- */
+.light {
+  --bg: #F5F5F5;
+  --fg: #2D1B14;
+  --headers: #2D1B14;
+  --links: #E91E63;
+  --sidebar-bg: #82B1FF;
+  --sidebar-fg: #2D1B14;
+  --sidebar-non-existant: #6b5d58;
+  --sidebar-active: #E91E63;
+  --sidebar-spacer: #82B1FF;
+  --scrollbar: #6b5d58;
+  --icons: #6b5d58;
+  --icons-hover: #E91E63;
+  --copy-button-fg: #2D1B14;
+  --inline-code-color: #2E7D32;
+  --theme-popup-bg: #F5F5F5;
+  --theme-popup-border: #6b5d58;
+  --theme-hover: #82B1FF;
+  --quote-bg: #F5F5F5;
+  --quote-border: #E91E63;
+  --table-border-color: #6b5d58;
+  --table-header-bg: #82B1FF;
+  --table-alternate-bg: #F5F5F5;
+  --searchbar-border-color: #6b5d58;
+  --searchbar-bg: #F5F5F5;
+  --searchbar-fg: #2D1B14;
+  --searchbar-shadow-color: #6b5d58;
+  --searchresults-header-fg: #2D1B14;
+  --searchresults-border-color: #6b5d58;
+  --searchresults-li-bg: #82B1FF;
+  --search-mark-bg: #FFC107;
+}
+
+.light h1, .light h2, .light h3 { color: #2D1B14; }
+.light a:hover { color: #E91E63; }
+.light blockquote { border-left: 4px solid #E91E63; }

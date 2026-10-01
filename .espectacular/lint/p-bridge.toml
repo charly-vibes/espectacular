@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-bridge@38b1035e1576"
+description = "relaying with `spk.` kind prefix; inert for plain files; advisory-only degradation in both failure modes"
+falsifiability_class = "safety"
+id = "p-bridge"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_bridge"
+timeout_seconds = 120

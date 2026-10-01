@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-non-goals@b9e3e1abc256"
+description = "finding exactly when no variant is present"
+falsifiability_class = "safety"
+id = "p-non-goals"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_non_goals"
+timeout_seconds = 120

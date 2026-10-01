@@ -150,3 +150,69 @@ staged mandate, corpus gate, and CI) fails until the half is re-derived.
 An issue is filed against **specodelic** (specodelic#7) asking for the
 dual-format corpus to survive the archive round-trip natively; once fixed,
 the recipe becomes a no-op.
+
+## Scenario-to-property coverage (`VERIFIES`) and derived contracts
+
+A Properties row is test *intent*; a scenario contract is executable intent.
+The `VERIFIES` bullet links the two. When a scenario body carries
+
+```markdown
+#### Scenario: Ship invalid token
+- **WHEN** a token fails validation
+- **THEN** it is rejected
+- **VERIFIES** [[spec.P-not-shipped]]
+```
+
+the gate (`ah check`) redirects the scenario at the property's **derived
+contract** — the `.toml` that `ah sync` generated from the Properties row —
+and runs its tests. Coverage is declared once, in the spec, instead of
+restated in a hand-written contract.
+
+### `ah sync` — deriving contracts from Properties rows
+
+```bash
+ah sync          # create-or-refresh derived contracts
+ah sync --check  # CI mode: report missing + stale contracts, write nothing
+```
+
+`ah sync` refuses to derive from a lint-dirty file (`spk lint` runs first —
+a file that fails specodelic invariants is never derived from) and fails
+with `spk-unavailable` when the binary is missing. It is idempotent:
+re-running after a spec edit refreshes the derived fields of already-
+generated contracts (that drift detection *is* the feature).
+
+### Field ownership (design D3)
+
+| Fields | Owner | Rule |
+|--------|-------|------|
+| `id`, `description`, `archetype`, `falsifiability_class`, `derived_from` | **sync** | overwritten on every sync; hand edits make the contract *stale* (`contract-stale` finding + `ah sync --check` exit 1) |
+| `tests`, `status`, `superseded_by` | **human** | never overwritten by sync |
+
+`derived_from = "<property-id>@<hash>"` pins the exact Properties row the
+contract was derived from; editing any row cell (id, kind, derives_from,
+generator, predicate) changes the hash and marks the contract stale until
+the next sync.
+
+### Test naming rule (design D6)
+
+A derived contract binds to a **human-owned test named after the property
+id**: property `P-not-shipped` → test function `p_not_shipped`, bound via
+`tests.cargo.flags = ["p_not_shipped"]`. The test body is yours; the *name*
+is the contract's binding convention, so the gate can prove the binding
+exists structurally and execute it with `ah check --run-tests`.
+
+### Governance: contracts are committed artifacts
+
+Derived contracts live beside hand-written contracts
+(`.espectacular/<capability>/<id>.toml`) and are **committed** —
+lockfile-like artifacts refreshed by sync, not disposable tool state.
+Only `.espectacular/state/` and other runtime state stay uncommitted.
+
+### Advisory trace findings
+
+`ah lint` reports the coverage convention's gaps as advisory findings
+(never exit-non-zero): `verifies-dangling` (a VERIFIES bullet cites a
+property with no row), `scenario-unlinked` (a scenario without a bullet in
+a file that has Properties rows — legitimate under the D1 fallback to
+per-scenario contracts), and `property-untraced` (a row no scenario cites).
+They are the adoption TODO list, not gate failures.

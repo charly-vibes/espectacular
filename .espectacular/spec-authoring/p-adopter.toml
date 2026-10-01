@@ -8,5 +8,5 @@ status = "active"
 superseded_by = ""
 
 [[tests.shell]]
-command = """mkdir -p openspec/specs/zz-fixture && printf "# plain" > openspec/specs/zz-fixture/spec.md && trap "rm -rf openspec/specs/zz-fixture" EXIT; if just spec-corpus-staged openspec/specs/zz-fixture/spec.md >/dev/null 2>&1; then exit 1; fi"""
+command = 'mkdir -p openspec/specs/zz-fixture && printf "# plain" > openspec/specs/zz-fixture/spec.md && trap "rm -rf openspec/specs/zz-fixture" EXIT; if just spec-corpus-staged openspec/specs/zz-fixture/spec.md >/dev/null 2>&1; then exit 1; fi'
 timeout_seconds = 300

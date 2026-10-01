@@ -1,0 +1,1575 @@
+<!DOCTYPE HTML>
+<html lang="en" class="coal sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>espectacular</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Behavioral-spec verifier for charly-vibes developer tools — Given/When/Then TOML test contracts.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="theme/charly-b533fcef.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "coal";
+            const default_dark_theme = "coal";
+            window.path_to_searchindex_js = "searchindex-2db8b1f9.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-134f29b0.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('coal')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">espectacular</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/charly-vibes/espectacular" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <blockquote>
+<p><em>“Porque mis armas son los pinceles y mis municiones son las pinturas”</em>
+— Peter de los Polvorines</p>
+</blockquote>
+<h1 id="espectacular"><a class="header" href="#espectacular">espectacular</a></h1>
+<p><strong>In brief:</strong> <code>ah</code> is a CLI that enforces a contract between your specs and your tests. You write behavioral specs in Markdown, attach a TOML contract to each scenario declaring which tests cover it, then run <code>ah check</code> in CI to catch drift.</p>
+<hr>
+<p><strong>espectacular</strong> is a behavioral verification tool for Rust CLI projects. It lets you write machine-readable specs that describe what your tool does, then continuously check that behavior with <code>ah check</code>. Each spec scenario is paired with a sidecar TOML contract that lists the tests verifying it — when a test is missing, unconfigured, or failing, <code>ah check</code> exits non-zero and blocks the merge.</p>
+<ul>
+<li><a href="#installation--quick-start">Installation &amp; Quick Start</a> — get <code>ah</code> on your PATH and run your first check in minutes</li>
+<li><a href="#command-reference">Command Reference</a> — all <code>ah</code> subcommands with flags, exit codes, and example output</li>
+<li><a href="#concepts">Concepts</a> — understand specs, scenarios, contracts, archetypes, and the gate model</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="charly-vibes-tool-ecosystem"><a class="header" href="#charly-vibes-tool-ecosystem">charly-vibes Tool Ecosystem</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="release-status"><a class="header" href="#release-status">Release Status</a></h1>
+<blockquote>
+<p><strong>Generated artifact</strong> (docs.yml, from Cargo.toml + git ref).
+Do not hand-edit — the repo source files remain authoritative.</p>
+</blockquote>
+<ul>
+<li><strong>Version:</strong> v0.8.0</li>
+<li><strong>Built from:</strong> local @ local</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="installation--quick-start"><a class="header" href="#installation--quick-start">Installation &amp; Quick Start</a></h1>
+<p><strong>In brief:</strong> install <code>ah</code>, run <code>ah init</code> in your repo, then <code>ah check</code> to validate. The worked example below walks through writing a spec scenario, creating its contract, and seeing a passing check. Both <code>ah</code> and <code>espectacular</code> are installed — they are the same binary under two names.</p>
+<h2 id="install"><a class="header" href="#install">Install</a></h2>
+<p><strong>From source</strong> (requires Rust toolchain):</p>
+<pre><code class="language-bash">cargo install --path .
+</code></pre>
+<p>Or clone and build:</p>
+<pre><code class="language-bash">git clone https://github.com/charly-vibes/espectacular
+cd espectacular
+cargo build --release
+# Binary is at target/release/ah
+</code></pre>
+<p>Verify:</p>
+<pre><code class="language-bash">ah --version
+# ah 0.1.0
+espectacular --version
+# espectacular 0.1.0
+</code></pre>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<p>espectacular requires <a href="https://github.com/charly-vibes/openspec">OpenSpec</a> to manage your spec files. OpenSpec is the directory structure and tooling that stores specs under <code>openspec/specs/</code> and staged changes under <code>openspec/changes/</code>. Run <code>openspec init</code> once in your repo to set it up before running <code>ah init</code>.</p>
+<h2 id="set-up-espectacular"><a class="header" href="#set-up-espectacular">Set up espectacular</a></h2>
+<p>Run <code>ah init</code> once in the root of your repo:</p>
+<pre><code class="language-bash">ah init
+</code></pre>
+<p>This creates (or refreshes):</p>
+<ul>
+<li><code>.espectacular/config.toml</code> — runner and capability config</li>
+<li><code>.espectacular/AGENTS.md</code> — guidance block for AI agents</li>
+<li>Hook integration for <code>lefthook</code> or <code>prek</code> if detected</li>
+</ul>
+<p>If <code>ah init</code> reports concerns, use <code>ah doctor</code> to diagnose.</p>
+<h2 id="run-your-first-check"><a class="header" href="#run-your-first-check">Run your first check</a></h2>
+<pre><code class="language-bash">ah check
+</code></pre>
+<p>Output is always a JSON envelope:</p>
+<pre><code class="language-json">{
+  "scope": { "deployed": true, "changes": [] },
+  "summary": { "structural": 0, "execution": 0, "passed": 2, "counts_by_kind": {} },
+  "findings": []
+}
+</code></pre>
+<p>Empty <code>findings</code> and <code>structural: 0, execution: 0</code> means everything is green. If you have specs without contracts yet, you’ll see <code>no-toml</code> findings instead — see <a href="#when-check-finds-something">When check finds something</a> below.</p>
+<h2 id="worked-example"><a class="header" href="#worked-example">Worked example</a></h2>
+<p>This walks through the full loop: open a change → write a scenario → create a contract → run the check.</p>
+<h3 id="step-1--open-a-change"><a class="header" href="#step-1--open-a-change">Step 1 — Open a change</a></h3>
+<p>In OpenSpec, work-in-progress lives under a “change.” Create one:</p>
+<pre><code class="language-bash">openspec new my-feature
+</code></pre>
+<p>This creates <code>openspec/changes/my-feature/specs/</code> where your staged spec lives.</p>
+<h3 id="step-2--write-a-scenario"><a class="header" href="#step-2--write-a-scenario">Step 2 — Write a scenario</a></h3>
+<p>Edit (or create) the spec for the component you’re working on, e.g. <code>openspec/changes/my-feature/specs/parser/spec.md</code>:</p>
+<pre><code class="language-markdown">### Requirement: Input validation
+
+#### Scenario: Empty input is rejected
+- **GIVEN** an empty string is passed to the parser
+- **WHEN** the parser runs
+- **THEN** it exits non-zero with a descriptive error message
+</code></pre>
+<h3 id="step-3--create-the-contract"><a class="header" href="#step-3--create-the-contract">Step 3 — Create the contract</a></h3>
+<p>Generate the contract stub:</p>
+<pre><code class="language-bash">ah scenario new my-feature parser \
+  --requirement "empty-input-is-rejected" \
+  "Empty input is rejected"
+</code></pre>
+<p>This creates <code>.espectacular/changes/my-feature/parser/empty-input-is-rejected.toml</code>. Open it and add your test:</p>
+<pre><code class="language-toml">id = "empty-input-is-rejected"
+description = "Empty input is rejected before parsing."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.pytest]]
+flags = "tests/test_parser.py::test_empty_input_rejected"
+timeout_seconds = 60
+</code></pre>
+<p>For archetype choices (<code>PF</code>, <code>SA</code>, <code>BP</code>, <code>CE</code>, <code>NR</code>) see <a href="#archetypes">Concepts — Archetypes</a> or run <code>ah type</code>.</p>
+<h3 id="step-4--check-with-the-change-in-scope"><a class="header" href="#step-4--check-with-the-change-in-scope">Step 4 — Check with the change in scope</a></h3>
+<pre><code class="language-bash">ah check --changes my-feature
+</code></pre>
+<p>A passing run exits 0 with <code>passed: 1</code> in the summary.</p>
+<h3 id="step-5--archive-when-merged"><a class="header" href="#step-5--archive-when-merged">Step 5 — Archive when merged</a></h3>
+<p>Once the change merges, promote the contract to deployed:</p>
+<pre><code class="language-bash">ah archive my-feature
+</code></pre>
+<p>After this, <code>ah check</code> (without <code>--changes</code>) will include the scenario in its scope.</p>
+<h2 id="when-check-finds-something"><a class="header" href="#when-check-finds-something">When check finds something</a></h2>
+<p>A failing check exits 1 and includes findings in the JSON. For example, if a scenario has no contract yet:</p>
+<pre><code class="language-json">{
+  "scope": { "deployed": true, "changes": [] },
+  "summary": { "structural": 1, "execution": 0, "passed": 0, "counts_by_kind": { "no-toml": 1 } },
+  "findings": [
+    {
+      "kind": "no-toml",
+      "category": "structural",
+      "spec": "parser",
+      "spec_path": "openspec/specs/parser/spec.md",
+      "scenario": { "id": "empty-input-is-rejected", "title": "Empty input is rejected" },
+      "suggested_action": "run_ah_scenario_new",
+      "playbook_command": "ah explain run_ah_scenario_new"
+    }
+  ]
+}
+</code></pre>
+<p>Each finding includes a <code>suggested_action</code> and a <code>playbook_command</code> you can run directly:</p>
+<pre><code class="language-bash">ah explain run_ah_scenario_new
+</code></pre>
+<p>Use <code>ah explain --list</code> to see all explainable topics.</p>
+<h2 id="whats-next"><a class="header" href="#whats-next">What’s next</a></h2>
+<ul>
+<li><a href="#command-reference">Command Reference</a> — all <code>ah</code> subcommands with flags and examples</li>
+<li><a href="#concepts">Concepts</a> — understand specs, contracts, archetypes, and the gate model</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="command-reference"><a class="header" href="#command-reference">Command Reference</a></h1>
+<p><strong>In brief:</strong> <code>ah</code> is the espectacular CLI — <code>espectacular</code> is an alias for the same binary. The primary commands are <code>ah check</code> (run in CI to enforce specs) and <code>ah init</code> (run once per repo to set up). Use <code>ah explain &lt;topic&gt;</code> to get guidance on any finding or error.</p>
+<hr>
+<h2 id="ah-init"><a class="header" href="#ah-init"><code>ah init</code></a></h2>
+<p>Create or refresh <code>.espectacular/</code> files and hook integration.</p>
+<pre><code>ah init
+</code></pre>
+<p>Idempotent: safe to re-run after updating specs or changing hook frameworks. Stubs contract files for any scenarios that have no existing contract. Installs <code>ah check</code> into <code>lefthook</code> or <code>prek</code> if detected.</p>
+<p><strong>Exit codes:</strong> 0 on success, non-zero if the OpenSpec directory is missing.</p>
+<hr>
+<h2 id="ah-check"><a class="header" href="#ah-check"><code>ah check</code></a></h2>
+<p>Validate deployed specs and run declared tests. Prints a stable JSON envelope to stdout.</p>
+<pre><code>ah check [--changes &lt;id&gt;]
+</code></pre>
+<p><strong>Flags:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Flag</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>--changes &lt;id&gt;</code></td><td>Include one or more staged change overlays (repeat for multiple)</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Exit codes:</strong> 0 when <code>findings</code> contains no structural or execution findings; 1 otherwise. Quality findings (<code>quality-*</code>) never cause a non-zero exit.</p>
+<p><strong>Note:</strong> All JSON examples below show the <code>data</code> field of the genesis envelope — actual output wraps these fields in <code>{ok, envelope_version, cli_version, envelope_kind, data, warnings, hints, meta}</code>.</p>
+<p><strong>Example — clean run:</strong></p>
+<pre><code class="language-bash">ah check
+</code></pre>
+<pre><code class="language-json">{
+  "ok": true,
+  "envelope_version": "0.1",
+  "cli_version": "0.4.0",
+  "envelope_kind": "ok",
+  "data": {
+    "scope": { "deployed": true, "changes": [] },
+    "summary": { "structural": 0, "execution": 0, "passed": 3, "counts_by_kind": {} },
+    "findings": []
+  },
+  "warnings": [],
+  "hints": [],
+  "meta": { "duration_ms": 0, "tx": null, "request_id": null, "author": null }
+}
+</code></pre>
+<p><strong>Example — with a staged change:</strong></p>
+<pre><code class="language-bash">ah check --changes add-parser-validation
+</code></pre>
+<pre><code class="language-json">{
+  "scope": { "deployed": true, "changes": ["add-parser-validation"] },
+  "summary": { "structural": 0, "execution": 0, "passed": 4, "counts_by_kind": {} },
+  "findings": []
+}
+</code></pre>
+<p><strong>Example — with a finding:</strong></p>
+<pre><code class="language-json">{
+  "scope": { "deployed": true, "changes": [] },
+  "summary": { "structural": 1, "execution": 0, "passed": 0, "counts_by_kind": { "no-toml": 1 } },
+  "findings": [
+    {
+      "kind": "no-toml",
+      "category": "structural",
+      "spec": "parser",
+      "spec_path": "openspec/specs/parser/spec.md",
+      "scenario": { "id": "empty-input-is-rejected", "title": "Empty input is rejected" },
+      "suggested_action": "run_ah_scenario_new",
+      "playbook_command": "ah explain run_ah_scenario_new"
+    }
+  ]
+}
+</code></pre>
+<p>Run the <code>playbook_command</code> from any finding to get step-by-step guidance:</p>
+<pre><code class="language-bash">ah explain run_ah_scenario_new
+</code></pre>
+<p><strong>Finding kinds:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Kind</th><th>Category</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>no-toml</code></td><td>structural</td><td>scenario has no matching contract file</td></tr>
+<tr><td><code>orphan-toml</code></td><td>structural</td><td>contract exists without a matching scenario</td></tr>
+<tr><td><code>slug-collision</code></td><td>structural</td><td>two scenarios in one spec have the same id</td></tr>
+<tr><td><code>id-mismatch</code></td><td>structural</td><td>scenario slug, filename, and TOML <code>id</code> disagree</td></tr>
+<tr><td><code>no-tests-declared</code></td><td>structural</td><td>contract has no runnable test entries</td></tr>
+<tr><td><code>missing-runner</code></td><td>structural</td><td>a non-shell test type has no configured runner</td></tr>
+<tr><td><code>malformed-contract</code></td><td>structural</td><td>TOML cannot be parsed or validated</td></tr>
+<tr><td><code>missing-replacement</code></td><td>structural</td><td>superseded contract points to an absent replacement</td></tr>
+<tr><td><code>overlay-conflict</code></td><td>structural</td><td>selected changes define conflicting staged scenarios</td></tr>
+<tr><td><code>test-failing</code></td><td>execution</td><td>a declared test timed out or exited non-zero</td></tr>
+<tr><td><code>quality-mutation</code></td><td>quality</td><td>mutation score meets threshold (informational)</td></tr>
+<tr><td><code>quality-property</code></td><td>quality</td><td>property-based tests passing (informational)</td></tr>
+<tr><td><code>quality-snapshot</code></td><td>quality</td><td>snapshot tests passing (informational)</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="ah-lint"><a class="header" href="#ah-lint"><code>ah lint</code></a></h2>
+<p>Statically analyze spec files for authoring-quality findings. Heuristic checks plus a <a href="https://crates.io/crates/specodelic">specodelic</a> (<code>spk lint</code>) bridge.</p>
+<pre><code>ah lint [&lt;root&gt;] [--changes &lt;id&gt;] [--check &lt;kind&gt;]
+</code></pre>
+<p><strong>Arguments:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Argument</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>&lt;root&gt;</code></td><td>Optional repo root to lint (defaults to the current directory)</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Flags:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Flag</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>--changes &lt;id&gt;</code></td><td>Lint a change’s spec overlay in addition to deployed specs</td></tr>
+<tr><td><code>--check &lt;kind&gt;</code></td><td>Run only a single check category (e.g. <code>vague-qualifier</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Checks:</strong> <code>vague-qualifier</code>, <code>imperative-step</code>, <code>conjunctive-bloat</code> (configurable max <code>and</code>-steps, default 5), <code>missing-negative-scenario</code>, <code>missing-non-goals</code>, <code>unresolved-ambiguity</code>, <code>entangled-spec</code>, plus <code>spk.&lt;rule_id&gt;</code> relays from the specodelic linter.</p>
+<p>A spec file that cannot be parsed emits an error-severity finding instead of aborting the walk.</p>
+<p><strong>Exit codes:</strong> 0 always — lint findings are advisory; they do not gate.</p>
+<hr>
+<h2 id="ah-doctor"><a class="header" href="#ah-doctor"><code>ah doctor</code></a></h2>
+<p>Detect configured frameworks and diagnose config, path, hook, and archetype issues.</p>
+<pre><code>ah doctor [--enable &lt;capability&gt;]
+</code></pre>
+<p><strong>Flags:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Flag</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>--enable &lt;capability&gt;</code></td><td>Write the config block for a detected-but-unconfigured capability</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Capabilities for <code>--enable</code>:</strong> <code>pytest</code>, <code>cargo</code>, <code>vitest</code>, <code>mutation</code>, <code>property</code>, <code>snapshot</code></p>
+<p><strong>Example output:</strong></p>
+<pre><code class="language-text">framework: pytest (configured)
+recommendation: vitest detected via manifest — run: ah doctor --enable vitest
+</code></pre>
+<p><strong>Example — enable vitest:</strong></p>
+<pre><code class="language-bash">ah doctor --enable vitest
+</code></pre>
+<p>Writes the <code>[runners.vitest]</code> entry to <code>.espectacular/config.toml</code>. If already configured, exits 0 with an “already enabled” message.</p>
+<p><strong>Exit codes:</strong> 0 when no problems are found (recommendations do not affect exit code); 1 when structural problems exist. <code>--enable</code> exits 0 on success, non-zero for unknown capabilities.</p>
+<h3 id="ah-doctor---json"><a class="header" href="#ah-doctor---json"><code>ah doctor --json</code></a></h3>
+<p>Emit diagnostic output as JSON, with each recommendation appearing as a structured finding.</p>
+<pre><code class="language-bash">ah doctor --json
+</code></pre>
+<pre><code class="language-json">{
+  "findings": [
+    {
+      "kind": "recommendation",
+      "suggested_action": "enable_capability",
+      "playbook_command": "ah explain enable_capability",
+      "apply_command": "ah doctor --enable cargo",
+      "detail": "cargo detected via manifest",
+      "capability": "cargo"
+    }
+  ]
+}
+</code></pre>
+<p>Each <code>recommendation</code> finding carries <code>playbook_command</code> and <code>apply_command</code> for agent-consumable remediation.</p>
+<p><strong>Exit codes:</strong> same as <code>ah doctor</code>.</p>
+<hr>
+<h2 id="ah-report"><a class="header" href="#ah-report"><code>ah report</code></a></h2>
+<p>Display a conformance coverage matrix across all deployed specs and archetypes.</p>
+<pre><code>ah report [--json]
+</code></pre>
+<p><strong>Flags:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Flag</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>--json</code></td><td>Emit the matrix as JSON</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Text output (default):</strong></p>
+<pre><code class="language-text">spec                 archetype     covered   missing   failing    total
+compiler                                      0         0         0         3
+adapters                                      0         0         0         1
+parser                                         0         1         0         1
+
+covered: 3 | missing: 1 | failing: 0 | total: 5
+</code></pre>
+<p><strong>JSON output (<code>--json</code>):</strong></p>
+<pre><code class="language-json">{
+  "matrix": [
+    {
+      "spec": "compiler",
+      "archetype": "",
+      "covered": 3,
+      "missing": 0,
+      "failing": 0,
+      "total": 3
+    }
+  ],
+  "summary": {
+    "total_scenarios": 5,
+    "total_contracts": 4,
+    "covered": 3,
+    "missing": 1,
+    "failing": 0
+  }
+}
+</code></pre>
+<p><strong>Exit codes:</strong> 0 when all scenarios are covered by contracts; 1 when any scenarios are missing or failing.</p>
+<hr>
+<h2 id="ah-explain"><a class="header" href="#ah-explain"><code>ah explain</code></a></h2>
+<p>Print guidance for a finding kind or suggested action.</p>
+<pre><code>ah explain [&lt;topic&gt;] [--list] [--json]
+</code></pre>
+<p><strong>Arguments:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Argument</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>&lt;topic&gt;</code></td><td>Finding kind or action slug to explain</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Flags:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Flag</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>--list</code></td><td>List all available topics</td></tr>
+<tr><td><code>--json</code></td><td>Emit the topic list as JSON (use with <code>--list</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Example — explain a finding:</strong></p>
+<pre><code class="language-bash">ah explain no-toml
+</code></pre>
+<pre><code>## no-toml — Missing contract file
+
+A scenario declared in a spec file has no corresponding contract .toml file
+in .espectacular/&lt;component&gt;/.
+
+How to fix: run `ah scenario new` with the spec, scenario id, and heading
+to generate the contract stub, then populate the test entries.
+
+    ah scenario new &lt;change&gt; &lt;spec&gt; --requirement &lt;scenario-id&gt; &lt;heading&gt;
+</code></pre>
+<p><strong>Example — list all topics:</strong></p>
+<pre><code class="language-bash">ah explain --list
+</code></pre>
+<p><strong>Exit codes:</strong> 0 on success; 1 for unknown topics (includes “did you mean” suggestions).</p>
+<hr>
+<h2 id="ah-signals"><a class="header" href="#ah-signals"><code>ah signals</code></a></h2>
+<p>Read <a href="https://github.com/charly-vibes/dont">dont</a> rejection events and emit drift signals as JSON.</p>
+<pre><code>ah signals
+</code></pre>
+<p><code>dont</code> is a companion tool that tracks epistemic claims made by AI agents. When an agent makes a claim that is later rejected, <code>dont</code> records it as an event. <code>ah signals</code> reads those events from <code>.dont/events/*.json</code> and re-emits them as structured <code>DriftSignal</code> JSON that CI or the <a href="https://github.com/charly-vibes/wai">wai</a> project-context tool can consume to surface spec-behavior gaps.</p>
+<p><strong>Exit codes:</strong> always 0; returns an empty JSON array if no events are found.</p>
+<hr>
+<h2 id="ah-type"><a class="header" href="#ah-type"><code>ah type</code></a></h2>
+<p>List built-in archetypes, or print full documentation for one.</p>
+<pre><code>ah type [&lt;code&gt;]
+</code></pre>
+<p><strong>Example — list all:</strong></p>
+<pre><code class="language-bash">ah type
+</code></pre>
+<pre><code>PF — Pure Functional: Deterministic behavior where outputs are a function of explicit inputs.
+SA — Stateful API: Behavior involving state transitions, persisted data, or ordered operations.
+BP — Boundary Protocol: Behavior at an external boundary or protocol seam.
+CE — Contract/Event: Behavior expressed as emitted events, messages, claims, or cross-tool signals.
+NR — Non-Regression: Behavior asserting existing guarantees remain true while nearby changes land.
+</code></pre>
+<p><strong>Example — full docs for one archetype:</strong></p>
+<pre><code class="language-bash">ah type PF
+</code></pre>
+<pre><code>## PF — Pure Functional
+
+Deterministic behavior where outputs are a function of explicit inputs.
+
+Use for:
+- parsers
+- formatters
+- validators
+- pure transformations
+- deterministic calculations
+
+Typical test shapes:
+- unit examples for representative inputs
+- property-based tests for invariants
+- boundary input examples
+</code></pre>
+<p><strong>Exit codes:</strong> 0 on success; 1 for unknown archetype codes (includes “did you mean” suggestions).</p>
+<hr>
+<h2 id="ah-scenario-new"><a class="header" href="#ah-scenario-new"><code>ah scenario new</code></a></h2>
+<p>Append a new scenario to a spec and stage its TOML contract.</p>
+<pre><code>ah scenario new &lt;change&gt; &lt;spec&gt; --requirement "&lt;scenario-id&gt;" "&lt;heading&gt;"
+</code></pre>
+<p><strong>Arguments:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Argument</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>&lt;change&gt;</code></td><td>Change id (the change directory must exist under <code>openspec/changes/</code>)</td></tr>
+<tr><td><code>&lt;spec&gt;</code></td><td>Spec name (e.g. <code>parser</code>)</td></tr>
+<tr><td><code>--requirement</code></td><td>Requirement grouping name — must match a <code>### Requirement:</code> heading already in the spec; the new <code>#### Scenario:</code> is appended under it</td></tr>
+<tr><td><code>&lt;heading&gt;</code></td><td>Human-readable scenario heading to append</td></tr>
+</tbody>
+</table>
+</div>
+<p>Appends the scenario under the named requirement block and creates the contract stub at <code>.espectacular/changes/&lt;change&gt;/&lt;spec&gt;/&lt;scenario-id&gt;.toml</code>.</p>
+<p><strong>Exit codes:</strong> 0 on success; 1 if the change or spec is missing, or the requirement block is absent.</p>
+<hr>
+<h2 id="ah-scenario-supersede"><a class="header" href="#ah-scenario-supersede"><code>ah scenario supersede</code></a></h2>
+<p>Stage a supersession update for an existing contract.</p>
+<pre><code>ah scenario supersede &lt;spec&gt; &lt;old-id&gt; --with=&lt;new-id&gt; --in-change=&lt;change&gt;
+</code></pre>
+<p>Marks the old contract <code>status = "superseded"</code> and sets <code>superseded_by</code> to the new scenario id. The replacement scenario must already exist in the named change overlay.</p>
+<p><strong>Exit codes:</strong> 0 on success; 1 if the deployed contract or replacement is missing.</p>
+<hr>
+<h2 id="ah-archive"><a class="header" href="#ah-archive"><code>ah archive</code></a></h2>
+<p>Move staged change contracts into deployed <code>.espectacular/</code> locations.</p>
+<pre><code>ah archive &lt;change&gt;
+</code></pre>
+<p>Run after a change merges. Moves TOML files from <code>.espectacular/changes/&lt;change&gt;/</code> into <code>.espectacular/&lt;spec&gt;/</code>, failing if any collision would overwrite an active contract without a supersession in place.</p>
+<p><strong>Exit codes:</strong> 0 on success; 1 on collision or missing staged change.</p>
+<hr>
+<h2 id="ah-upgrade"><a class="header" href="#ah-upgrade"><code>ah upgrade</code></a></h2>
+<p>Report tool-version drift and update <code>.espectacular/config.toml</code>.</p>
+<pre><code>ah upgrade
+</code></pre>
+<p>Compares <code>tool_version</code> in <code>.espectacular/config.toml</code> with the running binary version. Updates the config if they differ, then exits non-zero so CI can detect compatibility changes.</p>
+<p><strong>Exit codes:</strong> 0 when versions match; 1 when drift is detected (even after updating the config).</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="implementation-status"><a class="header" href="#implementation-status">Implementation Status</a></h1>
+<p>This page maps the deployed behavioral specs to the commands and capabilities that implement them. Each row is a scenario in a spec; if <code>ah check</code> passes, that behavior is verified in CI.</p>
+<h2 id="deployed-specs"><a class="header" href="#deployed-specs">Deployed specs</a></h2>
+<h3 id="gate--core-verification-engine-72-scenarios"><a class="header" href="#gate--core-verification-engine-72-scenarios"><code>gate</code> — Core verification engine (72 scenarios)</a></h3>
+<p>Covers what <code>ah check</code> does: scenario discovery, contract correspondence, test execution, JSON output, falsifiability classification, and quality signals.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Scenario</th><th>What it verifies</th></tr>
+</thead>
+<tbody>
+<tr><td>Scenario Discovery</td><td><code>ah check</code> finds all scenarios from spec headings</td></tr>
+<tr><td>Sidecar Contract Correspondence</td><td>every scenario has a contract; every contract has a scenario</td></tr>
+<tr><td>Contract Schema</td><td>TOML contracts validate against the schema</td></tr>
+<tr><td>Test Runner Execution</td><td>declared tests are executed and results captured</td></tr>
+<tr><td>JSON Findings</td><td>output is a stable JSON envelope with scope/summary/findings</td></tr>
+<tr><td>Change Overlay Scope</td><td><code>--changes</code> adds staged scenarios to scope</td></tr>
+<tr><td>Non-Regression Archetype</td><td><code>NR</code> contracts are checked without special treatment</td></tr>
+<tr><td>Deterministic Scope Boundary</td><td>scope is stable across repeated runs</td></tr>
+<tr><td>Finding severity</td><td>findings carry <code>severity</code> (<code>"error"</code> gate-failing, <code>"warning"</code> non-gating); warning-only runs exit 0</td></tr>
+<tr><td>Falsifiability classification</td><td><code>falsifiability_class = "safety"</code> / <code>"liveness"</code>; invalid values fail the gate; liveness without bounded timeout warns</td></tr>
+<tr><td>Quality measurement capabilities</td><td><code>quality-*</code> findings are emitted and informational</td></tr>
+<tr><td>Conformance coverage matrix</td><td>all finding kinds are covered by at least one contract</td></tr>
+</tbody>
+</table>
+</div>
+<p>(All 72 gate scenarios have active contracts — run <code>ah report</code> for the full per-scenario matrix.)</p>
+<h3 id="cli--command-surface-47-scenarios"><a class="header" href="#cli--command-surface-47-scenarios"><code>cli</code> — Command surface (47 scenarios)</a></h3>
+<p>Covers the full <code>ah</code> command interface: init, check, doctor, report, explain, type, scenario, archive, upgrade, lint, signals, feedback, completions.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Scenario</th><th>What it verifies</th></tr>
+</thead>
+<tbody>
+<tr><td>CLI Command Name</td><td>binary is named <code>ah</code></td></tr>
+<tr><td>Project Initialization</td><td><code>ah init</code> creates <code>.espectacular/</code> and hook integration</td></tr>
+<tr><td>Correspondence Check Command</td><td><code>ah check</code> validates specs and runs tests</td></tr>
+<tr><td>Spec Quality Lint Command</td><td><code>ah lint</code> analyzes spec files for authoring-quality findings</td></tr>
+<tr><td>Health Check Command</td><td><code>ah doctor</code> diagnoses config, paths, hooks, archetypes</td></tr>
+<tr><td>Archetype Documentation Commands</td><td><code>ah type</code> lists and explains archetypes</td></tr>
+<tr><td>Scenario Lifecycle Commands</td><td><code>ah scenario new</code> and <code>ah scenario supersede</code></td></tr>
+<tr><td>Archive Companion Command</td><td><code>ah archive</code> promotes staged contracts</td></tr>
+<tr><td>Upgrade Command</td><td><code>ah upgrade</code> detects and reports tool-version drift</td></tr>
+<tr><td>Doctor enable flag</td><td><code>ah doctor --enable &lt;capability&gt;</code> writes config blocks</td></tr>
+<tr><td>Explain subcommand</td><td><code>ah explain</code> prints guidance for finding kinds and actions</td></tr>
+<tr><td>Coverage report command</td><td><code>ah report</code> displays a conformance coverage matrix</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="lint--spec-quality-heuristics-26-scenarios"><a class="header" href="#lint--spec-quality-heuristics-26-scenarios"><code>lint</code> — Spec-quality heuristics (26 scenarios)</a></h3>
+<p>Covers the <code>ah lint</code> checks: vague qualifiers, imperative steps, conjunctive bloat, missing negative scenarios, missing non-goals, unresolved ambiguity, entangled specs, and the specodelic bridge.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Scenario</th><th>What it verifies</th></tr>
+</thead>
+<tbody>
+<tr><td>Flag unbound qualifier / Do not flag bounded qualifier</td><td>vague-qualifier precision</td></tr>
+<tr><td>Flag explicit click / URL navigation steps</td><td>imperative-step detection</td></tr>
+<tr><td>Flag overlong scenario / Default maximum is configurable</td><td>conjunctive-bloat with configurable limit</td></tr>
+<tr><td>Flag requirement with only happy-path scenarios</td><td>missing-negative-scenario</td></tr>
+<tr><td>Missing non-goals / unresolved ambiguity / entangled spec detection</td><td>structural authoring checks</td></tr>
+<tr><td>Malformed spec file</td><td>emits an error-severity finding instead of aborting</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="adapters--language-adapter-dispatch-25-scenarios"><a class="header" href="#adapters--language-adapter-dispatch-25-scenarios"><code>adapters</code> — Language adapter dispatch (25 scenarios)</a></h3>
+<p>Covers how <code>ah check</code> maps test types to runners and normalizes output.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Scenario</th><th>What it verifies</th></tr>
+</thead>
+<tbody>
+<tr><td>Adapter detection precedence</td><td>config &gt; manifest &gt; binary on PATH</td></tr>
+<tr><td>Python pytest adapter</td><td>pytest detection, invocation, failure normalization</td></tr>
+<tr><td>Rust cargo test adapter</td><td>cargo detection, invocation, failure normalization</td></tr>
+<tr><td>TypeScript vitest adapter</td><td>vitest detection, invocation, failure normalization</td></tr>
+<tr><td>No-adapter-configured path</td><td><code>missing-runner</code> finding when type has no runner</td></tr>
+<tr><td>Custom runner plugin protocol</td><td>custom runners emit JSON envelopes parsed by <code>ah check</code></td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="explain--playbook-system-15-scenarios"><a class="header" href="#explain--playbook-system-15-scenarios"><code>explain</code> — Playbook system (15 scenarios)</a></h3>
+<p>Covers the <code>ah explain</code> topic system and its compile-time completeness guarantee.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Scenario</th><th>What it verifies</th></tr>
+</thead>
+<tbody>
+<tr><td>Playbook is compile-enforced</td><td>every finding kind has an <code>ah explain</code> topic at compile time</td></tr>
+<tr><td>Topic coverage</td><td>all finding kinds and suggested actions are covered</td></tr>
+<tr><td>Structured JSON output</td><td><code>--json</code> emits a machine-readable topic list</td></tr>
+<tr><td>Unknown topic handling</td><td>unknown topics exit 1 with “did you mean” suggestions</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="config-cli-core-spec-authoring--infrastructure-8-scenarios"><a class="header" href="#config-cli-core-spec-authoring--infrastructure-8-scenarios"><code>config</code>, <code>cli-core</code>, <code>spec-authoring</code> — Infrastructure (8 scenarios)</a></h3>
+<p>Config store/registry wiring (3), genesis guide/ErrorSink integration (2), dual-format spec authoring and migration (3).</p>
+<hr>
+<h2 id="how-to-read-this-page"><a class="header" href="#how-to-read-this-page">How to read this page</a></h2>
+<ul>
+<li><strong>Deployed</strong> means the scenario has a passing contract in <code>ah check</code> on <code>main</code>.</li>
+<li><strong>Planned</strong> means the scenario is staged in an OpenSpec change but not yet implemented (none currently — all active changes are fully implemented and archived).</li>
+<li>Run <code>ah check</code> locally to see current pass/fail state.</li>
+<li>Spec source lives in <a href="https://github.com/charly-vibes/espectacular/tree/main/openspec/specs"><code>openspec/specs/</code></a>.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="concepts"><a class="header" href="#concepts">Concepts</a></h1>
+<p><strong>In brief:</strong> A <strong>spec</strong> declares what your tool should do. A <strong>contract</strong> says which tests verify one scenario in that spec. <code>ah check</code> is the gate — it exits non-zero when a contract is missing or a test fails. See the <a href="#worked-example">worked example in Installation</a> to see these pieces together.</p>
+<hr>
+<h2 id="the-mental-model"><a class="header" href="#the-mental-model">The mental model</a></h2>
+<p>espectacular enforces a contract between <em>what you said your tool does</em> (specs) and <em>whether it actually does it</em> (tests). Each behavioral claim lives in a spec file; each claim has a sidecar TOML contract that says how to verify it. <code>ah check</code> validates that every claim has a contract and that every contract’s tests pass.</p>
+<hr>
+<h2 id="specs"><a class="header" href="#specs">Specs</a></h2>
+<p>A <strong>spec</strong> is a Markdown file under <code>openspec/specs/&lt;name&gt;/spec.md</code>. It describes the intended behavior of one component using <code>### Requirement:</code> groupings and <code>#### Scenario:</code> headings nested under them.</p>
+<pre><code class="language-markdown">### Requirement: Input validation
+
+#### Scenario: Empty input is rejected
+- **GIVEN** an empty string is passed to the parser
+- **WHEN** the parser runs
+- **THEN** it exits non-zero with a descriptive error message
+</code></pre>
+<p>Specs are checked into version control. They are append-only: you never rewrite a deployed scenario’s intent — instead you add new scenarios or supersede old ones. The git log becomes a traceable record of when each behavior was declared, extended, or superseded.</p>
+<hr>
+<h2 id="scenarios"><a class="header" href="#scenarios">Scenarios</a></h2>
+<p>A <strong>scenario</strong> is one <code>#### Scenario:</code> heading nested under a <code>### Requirement:</code> grouping in a spec file. It has:</p>
+<ul>
+<li>A <strong>slug</strong> — derived from the scenario heading (by convention, lowercased with hyphens, e.g. <code>empty-input-is-rejected</code>). This slug must match the contract filename and the <code>id</code> field inside it.</li>
+<li>A <strong>body</strong> in Given/When/Then form describing the behavior</li>
+</ul>
+<p><code>ah check</code> discovers scenarios by parsing <code>#### Scenario:</code> headings from spec files. Each scenario must have a corresponding contract file, or <code>ah check</code> emits a <code>no-toml</code> finding. Run <code>ah explain no-toml</code> for the fix.</p>
+<hr>
+<h2 id="contracts"><a class="header" href="#contracts">Contracts</a></h2>
+<p>A <strong>contract</strong> is a TOML file at <code>.espectacular/&lt;spec&gt;/&lt;scenario-id&gt;.toml</code>. It is the machine-readable pairing between a scenario and the tests that verify it.</p>
+<pre><code class="language-toml">id = "empty-input-is-rejected"
+description = "Empty input is rejected before parsing."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.1.0"
+
+[[tests.pytest]]
+flags = "tests/test_parser.py::test_empty_input_rejected"
+timeout_seconds = 60
+</code></pre>
+<p>Required fields: <code>id</code>, <code>description</code>, <code>archetype</code>, <code>status</code>, <code>superseded_by</code>, <code>authored_with</code>, <code>tests</code>.</p>
+<p>The filename, the <code>id</code> field, and the scenario slug must all agree — <code>ah check</code> emits <code>id-mismatch</code> if they disagree.</p>
+<h3 id="falsifiability-class"><a class="header" href="#falsifiability-class">Falsifiability class</a></h3>
+<p>Contracts may declare an optional <code>falsifiability_class</code>:</p>
+<ul>
+<li><code>"safety"</code> — the scenario asserts a <strong>safety</strong> claim: a bad state never occurs. A single deterministic test can falsify it. Annotation-only in v1; it records the author’s judgment and gives downstream tooling a hook.</li>
+<li><code>"liveness"</code> — the scenario asserts a <strong>liveness</strong> claim: a good state eventually occurs. A liveness claim is only falsifiable under bounded execution, so if every test entry omits <code>timeout_seconds</code>, <code>ah check</code> emits a <code>missing-liveness-timeout</code> <strong>warning</strong> suggesting an explicit timeout. Warnings do not fail the gate.</li>
+</ul>
+<p>The field is optional and absent by default — contracts without it validate exactly as before. Invalid values emit an <code>invalid-falsifiability-class</code> structural finding and fail the gate.</p>
+<h3 id="test-entry-types"><a class="header" href="#test-entry-types">Test entry types</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Entry</th><th>How it runs</th></tr>
+</thead>
+<tbody>
+<tr><td><code>[[tests.shell]]</code></td><td>Runs <code>command</code> directly via <code>/bin/sh -c</code></td></tr>
+<tr><td><code>[[tests.pytest]]</code></td><td>Prepends the configured pytest runner to <code>flags</code></td></tr>
+<tr><td><code>[[tests.cargo]]</code></td><td>Prepends the configured cargo runner to <code>flags</code></td></tr>
+<tr><td><code>[[tests.vitest]]</code></td><td>Prepends the configured vitest runner to <code>flags</code></td></tr>
+<tr><td><code>[[tests.custom]]</code></td><td>Invokes a custom runner and parses its JSON envelope</td></tr>
+<tr><td><code>[[tests.&lt;type&gt;]]</code></td><td>Any other type, looked up in <code>[runners.&lt;type&gt;]</code> in config</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="staged-contracts"><a class="header" href="#staged-contracts">Staged contracts</a></h3>
+<p>During a change in progress, contracts live under <code>.espectacular/changes/&lt;change&gt;/&lt;spec&gt;/</code>. After the change merges, <code>ah archive &lt;change&gt;</code> moves them into <code>.espectacular/&lt;spec&gt;/</code>. See <a href="#step-5--archive-when-merged">Installation — Step 5</a>.</p>
+<hr>
+<h2 id="archetypes"><a class="header" href="#archetypes">Archetypes</a></h2>
+<p>Every contract declares an <strong>archetype</strong>, a short code that classifies the kind of behavior being verified. Archetypes guide test design: a <code>PF</code> scenario should have deterministic unit tests; an <code>SA</code> scenario needs to cover state transitions.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Code</th><th>Name</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>PF</code></td><td>Pure Functional</td><td>Deterministic behavior; outputs are a function of explicit inputs</td></tr>
+<tr><td><code>SA</code></td><td>Stateful API</td><td>State transitions, persisted data, or ordered operations</td></tr>
+<tr><td><code>BP</code></td><td>Boundary Protocol</td><td>Behavior at an external boundary or protocol seam</td></tr>
+<tr><td><code>CE</code></td><td>Contract/Event</td><td>Emitted events, messages, claims, or cross-tool signals</td></tr>
+<tr><td><code>NR</code></td><td>Non-Regression</td><td>Existing guarantees remain true while nearby changes land</td></tr>
+</tbody>
+</table>
+</div>
+<p>Run <code>ah type &lt;code&gt;</code> for full documentation on any archetype, or <code>ah type</code> to list all.</p>
+<hr>
+<h2 id="the-gate"><a class="header" href="#the-gate">The gate</a></h2>
+<p><code>ah check</code> is the enforcement gate. It:</p>
+<ol>
+<li>Discovers all scenarios from deployed specs (and staged change overlays if <code>--changes</code> is passed)</li>
+<li>Checks structural correspondence: every scenario has a contract, every contract has a scenario, no collisions, no orphans</li>
+<li>Runs every declared test</li>
+<li>Emits a JSON envelope and exits 0 if clean, 1 if any structural or execution finding exists</li>
+</ol>
+<p><strong>Local pre-commit</strong> (<code>ah init</code> installs this): catches structural findings before <code>git push</code> instead of in CI.
+<strong>CI</strong> (<code>ah check</code> in a workflow step): the enforcement gate, source of truth.</p>
+<p>Quality findings (<code>quality-mutation</code>, <code>quality-property</code>, <code>quality-snapshot</code>) are informational — they appear in the output but never cause a non-zero exit. See <a href="#ah-check">Command Reference — ah check</a> for the full finding kind table.</p>
+<hr>
+<h2 id="adapters"><a class="header" href="#adapters">Adapters</a></h2>
+<p>An <strong>adapter</strong> maps a test type name to the right runner invocation and normalizes failure output into a common shape. espectacular ships built-in adapters for pytest, cargo, and vitest.</p>
+<p><strong>Detection signals</strong> (highest-priority source wins):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Adapter</th><th>Explicit config</th><th>Manifest detection</th><th>Binary detection</th></tr>
+</thead>
+<tbody>
+<tr><td><code>pytest</code></td><td><code>runners.pytest</code> in config</td><td><code>pyproject.toml [tool.pytest]</code>, <code>pytest.ini</code></td><td><code>pytest</code> on PATH or <code>.py</code> with <code>import pytest</code></td></tr>
+<tr><td><code>cargo</code></td><td><code>runners.cargo</code> in config</td><td><code>Cargo.toml</code> present</td><td>—</td></tr>
+<tr><td><code>vitest</code></td><td><code>runners.vitest</code> in config</td><td><code>package.json</code> devDependency</td><td>—</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>ah doctor</code> shows which frameworks are detected and their source. Use <code>ah doctor --enable &lt;framework&gt;</code> to write the config entry for a detected-but-unconfigured adapter.</p>
+<h3 id="custom-runners"><a class="header" href="#custom-runners">Custom runners</a></h3>
+<p>A <code>[[tests.custom]]</code> entry invokes a configured runner and expects a JSON envelope on stdout:</p>
+<pre><code class="language-json">{ "exit_code": 0, "passed": true, "findings": [] }
+</code></pre>
+<p>Non-zero <code>exit_code</code> or <code>passed: false</code> maps to a <code>test-failing</code> finding. The <code>findings</code> array lets custom runners emit structured findings directly into <code>ah check</code> output.</p>
+<hr>
+<h2 id="quality-signals"><a class="header" href="#quality-signals">Quality signals</a></h2>
+<p>Quality signals are optional capabilities that surface test health metadata as findings:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Signal</th><th>What it tracks</th></tr>
+</thead>
+<tbody>
+<tr><td><code>quality-mutation</code></td><td>Mutation testing kill rate vs. threshold</td></tr>
+<tr><td><code>quality-property</code></td><td>Property-based testing is active and passing</td></tr>
+<tr><td><code>quality-snapshot</code></td><td>Snapshot testing is active and passing</td></tr>
+</tbody>
+</table>
+</div>
+<p>Enable them in <code>.espectacular/config.toml</code> or via <code>ah doctor --enable mutation</code> (etc.). Quality findings are informational and never cause <code>ah check</code> to exit non-zero.</p>
+<hr>
+<h2 id="file-layout"><a class="header" href="#file-layout">File layout</a></h2>
+<pre><code class="language-text">openspec/
+└── specs/&lt;spec&gt;/spec.md            # deployed spec source
+
+.espectacular/
+├── config.toml                     # runner and capability config
+├── AGENTS.md                       # AI agent guidance
+├── &lt;spec&gt;/
+│   └── &lt;scenario-id&gt;.toml          # deployed contracts
+└── changes/
+    └── &lt;change&gt;/
+        └── &lt;spec&gt;/
+            └── &lt;scenario-id&gt;.toml  # staged change contracts
+
+schemas/
+├── check-output.schema.json        # ah check JSON envelope
+├── config.schema.json              # .espectacular/config.toml
+├── scenario-contract.schema.json   # contract TOML files
+└── custom-runner.schema.json       # custom runner JSON envelope
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="agent-workflow-ah-check-as-specification-gate"><a class="header" href="#agent-workflow-ah-check-as-specification-gate">Agent Workflow: <code>ah check</code> as Specification Gate</a></h1>
+<p>This document describes how AI agents discover and use <code>ah check</code> — the
+espectacular verification gate — in the standard development cycle. It is
+extracted from observed patterns across the charly-vibes project ecosystem.</p>
+<hr>
+<h2 id="how-agents-discover-ah-check"><a class="header" href="#how-agents-discover-ah-check">How Agents Discover <code>ah check</code></a></h2>
+<p>Agents learn about <code>ah check</code> through the <strong><code>ah:managed</code> block</strong> in a
+project’s <code>AGENTS.md</code> (or <code>CLAUDE.md</code>). This block is deployed by <code>ah init</code>
+and refreshed by <code>ah init</code>.</p>
+<pre><code class="language-markdown">&lt;!-- ah:managed:start --&gt;
+## espectacular
+
+Run `ah check` to verify spec-test correspondence before committing.
+
+- `ah check` — validate all deployed specs
+- `ah check --changes &lt;name&gt;` — validate with a change overlay
+- `ah init` — set up or refresh espectacular project files
+- `ah doctor` — diagnose setup issues
+- `ah explain &lt;topic&gt;` — playbook guidance for finding kinds
+- `ah doctor --enable &lt;adapter&gt;` — write adapter config into config.toml
+- `ah signals` — emit dont drift signals
+&lt;!-- ah:managed:end --&gt;
+</code></pre>
+<p><strong>Key design decisions:</strong></p>
+<ul>
+<li>The block is compact (fits in ~15 lines of agent context) — agents scan it
+early in a session and recognize <code>ah check</code> as a commit gate.</li>
+<li>It lists only the most common commands — <code>ah explain</code> provides the full
+playbook for less frequent tasks.</li>
+<li>The <code>ah:managed</code> delimiter signals to agents that this section is
+auto-generated and authoritative.</li>
+</ul>
+<hr>
+<h2 id="typical-usage-patterns"><a class="header" href="#typical-usage-patterns">Typical Usage Patterns</a></h2>
+<h3 id="1-pre-commit-gate-most-common"><a class="header" href="#1-pre-commit-gate-most-common">1. Pre-commit gate (most common)</a></h3>
+<p>The standard loop when working on OpenSpec projects:</p>
+<pre><code>edit → ah check → fix → ah check → commit
+</code></pre>
+<p>Concrete example:</p>
+<blockquote>
+<p>This pattern was observed in testaruda pi sessions, where <code>ah check</code> was
+the primary feedback loop during contract wiring and spec changes.
+Source sessions: <code>2026-07-08T15-35-34-510Z</code>, <code>2026-07-16T01-38-10-034Z</code>.</p>
+</blockquote>
+<pre><code class="language-bash"># 1. Make changes to spec or code
+# 2. Run the gate
+ah check
+
+# 3. If findings appear, fix them
+# 4. Re-run to verify
+ah check
+
+# 5. Commit when green
+git add -p
+git commit -m "fix: ..."
+</code></pre>
+<p><strong>When to run <code>ah check</code>:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Situation</th><th>Whether to run</th></tr>
+</thead>
+<tbody>
+<tr><td>Modified spec files</td><td>Always</td></tr>
+<tr><td>Modified contract TOML files</td><td>Always</td></tr>
+<tr><td>Modified production code tracked by contracts</td><td>Always</td></tr>
+<tr><td>Edited tests only</td><td>Optional (contracts pass/fail)</td></tr>
+<tr><td>Edited docs only</td><td>Usually not needed</td></tr>
+<tr><td>Changed a change overlay</td><td><code>ah check --changes &lt;name&gt;</code></td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="2-change-overlay-validation"><a class="header" href="#2-change-overlay-validation">2. Change-overlay validation</a></h3>
+<p>When a staged OpenSpec change is in progress:</p>
+<pre><code class="language-bash">ah check --changes add-parser-validation
+</code></pre>
+<p>This validates the base spec plus the overlay’s additional scenarios, without
+requiring the overlay to be archived first.</p>
+<p>Multiple overlays can be validated together by repeating the flag:</p>
+<pre><code class="language-bash">ah check --changes add-parser-validation --changes fix-dangling-contracts
+</code></pre>
+<p>Useful when interdependent changes are being developed simultaneously.</p>
+<h3 id="3-fresh-project-setup"><a class="header" href="#3-fresh-project-setup">3. Fresh project setup</a></h3>
+<pre><code class="language-bash">ah init            # Scaffold .espectacular/, stub contracts
+ah doctor          # Verify setup is complete
+ah doctor --enable cargo   # Configure runner
+ah check           # Run initial validation
+</code></pre>
+<h3 id="4-post-ah-init-verification"><a class="header" href="#4-post-ah-init-verification">4. Post-<code>ah init</code> verification</a></h3>
+<p>After bootstrapping a new project, <code>ah init</code> stubs contracts for every
+scenario missing one. The pattern is:</p>
+<pre><code class="language-bash">ah init            # Stub missing contracts
+ah check           # Verify — expect structural findings for no-tests-declared
+# Fill in test commands for each stub contract, then:
+ah check           # Green — all contracts wired
+git add -A
+git commit -m "chore: init espectacular and stub contracts"
+</code></pre>
+<hr>
+<h2 id="how-findings-are-interpreted"><a class="header" href="#how-findings-are-interpreted">How Findings Are Interpreted</a></h2>
+<p><code>ah check</code> emits a JSON envelope with a <code>findings</code> array. Each finding has a
+<code>kind</code>, <code>category</code>, and <code>suggested_action</code> that agents can act on.</p>
+<h3 id="finding-categories"><a class="header" href="#finding-categories">Finding categories</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Category</th><th>Meaning</th><th>Exit code impact</th></tr>
+</thead>
+<tbody>
+<tr><td><code>structural</code></td><td>Spec/contract mismatch (missing contract, orphan, duplicate ID)</td><td>Non-zero</td></tr>
+<tr><td><code>execution</code></td><td>Contract test failed or timed out</td><td>Non-zero</td></tr>
+<tr><td><code>quality-*</code></td><td>Mutation score below threshold, property coverage gap</td><td>Zero (advisory)</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="common-findings-and-agent-responses"><a class="header" href="#common-findings-and-agent-responses">Common findings and agent responses</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Finding kind</th><th>What it means</th><th>Agent action</th></tr>
+</thead>
+<tbody>
+<tr><td><code>missing-contract</code></td><td>A scenario has no contract file</td><td><code>ah explain run_ah_scenario_new</code> → <code>ah scenario new</code></td></tr>
+<tr><td><code>orphan-contract</code></td><td>A contract file has no matching scenario</td><td>Remove or archive the contract</td></tr>
+<tr><td><code>no-tests-declared</code></td><td>Contract exists but has no test commands</td><td>Fill in <code>[[tests.shell]]</code> or <code>[[tests.flags]]</code></td></tr>
+<tr><td><code>collision</code></td><td>Two specs declare the same scenario ID</td><td>Rename one scenario heading</td></tr>
+<tr><td><code>test-failing</code></td><td>A contract test exited non-zero</td><td>Inspect test output, fix code</td></tr>
+<tr><td><code>no-tests-ran</code></td><td>Shell test ran no tests (exit 0, no output)</td><td>Run <code>ah check --json</code> to inspect the full captured output. The contract’s <code>[[tests.shell]]</code> command may not match any test files, or the adapter may not be detecting the test framework. Check config and test command.</td></tr>
+<tr><td><code>duplicate-id</code></td><td>Same scenario ID appears in two specs</td><td>Deduplicate</td></tr>
+<tr><td><code>mutation-below-threshold</code></td><td>Mutation kill rate too low</td><td>Add or improve test cases</td></tr>
+</tbody>
+</table>
+</div>
+<p>Before starting work, ensure <code>ah</code> is available in PATH:</p>
+<pre><code class="language-bash">which ah || cargo install --git git@cv:charly-vibes/espectacular.git
+</code></pre>
+<h3 id="quick-reference-interpreting-output"><a class="header" href="#quick-reference-interpreting-output">Quick reference: interpreting output</a></h3>
+<pre><code class="language-json">{
+  "summary": { "structural": 0, "execution": 0, "passed": 3, "counts_by_kind": {} },
+  "findings": []
+}
+</code></pre>
+<p>→ <strong>Green.</strong> All checks pass. Ready to commit.</p>
+<pre><code class="language-json">{
+  "summary": { "structural": 1, "execution": 0, "passed": 0, "counts_by_kind": { "missing-contract": 1 } },
+  "findings": [ { "kind": "missing-contract", "category": "structural", ... } ]
+}
+</code></pre>
+<p>→ <strong>Structural finding.</strong> A scenario has no contract file. Run <code>ah scenario new</code>
+to create one, then <code>ah check</code> again.</p>
+<pre><code class="language-json">{
+  "summary": { "structural": 0, "execution": 1, "passed": 2, "counts_by_kind": { "test-failing": 1 } },
+  "findings": [ { "kind": "test-failing", "category": "execution", ... } ]
+}
+</code></pre>
+<p>→ <strong>Execution finding.</strong> A contract test failed. Fix the code, then <code>ah check</code>
+again.</p>
+<p>For full guidance on any finding kind:</p>
+<pre><code class="language-bash">ah explain &lt;finding-kind&gt;
+</code></pre>
+<h3 id="ciscript-usage"><a class="header" href="#ciscript-usage">CI/script usage</a></h3>
+<p>In CI pipelines or automated scripts, use <code>--json</code> for machine-readable
+output:</p>
+<pre><code class="language-bash">ah check --json
+# Exit code: 0 if no structural/execution findings, 1 otherwise
+</code></pre>
+<p>The <code>--run-tests</code> flag forces contract test execution even when no spec
+changes are detected (useful in CI when dependencies may have changed).</p>
+<h3 id="forcing-a-commit-through-findings"><a class="header" href="#forcing-a-commit-through-findings">Forcing a commit through findings</a></h3>
+<p>On a WIP branch or when findings are acceptable, you can commit despite
+non-zero exit. This is common during staged change development:</p>
+<pre><code class="language-bash">ah check --changes my-change
+# If findings are scoped to the change and expected, proceed
+git commit -m "wip: my change"
+</code></pre>
+<p>For CI-only enforcement, run <code>ah check</code> in CI and allow local commits to
+pass — the managed block in AGENTS.md should still instruct agents to
+resolve findings.</p>
+<hr>
+<h2 id="commit-workflow-with-ah-check-as-gate"><a class="header" href="#commit-workflow-with-ah-check-as-gate">Commit Workflow with <code>ah check</code> as Gate</a></h2>
+<h3 id="standard-workflow"><a class="header" href="#standard-workflow">Standard workflow</a></h3>
+<pre><code>1. bd claim &lt;ticket&gt;        # Claim work
+2. git pull --rebase        # Sync
+3. [edit code / specs]      # Make changes
+4. ah check                 # Verify spec-test correspondence
+5. [fix findings]           # Iterate until green
+6. git add &lt;files&gt;          # Stage specific files (never git add -A)
+7. git commit -m "..."      # Commit with descriptive message
+8. ah check                 # Verify pre-push (catches regressions from merge)
+9. bd close &lt;ticket&gt;        # Close ticket
+</code></pre>
+<h3 id="when-findings-are-expected"><a class="header" href="#when-findings-are-expected">When findings are expected</a></h3>
+<p>Some tickets produce findings that are <em>expected</em> and <em>resolved</em> within the
+same ticket. Example: a ticket that adds a new scenario creates a
+<code>missing-contract</code> finding until the contract file is written.</p>
+<p>In those cases, the workflow is:</p>
+<pre><code>1. ah check                 # Baseline — note existing findings
+2. [edit code / specs]      # Make changes
+3. ah check                 # Verify — expected findings should match ticket scope
+4. [fix unexpected findings]
+5. ah check                 # Green — all expected findings resolved
+6. git add &amp;&amp; git commit
+</code></pre>
+<h3 id="pre-push-hooks-optional"><a class="header" href="#pre-push-hooks-optional">Pre-push hooks (optional)</a></h3>
+<p>Projects with <code>lefthook</code> or <code>prek</code> can integrate <code>ah check</code> as a pre-push
+hook. This is configured by <code>ah init</code> and runs automatically:</p>
+<pre><code class="language-yaml"># .lefthook.yml (auto-generated by ah init)
+pre-push:
+  commands:
+    ah-check:
+      run: ah check
+      skip: false  # Block push on failure
+</code></pre>
+<p>If you want <code>ah check</code> to run but not block the push (advisory mode), set
+<code>skip: true</code>. This lets you push while still seeing the output.</p>
+<p>The actual config generated by <code>ah init</code> uses <code>skip: false</code> by default.</p>
+<pre><code>
+---
+
+## Agent Workflow Diagram
+
+</code></pre>
+<p>┌─────────────────────────────────────────────────────────┐
+│                    Session Start                         │
+│                                                          │
+│  1. Agent reads AGENTS.md → discovers ah:managed block   │
+│  2. Agent runs <code>ah check</code> to establish baseline           │
+│  3. Agent reads any existing findings                     │
+└─────────────────────┬───────────────────────────────────┘
+│
+▼
+┌─────────────────────────────────────────────────────────┐
+│                    Development Loop                       │
+│                                                          │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐           │
+│  │  Edit    │───▶│ah check  │───▶│  Fix     │           │
+│  │  code/   │    │          │    │ findings │──┐        │
+│  │  specs   │    └──────────┘    └──────────┘  │        │
+│  └──────────┘         ▲                       │        │
+│                       │  findings remain       │        │
+│                       └────────────────────────┘        │
+│                                │                         │
+│                          green │                         │
+│                                ▼                         │
+│                      ┌──────────────────┐               │
+│                      │  ah check passes  │               │
+│                      └────────┬──────────┘               │
+└─────────────────────────────────┬───────────────────────┘
+│
+▼
+┌─────────────────────────────────────────────────────────┐
+│                    Commit                                 │
+│                                                          │
+│  1. git add <specific files="">                              │
+│  2. git commit -m “fix: …”                              │
+│  3. (optional) ah check pre-push                        │
+│  4. bd close <ticket>                                     │
+└─────────────────────────────────────────────────────────┘</ticket></specific></p>
+<pre><code>
+---
+
+## Adding `ah check` to a New Project
+
+For agent operators who want to replicate this pattern:
+
+```bash
+# 1. Install ah
+cargo install --git git@cv:charly-vibes/espectacular.git
+
+# 2. Ensure the project has an openspec/ directory
+#    (the root AGENTS.md or CLAUDE.md will be updated
+#     automatically by ah init)
+
+# 3. Run init
+ah init
+
+# 4. Verify
+ah doctor    # Should show healthy
+ah check     # Should have findings from stub contracts
+
+# 5. Verify the ah:managed block was written to AGENTS.md
+#    (ah init does this automatically — no manual edits needed)
+</code></pre>
+<h2 id="sources"><a class="header" href="#sources">Sources</a></h2>
+<p>This document is extracted from observed agent workflow patterns in the
+following pi sessions:</p>
+<ul>
+<li><code>2026-07-08T15-35-34-510Z</code> — Heavy <code>ah check</code> usage during contract wiring
+for the v0.2.0 release (espectacular project)</li>
+<li><code>2026-07-16T01-38-10-034Z</code> — Recent workflow showing the
+edit → ah check → fix → ah check → commit cycle (testaruda project)</li>
+</ul>
+<p>Both sessions demonstrate the <code>ah check</code> feedback loop in practice.
+Testaruda was the first OpenSpec project to adopt <code>ah check</code> as a regular
+development gate, and its patterns were replicated across the charly-vibes
+ecosystem.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="audit-spec-validation-patterns-across-charly-projects"><a class="header" href="#audit-spec-validation-patterns-across-charly-projects">Audit: Spec-Validation Patterns Across Charly Projects</a></h1>
+<p><strong>Ticket:</strong> <code>espectacular-892</code>
+<strong>Scope:</strong> All charly-vibes OpenSpec projects (2026-04 through 2026-07)
+<strong>Source session:</strong> <code>019f72d1-e2bf-7d6f-a707-403228d4ee3b</code></p>
+<hr>
+<h2 id="executive-summary"><a class="header" href="#executive-summary">Executive Summary</a></h2>
+<p>Before <code>ah check</code> was deployed to all 13 charly projects on 2026-07-20,
+agents had <strong>no standard tool</strong> for spec-test correspondence validation.
+They relied on a mix of <code>openspec validate --strict</code> (structure-only),
+<code>cargo test</code> / <code>just test</code> (test-only), and manual inspection. This audit
+documents those patterns as evidence for the pi extension ticket
+(<code>espectacular-c9v</code>).</p>
+<hr>
+<h2 id="patterns-observed"><a class="header" href="#patterns-observed">Patterns Observed</a></h2>
+<h3 id="pattern-1-openspec-validate---strict-primary-pre-espectacular-tool"><a class="header" href="#pattern-1-openspec-validate---strict-primary-pre-espectacular-tool">Pattern 1: <code>openspec validate --strict</code> (primary pre-espectacular tool)</a></h3>
+<p>Used consistently from April through July 2026 across all projects with
+OpenSpec specs. Validates spec structure (headings, scenarios, IDs) but
+<strong>does not verify contracts or tests</strong>.</p>
+<pre><code class="language-bash">openspec validate --strict
+openspec validate --all --strict
+openspec validate --specs --strict
+openspec validate add-change-name --strict
+</code></pre>
+<p><strong>Found in:</strong> 22+ log entries across 10 projects (atril, fabbro, fotos,
+khipu, miblioteca, nayra, paranoid, pretender, wai, tRAGar).</p>
+<p><strong>Pain points:</strong></p>
+<ul>
+<li><code>--strict</code> flag required every invocation (easy to forget)</li>
+<li>No test execution integration — agents still needed to run <code>cargo test</code>
+separately</li>
+<li>No contract file validation — only spec structural checks</li>
+<li>No JSON output for CI/script consumption</li>
+<li>Exit code behavior was unclear</li>
+</ul>
+<h3 id="pattern-2-cargo-test--just-test-as-spec-validation-proxy"><a class="header" href="#pattern-2-cargo-test--just-test-as-spec-validation-proxy">Pattern 2: <code>cargo test</code> / <code>just test</code> as spec-validation proxy</a></h3>
+<p>Agents frequently used test runners as a <em>proxy</em> for spec verification,
+often paired with <code>openspec validate</code>:</p>
+<pre><code class="language-bash">just test &amp;&amp; openspec validate --all --strict
+</code></pre>
+<p><strong>Found in:</strong> 15+ log entries across 7 projects.</p>
+<p><strong>Pain points:</strong></p>
+<ul>
+<li>Two separate commands for one validation intent</li>
+<li>No feedback that tests <em>correspond</em> to specs — only that tests pass</li>
+<li>Projects without <code>openspec validate</code> integration just ran <code>cargo test</code>
+and assumed spec alignment</li>
+</ul>
+<h3 id="pattern-3-manual-spec-to-test-reading-no-tool"><a class="header" href="#pattern-3-manual-spec-to-test-reading-no-tool">Pattern 3: Manual spec-to-test reading (no tool)</a></h3>
+<p>Agents read spec files and test files manually to verify correspondence:</p>
+<pre><code>"read spec" → "read test file" → "compare scenarios" → "fix" → "commit"
+</code></pre>
+<p><strong>Found in:</strong> Occasional entries where agents reviewed scenarios
+alongside test files (2026-04-20 atril session, 2026-04-30 REPLy.jl).</p>
+<p><strong>Pain points:</strong></p>
+<ul>
+<li>Entirely manual — no automation</li>
+<li>High cognitive load for contract wiring</li>
+<li>Easy to miss scenarios or leave orphans</li>
+</ul>
+<h3 id="pattern-4-ah-check-current--espectacular"><a class="header" href="#pattern-4-ah-check-current--espectacular">Pattern 4: <code>ah check</code> (current — espectacular)</a></h3>
+<p>After espectacular v0.2.0, the intended tool:</p>
+<pre><code class="language-bash">ah check                    # Fast static validation
+ah check --changes &lt;name&gt;   # With staged change overlay
+ah check --json             # Machine-readable
+</code></pre>
+<p><strong>Deployment history:</strong></p>
+<ul>
+<li>2026-06-18: First dogfooded in espectacular itself</li>
+<li>2026-07-08: v0.2.0 — all espectacular contracts wired, 0 findings</li>
+<li>2026-07-15: v0.2.2 — human-readable output (silent JSON before)</li>
+<li>2026-07-20: Deployed to all 13 openspec projects</li>
+<li>2026-07-21: Performance fix (<code>--run-tests</code> flag, fast default)</li>
+</ul>
+<p><strong>Gap (pre-deployment):</strong> Only 2/27 projects had <code>ah check</code> available.
+Agents didn’t use it because it wasn’t there to discover.</p>
+<hr>
+<h2 id="pain-points-evidence-for-espectacular-c9v"><a class="header" href="#pain-points-evidence-for-espectacular-c9v">Pain Points (Evidence for <code>espectacular-c9v</code>)</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>#</th><th>Pain Point</th><th>Before</th><th>After</th><th>Severity</th></tr>
+</thead>
+<tbody>
+<tr><td>1</td><td><strong>Two-step validation</strong></td><td><code>openspec validate --strict</code> + <code>cargo test</code></td><td><code>ah check</code> does both</td><td>HIGH</td></tr>
+<tr><td>2</td><td><strong>No contract verification</strong></td><td><code>openspec validate</code> only checked spec structure</td><td><code>ah check</code> validates contracts + runs tests</td><td>HIGH</td></tr>
+<tr><td>3</td><td><strong>No CI integration</strong></td><td><code>openspec validate</code> JSON output unclear</td><td><code>ah check --json</code> has stable schema</td><td>MEDIUM</td></tr>
+<tr><td>4</td><td><strong>Agent discovery</strong></td><td>No AGENTS.md block → agents didn’t know to validate</td><td><code>ah:managed</code> block in AGENTS.md</td><td>HIGH</td></tr>
+<tr><td>5</td><td><strong>Manual spec-test mapping</strong></td><td>Agents read spec + test files by hand</td><td><code>ah check</code> reports missing/orphan contracts</td><td>MEDIUM</td></tr>
+<tr><td>6</td><td><strong>Forgotten <code>--strict</code></strong></td><td>Easy to validate without the right flags</td><td><code>ah check</code> defaults to comprehensive</td><td>LOW</td></tr>
+<tr><td>7</td><td><strong>No test output in findings</strong></td><td><code>openspec validate</code> had no test execution</td><td><code>ah check</code> captures test output in findings</td><td>MEDIUM</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<pre><code>April 2026
+  └─ openspec validate --strict  (sole tool, all projects)
+  └─ just test / cargo test      (as spec proxy)
+
+June 2026
+  └─ ah check dogfooded in espectacular
+  └─ openspec validate still used elsewhere
+
+July 10
+  └─ Last openspec validate usage (tRAGar project)
+  └─ ah check v0.2.0 in espectacular
+
+July 15
+  └─ ah check v0.2.2 (human-readable output)
+
+July 18
+  └─ espectacular-892 ticket created (this audit)
+  └─ Deployment begins
+
+July 20
+  └─ ah check deployed to all 13 openspec projects
+
+July 21
+  └─ Performance fix, --run-tests flag
+  └─ This audit completed
+</code></pre>
+<hr>
+<h2 id="recommendations-for-pi-extension-espectacular-c9v"><a class="header" href="#recommendations-for-pi-extension-espectacular-c9v">Recommendations for Pi Extension (<code>espectacular-c9v</code>)</a></h2>
+<ol>
+<li>
+<p><strong>Discovery is the primary gap.</strong> After deployment, agents still only use
+<code>ah check</code> if the <code>ah:managed</code> block is in their context window. A pi
+custom tool makes discovery unconditional.</p>
+</li>
+<li>
+<p><strong>Pain point #1 (two-step validation)</strong> is the strongest motivator.
+Agents ran two commands (<code>openspec validate</code> + <code>cargo test</code>) where one
+should suffice. <code>ah check</code> already solves this — the pi extension just
+needs to expose it.</p>
+</li>
+<li>
+<p><strong>Pain point #4 (agent discovery)</strong> is the blocker. The <code>ah:managed</code>
+block works when an agent reads it, but agents don’t always read
+<code>AGENTS.md</code> in every session. A pi tool bypasses this entirely.</p>
+</li>
+<li>
+<p><strong>Manual spec-test mapping (#5)</strong> is the rarest but most expensive
+pattern — it wastes agent context on mechanical comparison.</p>
+</li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="authoring-dual-format-specs"><a class="header" href="#authoring-dual-format-specs">Authoring Dual-Format Specs</a></h1>
+<p>espectacular supports the <strong>specodelic dual-format protocol</strong> as an <em>opt-in</em>
+authoring mode: a single <code>spec.md</code> can carry both the openspec grammar
+(<code>## ADDED|MODIFIED|REMOVED Requirements</code> + <code>#### Scenario:</code> headings) and
+the specodelic four-layer grammar (frontmatter intent, Constraints, Model,
+Properties), each linted by its own tool.</p>
+<ul>
+<li>openspec half → validated by <code>openspec validate &lt;change-id&gt; --strict</code></li>
+<li>specodelic half → linted by <code>spk lint &lt;file&gt;</code></li>
+<li>espectacular’s gate (<code>ah check</code>) reads only the openspec half; the
+specodelic layers are inert decoration it happens to understand.</li>
+</ul>
+<p>A worked example lives in
+<code>openspec/changes/adopt-dual-format-specs/specs/gate/spec.md</code> — this page
+explains its anatomy.</p>
+<h2 id="anatomy-of-a-dual-format-file"><a class="header" href="#anatomy-of-a-dual-format-file">Anatomy of a dual-format file</a></h2>
+<pre><code class="language-markdown">---
+id: spec                      ← 1. YAML frontmatter (intent layer)
+kind: intent
+statement: "WHEN … THE … SHALL …"
+---
+
+# &lt;capability heading&gt;
+
+Prose (optional). Never parsed by the gate.
+
+## Constraints                ← 2. Constraints table (invariant layer)
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| C-mirror-dedupe | invariant | two `#### Scenario:` headings … | |
+
+## Model                      ← 3. Model (states + transitions)
+
+### States
+- `scanning`
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| t-scan | scanning | deduplicating | [[spec.C-tables-inert]] |
+
+## Properties                 ← 4. Properties table
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|-----------|
+| P-dedupe | unit | [[spec.C-mirror-dedupe]] | … | … |
+
+## MODIFIED Requirements      ← openspec half (unchanged grammar)
+
+### Requirement: Scenario Discovery
+…
+
+#### Scenario: Reject duplicate scenario ids
+- **GIVEN** …
+- **WHEN** …
+- **THEN** …
+</code></pre>
+<h3 id="section-sync-mirror"><a class="header" href="#section-sync-mirror">Section-sync mirror</a></h3>
+<p>In change deltas, the specodelic protocol mirrors requirement text into a
+trailing <code>## Requirements</code> section so deployed-spec tooling sees a stable
+section spelling. The mirror <strong>must be textually identical</strong> to the delta
+section (specodelic section-sync).</p>
+<p>The gate understands this: two <code>#### Scenario:</code> headings in the same file
+with the <strong>same slugified id and identical bodies</strong> are treated as one
+logical scenario and discovered exactly once. It emits no slug-collision
+finding for the mirror.</p>
+<h3 id="table-derivation"><a class="header" href="#table-derivation">Table derivation</a></h3>
+<p>Scenario prose may be derived into structured tables (e.g. a Properties
+<code>generator</code>/<code>predicate</code> column quoting a scenario). This is safe by
+construction: the gate only discovers scenarios from lines that <strong>start</strong>
+with <code>#### Scenario: </code>. YAML frontmatter, Constraints rows, Model states
+and transitions, and Properties rows never yield scenarios — no matter
+what scenario-like text they quote.</p>
+<h2 id="enforcement-is-mandated-in-this-repo-opt-in-for-adopters"><a class="header" href="#enforcement-is-mandated-in-this-repo-opt-in-for-adopters">Enforcement is mandated in this repo (opt-in for adopters)</a></h2>
+<p>espectacular deliberately does <strong>not</strong> make its product require the
+two-grammar format: plain openspec repos remain fully valid, and <code>ah check</code>
+treats both grammars as valid (<code>C-adopters-unaffected</code>).</p>
+<p>This repository, however, dogfoods the mandate (change
+<code>migrate-specs-to-dual-format</code>, capability <code>spec-authoring</code>):</p>
+<ul>
+<li><strong>pre-commit</strong> — <code>spk lint openspec</code> (deep lint of dual-format files) plus
+a staged-file frontmatter mandate (<code>spec-corpus-staged</code>) that catches an
+archive strip at commit time;</li>
+<li><strong>corpus gate</strong> — <code>just spec-lint</code> fails while any non-archived <code>spec.md</code>
+lacks the specodelic half, and runs in CI;</li>
+<li><strong>CI</strong> — the spec-gate job installs specodelic from crates.io and runs the
+same mandate.</li>
+</ul>
+<p>The migration recipe for converting a plain file lives in
+<code>openspec/changes/migrate-specs-to-dual-format/design.md</code>.</p>
+<h2 id="in-gate-section-sync-drift-signal"><a class="header" href="#in-gate-section-sync-drift-signal">In-gate section-sync drift signal</a></h2>
+<p>Because mirrored sections must be textually identical, a <strong>same-id,
+different-body</strong> collision in a dual-format repo is not just a naming
+accident — it is section-sync drift: one of the two mirrored copies was
+edited without the other. <code>ah check</code> catches this as a slug-collision
+structural finding <strong>without</strong> running <code>spk lint</code>, which makes the gate a
+cheap first-line drift detector for dual-format repos. (<code>spk lint</code> remains
+the authoritative section-sync linter; the gate’s signal is a byproduct of
+collision detection, not a replacement.)</p>
+<h2 id="linting-both-halves"><a class="header" href="#linting-both-halves">Linting both halves</a></h2>
+<pre><code class="language-bash"># specodelic half
+spk lint openspec/changes/&lt;change-id&gt;/specs/&lt;capability&gt;/spec.md
+
+# openspec half
+openspec validate &lt;change-id&gt; --strict
+
+# gate (both grammars in scope)
+ah check --changes &lt;change-id&gt;
+</code></pre>
+<p>All three must exit zero before the change is deployed; the gate additionally
+proves every discovered scenario has a contract.</p>
+<h2 id="archive-round-trip"><a class="header" href="#archive-round-trip">Archive round-trip</a></h2>
+<p><code>openspec archive</code> merges the openspec half of a delta into the deployed
+spec but <strong>strips the specodelic half</strong> (frontmatter and four-layer tables
+do not survive). The strip is not silent: <code>just spec-lint</code> (pre-commit
+staged mandate, corpus gate, and CI) fails until the half is re-derived.</p>
+<p><strong>Re-derivation recipe</strong> (not a blind copy — archive <em>merges</em>):</p>
+<ol>
+<li>Copy the frontmatter block from the archived delta
+(<code>openspec/changes/archive/&lt;change&gt;/specs/&lt;capability&gt;/spec.md</code>).</li>
+<li>Carry over the surviving constraint/property rows from the pre-archive
+deployed spec (git history).</li>
+<li>Add rows for any newly merged requirements.</li>
+<li>Re-run the gates: <code>spk lint</code>, <code>openspec validate --all --strict</code>,
+section sync, <code>ah check</code>.</li>
+</ol>
+<p>An issue is filed against <strong>specodelic</strong> (specodelic#7) asking for the
+dual-format corpus to survive the archive round-trip natively; once fixed,
+the recipe becomes a no-op.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="gate--core-verification-engine"><a class="header" href="#gate--core-verification-engine">gate — Core verification engine</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="cli--command-surface"><a class="header" href="#cli--command-surface">cli — Command surface</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="adapters--language-adapter-dispatch"><a class="header" href="#adapters--language-adapter-dispatch">adapters — Language adapter dispatch</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="explain--playbook-system"><a class="header" href="#explain--playbook-system">explain — Playbook system</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="cli-core"><a class="header" href="#cli-core">cli-core</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="config"><a class="header" href="#config">config</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="lint"><a class="header" href="#lint">lint</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="spec-authoring"><a class="header" href="#spec-authoring">spec-authoring</a></h1>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>
