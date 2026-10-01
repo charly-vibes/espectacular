@@ -344,6 +344,7 @@ fn evaluate_scope(
     ah_scope: &str,
     run_tests: bool,
 ) -> anyhow::Result<CheckOutput> {
+    let stale_findings = contract_stale_findings(specs_root, &scope, SPK_PROGRAM);
     let mut findings = scope.findings;
     findings.extend(collect_structural_findings(
         &scope.scenarios,
@@ -351,6 +352,7 @@ fn evaluate_scope(
         specs_root,
         &scope.covered,
     ));
+    findings.extend(stale_findings);
 
     let blocked = blocked_scenarios(&findings);
     let mut passed = 0usize;
@@ -770,6 +772,107 @@ fn blocked_scenarios(findings: &[ReportFinding]) -> BTreeSet<(String, String)> {
         .collect()
 }
 
+/// spk binary resolved from PATH (same convention as `ah sync`).
+const SPK_PROGRAM: &str = "spk";
+
+/// contract-stale drift detection (derive-contracts-from-specodelic task 4.2,
+/// C-derived-stale): a derived contract's `derived_from` hash must match the
+/// canonical serialization of its source property row. Findings are attached
+/// to the covering scenario when one exists, else to the contract id itself.
+/// Degrades silently when spk is missing or a spec fails to parse (design D2:
+/// validity stays with spk; a broken parse is caught by ah lint instead).
+fn contract_stale_findings(
+    specs_root: &Path,
+    scope: &ResolvedScope,
+    spk: &str,
+) -> Vec<ReportFinding> {
+    // Collect the derived contracts (derived_from non-empty) per spec.
+    let mut by_spec: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
+    for (spec, id, path) in &scope.contract_files {
+        let derived = fs::read_to_string(path)
+            .ok()
+            .and_then(|text| text.parse::<toml::Table>().ok())
+            .and_then(|table| {
+                table
+                    .get("derived_from")
+                    .and_then(toml::Value::as_str)
+                    .map(str::to_string)
+            })
+            .unwrap_or_default();
+        if derived.is_empty() {
+            continue;
+        }
+        by_spec
+            .entry(spec.clone())
+            .or_default()
+            .push((id.clone(), derived));
+    }
+    if by_spec.is_empty() {
+        return Vec::new();
+    }
+
+    // (spec, contract id) → covering scenario, for finding attachment.
+    let covering: BTreeMap<(String, String), &Scenario> = scope
+        .covered
+        .iter()
+        .filter_map(|((spec, scenario_id), contract_id)| {
+            scope
+                .scenarios
+                .iter()
+                .find(|r| r.scenario.spec_path == *spec && r.scenario.id == *scenario_id)
+                .map(|r| ((spec.clone(), contract_id.clone()), &r.scenario))
+        })
+        .collect();
+
+    let mut findings = Vec::new();
+    for (spec, derived_contracts) in by_spec {
+        let markdown = spec_markdown_path(specs_root, &spec);
+        let Ok(ir) = crate::derive::parse_spec_ir(spk, Path::new(&markdown)) else {
+            continue;
+        };
+        for (contract_id, derived) in derived_contracts {
+            let Some((property_id, stored)) = derived.split_once('@') else {
+                continue;
+            };
+            let message = match ir.properties.iter().find(|row| row.id == property_id) {
+                None => Some(format!(
+                    "derived_from references property {property_id}, which is absent from the specodelic Properties table"
+                )),
+                Some(row) => {
+                    let fresh = crate::derive::canonical_hash(row);
+                    (fresh != derived).then(|| {
+                        format!(
+                            "derived_from hash @{stored} does not match specodelic row {property_id} (@{}); run ah sync to refresh derived fields",
+                            fresh.split_once('@').map(|(_, h)| h).unwrap_or("?")
+                        )
+                    })
+                }
+            };
+            let Some(message) = message else {
+                continue;
+            };
+            let synthetic = Scenario {
+                id: contract_id.clone(),
+                heading: String::new(),
+                spec_path: spec.clone(),
+                source_line: 0,
+                body: String::new(),
+            };
+            let scenario = covering
+                .get(&(spec.clone(), contract_id.clone()))
+                .copied()
+                .unwrap_or(&synthetic);
+            findings.push(structural_report(
+                scenario,
+                specs_root,
+                "contract-stale",
+                Some(message),
+            ));
+        }
+    }
+    findings
+}
+
 fn structural_report(
     scenario: &Scenario,
     specs_root: &Path,
@@ -898,6 +1001,7 @@ fn suggested_action_for(kind: &str) -> &'static str {
         | "missing-replacement"
         | "overlay-conflict" => "review_and_apply",
         "missing-runner" | "test-failing" | "no-tests-ran" => "edit_code_not_scenario",
+        "contract-stale" => "run_ah_sync",
         _ => "human_review_required",
     }
 }
@@ -1121,6 +1225,193 @@ mod tests {
         assert!(
             output.findings.iter().any(|f| f.kind == "no-toml"),
             "link without a derived contract must still emit no-toml; got: {:?}",
+            output.findings
+        );
+    }
+
+    // ---- contract-stale (derive-contracts-from-specodelic task 4.2) ----
+
+    const P_TOKEN_CELLS: &[(&str, &str)] = &[
+        ("id", "P-token"),
+        ("kind", "unit"),
+        ("derives_from", "[[spec.C-token]]"),
+        ("generator", "valid vs invalid tokens"),
+        ("predicate", "invalid tokens rejected with 401"),
+    ];
+
+    fn p_token_row() -> crate::derive::Row {
+        crate::derive::Row {
+            id: "P-token".to_string(),
+            kind: Some("unit".to_string()),
+            cells: P_TOKEN_CELLS
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        }
+    }
+
+    /// Fake spk: `parse <path> --json` emits an IR carrying exactly the
+    /// P-token row from `p_token_row`.
+    fn parse_shim(dir: &Path, name: &str) -> String {
+        let mut cells = String::new();
+        for (k, v) in P_TOKEN_CELLS {
+            cells.push_str(&format!("\\\"{k}\\\":\\\"{v}\\\","));
+        }
+        cells.pop();
+        let ir = format!(
+            "{{\\\"ok\\\":true,\\\"data\\\":{{\\\"properties\\\":[{{\\\"id\\\":\\\"P-token\\\",\\\"kind\\\":\\\"unit\\\",\\\"cells\\\":{{{cells}}}}}],\\\"constraints\\\":[],\\\"states\\\":[],\\\"transitions\\\":[]}}}}"
+        );
+        write_executable(
+            &dir.join(name),
+            &format!(
+                "if [ \"$1\" = parse ]; then\n  printf '{ir}'\nelse\n  echo '{{\\\"ok\\\":true,\\\"data\\\":{{\\\"issues\\\":[]}}}}'\nfi"
+            ),
+        );
+        dir.join(name).to_string_lossy().into_owned()
+    }
+
+    fn stale_fixture(derived_from: &str) -> (tempfile::TempDir, ResolvedScope) {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        fs::create_dir_all(repo.join("openspec/specs/auth")).unwrap();
+        fs::create_dir_all(repo.join(".espectacular/auth")).unwrap();
+        fs::write(
+            repo.join("openspec/specs/auth/spec.md"),
+            "# Capability: auth\n",
+        )
+        .unwrap();
+        fs::write(
+            repo.join(".espectacular/auth/p-token.toml"),
+            format!(
+                "id = \"p-token\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.9.0\"\nfalsifiability_class = \"safety\"\nderived_from = \"{derived_from}\"\n\n[[tests.cargo]]\nflags = \"p_token::case1\"\n"
+            ),
+        )
+        .unwrap();
+        let scope = ResolvedScope {
+            scenarios: Vec::new(),
+            contract_files: vec![(
+                "auth".to_string(),
+                "p-token".to_string(),
+                repo.join(".espectacular/auth/p-token.toml"),
+            )],
+            changes: Vec::new(),
+            findings: Vec::new(),
+            covered: BTreeMap::new(),
+        };
+        (dir, scope)
+    }
+
+    #[test]
+    fn contract_stale_emitted_when_row_hash_differs() {
+        let (dir, scope) = stale_fixture("P-token@deadbeefcafe");
+        let spk = parse_shim(dir.path(), "spk-stale");
+        let findings = contract_stale_findings(&dir.path().join("openspec/specs"), &scope, &spk);
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.kind == "contract-stale" && f.category == "structural"),
+            "expected contract-stale; got: {:?}",
+            findings
+        );
+    }
+
+    #[test]
+    fn fresh_derived_contract_emits_no_contract_stale() {
+        let fresh = crate::derive::canonical_hash(&p_token_row());
+        let (dir, scope) = stale_fixture(&fresh);
+        let spk = parse_shim(dir.path(), "spk-fresh");
+        let findings = contract_stale_findings(&dir.path().join("openspec/specs"), &scope, &spk);
+        assert!(
+            !findings.iter().any(|f| f.kind == "contract-stale"),
+            "unexpected contract-stale; got: {:?}",
+            findings
+        );
+    }
+
+    #[test]
+    fn derived_from_property_absent_from_ir_is_stale() {
+        let (dir, scope) = stale_fixture("P-gone@deadbeefcafe");
+        let spk = parse_shim(dir.path(), "spk-gone");
+        let findings = contract_stale_findings(&dir.path().join("openspec/specs"), &scope, &spk);
+        let stale = findings
+            .iter()
+            .find(|f| f.kind == "contract-stale")
+            .expect("absent property must be stale");
+        assert!(
+            stale
+                .message
+                .as_deref()
+                .unwrap_or_default()
+                .contains("P-gone"),
+            "message must name the absent property; got: {:?}",
+            stale.message
+        );
+    }
+
+    #[test]
+    fn contract_stale_finding_attaches_to_covering_scenario() {
+        let (dir, mut scope) = stale_fixture("P-token@deadbeefcafe");
+        scope.covered.insert(
+            ("auth".to_string(), "token-check".to_string()),
+            "p-token".to_string(),
+        );
+        scope.scenarios.push(ResolvedScenario {
+            scenario: crate::openspec::Scenario {
+                id: "token-check".to_string(),
+                heading: "Token check".to_string(),
+                spec_path: "auth".to_string(),
+                source_line: 3,
+                body: "- **VERIFIES** [[spec.P-token]]".to_string(),
+            },
+            contract_path: dir.path().join(".espectacular/auth/p-token.toml"),
+        });
+        let spk = parse_shim(dir.path(), "spk-covered");
+        let findings = contract_stale_findings(&dir.path().join("openspec/specs"), &scope, &spk);
+        let stale = findings
+            .iter()
+            .find(|f| f.kind == "contract-stale")
+            .expect("stale finding");
+        assert_eq!(stale.scenario.id, "token-check");
+    }
+
+    #[test]
+    fn contract_stale_degrades_without_spk() {
+        let (dir, scope) = stale_fixture("P-token@deadbeefcafe");
+        let findings = contract_stale_findings(
+            &dir.path().join("openspec/specs"),
+            &scope,
+            "spk-definitely-not-on-path-xyz",
+        );
+        assert!(
+            findings.is_empty(),
+            "missing spk must degrade to no findings; got: {:?}",
+            findings
+        );
+    }
+
+    #[test]
+    fn run_check_does_not_fail_on_derived_contracts_without_spk_changes() {
+        // Regression: a repo with derived contracts and no spk on PATH still
+        // checks normally (stale detection silently degrades, design D2).
+        let (dir, _scope) = stale_fixture("P-token@deadbeefcafe");
+        fs::write(
+            dir.path().join(".espectacular/config.toml"),
+            "tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\n",
+        )
+        .unwrap();
+        let output = run_check(dir.path(), &[], false).unwrap();
+        assert!(
+            !output.findings.iter().any(|f| f.kind == "contract-stale"),
+            "stale must degrade without spk; got: {:?}",
+            output.findings
+        );
+        // The structural pass still sees the contract as healthy.
+        assert!(
+            !output
+                .findings
+                .iter()
+                .any(|f| f.kind == "malformed-contract"),
+            "derived contract must load; got: {:?}",
             output.findings
         );
     }

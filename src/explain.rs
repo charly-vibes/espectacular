@@ -52,6 +52,7 @@ enum FindingKind {
     MalformedContract,
     MissingReplacement,
     OverlayConflict,
+    ContractStale,
     TestFailing,
     NoTestsRan,
     Recommendation,
@@ -66,6 +67,7 @@ enum SuggestedAction {
     RunAhInit,
     RunAhScenarioNew,
     RunAhScenarioSupersede,
+    RunAhSync,
     EditCodeNotScenario,
     EnableCapability,
     ReviewAndApply,
@@ -86,6 +88,7 @@ const ALL_FINDING_KINDS: &[FindingKind] = &[
     FindingKind::MalformedContract,
     FindingKind::MissingReplacement,
     FindingKind::OverlayConflict,
+    FindingKind::ContractStale,
     FindingKind::TestFailing,
     FindingKind::NoTestsRan,
     FindingKind::Recommendation,
@@ -99,6 +102,7 @@ const ALL_SUGGESTED_ACTIONS: &[SuggestedAction] = &[
     SuggestedAction::RunAhInit,
     SuggestedAction::RunAhScenarioNew,
     SuggestedAction::RunAhScenarioSupersede,
+    SuggestedAction::RunAhSync,
     SuggestedAction::EditCodeNotScenario,
     SuggestedAction::EnableCapability,
     SuggestedAction::ReviewAndApply,
@@ -118,6 +122,8 @@ enum LintCheckKind {
     MissingNonGoals,
     UnresolvedAmbiguity,
     EntangledSpec,
+    SpkFrontmatterMismatch,
+    VerifiesDangling,
 }
 
 const ALL_LINT_KINDS: &[LintCheckKind] = &[
@@ -128,6 +134,8 @@ const ALL_LINT_KINDS: &[LintCheckKind] = &[
     LintCheckKind::MissingNonGoals,
     LintCheckKind::UnresolvedAmbiguity,
     LintCheckKind::EntangledSpec,
+    LintCheckKind::SpkFrontmatterMismatch,
+    LintCheckKind::VerifiesDangling,
 ];
 
 fn finding_kind_entry(kind: FindingKind) -> &'static TopicEntry {
@@ -145,6 +153,7 @@ fn finding_kind_entry(kind: FindingKind) -> &'static TopicEntry {
         FindingKind::MalformedContract => &MALFORMED_CONTRACT,
         FindingKind::MissingReplacement => &MISSING_REPLACEMENT,
         FindingKind::OverlayConflict => &OVERLAY_CONFLICT,
+        FindingKind::ContractStale => &CONTRACT_STALE,
         FindingKind::TestFailing => &TEST_FAILING,
         FindingKind::NoTestsRan => &NO_TESTS_RAN,
         FindingKind::Recommendation => &RECOMMENDATION,
@@ -164,6 +173,8 @@ fn lint_kind_entry(kind: LintCheckKind) -> &'static TopicEntry {
         LintCheckKind::MissingNonGoals => &LINT_MISSING_NON_GOALS,
         LintCheckKind::UnresolvedAmbiguity => &LINT_UNRESOLVED_AMBIGUITY,
         LintCheckKind::EntangledSpec => &LINT_ENTANGLED_SPEC,
+        LintCheckKind::SpkFrontmatterMismatch => &LINT_SPK_FRONTMATTER_MISMATCH,
+        LintCheckKind::VerifiesDangling => &LINT_VERIFIES_DANGLING,
     }
 }
 
@@ -172,6 +183,7 @@ fn suggested_action_entry(action: SuggestedAction) -> &'static TopicEntry {
         SuggestedAction::RunAhInit => &RUN_AH_INIT,
         SuggestedAction::RunAhScenarioNew => &RUN_AH_SCENARIO_NEW,
         SuggestedAction::RunAhScenarioSupersede => &RUN_AH_SCENARIO_SUPERSEDE,
+        SuggestedAction::RunAhSync => &RUN_AH_SYNC,
         SuggestedAction::EditCodeNotScenario => &EDIT_CODE_NOT_SCENARIO,
         SuggestedAction::EnableCapability => &ENABLE_CAPABILITY,
         SuggestedAction::ReviewAndApply => &REVIEW_AND_APPLY,
@@ -370,6 +382,57 @@ legitimate at a boundary seam.",
         kind: "tip",
         message: "The check is archetype-gated: it only fires for scenarios whose contract declares PF or SA.",
     }],
+};
+
+static LINT_SPK_FRONTMATTER_MISMATCH: TopicEntry = TopicEntry {
+    slug: "spk-frontmatter-mismatch",
+    summary: "A file carries specodelic frontmatter the lint bridge would otherwise skip.",
+    body: "## spk-frontmatter-mismatch — Skipped specodelic frontmatter\n\nThe file carries `id: spec` specodelic frontmatter, but the lint bridge\nwould not have picked it up under its file-selection rules (task 5.1 of\nderive-contracts-from-specodelic closes the bare-`continue` gap). Content\nthat declares itself specodelic must always reach `spk lint`.\n\n**Why it matters**: a silently skipped dual-format file never gets\nspecodelic validation, so its Properties tables can rot unchecked.\n\n**How to fix**: make sure the file lives under the configured specs root\nand is named `spec.md`, or drop the `id: spec` frontmatter if the file is\nnot meant to be specodelic.",
+    when: "A file declares specodelic frontmatter but is excluded from the spk lint relay.",
+    do_action: "Move the file into the specs root (or remove the frontmatter if it is not specodelic).",
+    human_approval: false,
+    related_topics: &["lint", "contract-stale"],
+    hints: &[],
+};
+
+static LINT_VERIFIES_DANGLING: TopicEntry = TopicEntry {
+    slug: "verifies-dangling",
+    summary: "A scenario's VERIFIES bullet links to a property id that does not exist.",
+    body: "## verifies-dangling — Dangling VERIFIES link\n\nThe scenario carries a `- **VERIFIES** [[spec.P-x]]` bullet, but no\nProperties row with id `P-x` exists in the file. The link is the coverage\nconvention for property-derived contracts (design D1); a dangling link\ncovers nothing.\n\n**Why it matters**: the scenario appears property-covered while it is not\n— the drift signal is silently disarmed.\n\n**How to fix**: correct the property id in the bullet, or add the missing\nProperties row, or remove the bullet and give the scenario its own\ncontract .toml.",
+    when: "A VERIFIES bullet cites a property id absent from the file's Properties table.",
+    do_action: "Fix the property id in the VERIFIES bullet (or add the missing Properties row).",
+    human_approval: false,
+    related_topics: &["lint", "no-tests-declared", "contract-stale"],
+    hints: &[],
+};
+
+static CONTRACT_STALE: TopicEntry = TopicEntry {
+    slug: "contract-stale",
+    summary: "A derived contract's derived_from hash no longer matches its specodelic source row.",
+    body: "## contract-stale — Derived contract drifted from its source row\n\nA contract carrying `derived_from = \"<property-id>@<hash>\"` no longer\nmatches the canonical serialization of its specodelic Properties row. The\nrow was edited after the contract was derived (or the property disappeared\nfrom the table), so the contract's derived fields (id, description,\narchetype, falsifiability_class, derived_from) are outdated.\n\n**Why it matters**: the derived contract is the machine-checked test\nintent for the property; letting it drift defeats the point of deriving\nit.\n\n**How to fix**: run `ah sync` to refresh the derived fields. Human-owned\nfields (tests, status, superseded_by) are never overwritten. If the\nproperty was deleted deliberately, delete the contract too.",
+    when: "A contract's derived_from hash differs from its source property row.",
+    do_action: "Run `ah sync` to refresh derived fields from the specodelic row.",
+    human_approval: false,
+    related_topics: &[
+        "run_ah_sync",
+        "verifies-dangling",
+        "review_and_apply",
+    ],
+    hints: &[Hint {
+        kind: "tip",
+        message: "ah sync --check reports drift without writing anything — useful in CI.",
+    }],
+};
+
+static RUN_AH_SYNC: TopicEntry = TopicEntry {
+    slug: "run_ah_sync",
+    summary: "Run `ah sync` to create or refresh property-derived contracts.",
+    body: "## run_ah_sync — Refresh derived contracts\n\nRun `ah sync` in the repository root. Sync derives one contract per\nspecodelic Properties row from `spk parse --json`, refreshing only the\nderived fields (id, description, archetype, falsifiability_class,\nderived_from) and never touching human-owned fields (tests, status,\nsuperseded_by).\n\n```\nah sync          # create or refresh derived contracts\nah sync --check  # CI mode: report drift, write nothing\n```\n\n**When to use**: after editing a Properties row, after adding VERIFIES\nlinks, or when a contract-stale finding is reported.",
+    when: "Derived contracts are missing or drifted from their specodelic source rows.",
+    do_action: "Run `ah sync` (or `ah sync --check` in CI).",
+    human_approval: false,
+    related_topics: &["contract-stale", "workflow"],
+    hints: &[],
 };
 
 static LINT: TopicEntry = TopicEntry {
@@ -1501,6 +1564,21 @@ mod tests {
         assert!(lookup("progressive-enablement").is_some());
     }
 
+    // derive-contracts-from-specodelic tasks 4.2/4.4 — new topics resolve
+    #[test]
+    fn derived_contract_topics_present() {
+        for slug in [
+            "contract-stale",
+            "run_ah_sync",
+            "spk-frontmatter-mismatch",
+            "verifies-dangling",
+        ] {
+            let entry = lookup(slug).unwrap_or_else(|| panic!("missing topic: {slug}"));
+            assert_eq!(entry.slug, slug);
+            assert!(!entry.body.is_empty());
+        }
+    }
+
     // 9.5 — general topic bodies are non-empty
     #[test]
     fn general_topic_bodies_non_empty() {
@@ -1607,11 +1685,12 @@ mod tests {
     fn topic_count_is_complete() {
         let topics = all_topics();
         // 20 finding kinds + 7 suggested actions + 5 general (incl. lint)
-        // + 3 adapter + 7 lint kinds (espectacular-eia) = 42
+        // + 3 adapter + 7 lint kinds (espectacular-eia) = 42; +2 finding/action
+        // + 2 lint kinds from derive-contracts-from-specodelic (4.2/4.4) = 46
         assert_eq!(
             topics.len(),
-            42,
-            "expected 42 topics (20 finding + 7 action + 5 general + 3 adapter + 7 lint kinds), got {}",
+            46,
+            "expected 46 topics (21 finding + 8 action + 5 general + 3 adapter + 9 lint kinds), got {}",
             topics.len()
         );
     }

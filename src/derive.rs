@@ -61,6 +61,21 @@ pub(crate) fn parse_ir(stdout: &str) -> Result<ParseData, String> {
     Ok(envelope.data.unwrap_or_default())
 }
 
+/// Invoke `spk parse --json` on a spec markdown file and deserialize the IR
+/// (task 4.2). Callers degrade on Err: a missing or broken spk binary means
+/// the consumer skips spk-dependent verification (design D2).
+pub(crate) fn parse_spec_ir(spk: &str, path: &std::path::Path) -> anyhow::Result<ParseData> {
+    let output = std::process::Command::new(spk)
+        .args(["parse"])
+        .arg(path)
+        .arg("--json")
+        .output()
+        .map_err(|e| anyhow::anyhow!("failed to invoke spk parse: {e}"))?
+        .stdout;
+    parse_ir(&String::from_utf8_lossy(&output))
+        .map_err(|e| anyhow::anyhow!("spk parse failed for {}: {e}", path.display()))
+}
+
 /// Cell keys participating in the derivation hash (D4).
 const HASH_CELLS: [&str; 5] = ["id", "kind", "derives_from", "generator", "predicate"];
 
