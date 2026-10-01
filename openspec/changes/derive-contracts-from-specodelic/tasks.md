@@ -28,11 +28,11 @@
 
 ## 4. Gate integration
 
-- [ ] 4.1 Failing tests: scenario with `**VERIFIES** [[spec.P-x]]` yields no `no-tests-declared`; unlinked scenario still does
-- [ ] 4.2 `contract-stale` structural finding from hash mismatch
-- [ ] 4.3 Zero-tests-ran guard in `src/runner.rs`: a `flags` binding matching zero tests fails instead of passing
-- [ ] 4.4 Add `ah explain` topics: `contract-stale`, `spk-frontmatter-mismatch`, `verifies-dangling`
-- [ ] 4.5 Regression: plain openspec specs and dual-format specs without Properties discover and check byte-identically to before (all 8 deployed specs have Properties rows — this is repo-wide)
+- [x] 4.1 Failing tests: scenario with `**VERIFIES** [[spec.P-x]]` yields no `no-tests-declared`; unlinked scenario still does
+- [x] 4.2 `contract-stale` structural finding from hash mismatch
+- [x] 4.3 Zero-tests-ran guard in `src/runner.rs`: a `flags` binding matching zero tests fails instead of passing
+- [x] 4.4 Add `ah explain` topics: `contract-stale`, `spk-frontmatter-mismatch`, `verifies-dangling`
+- [x] 4.5 Regression: plain openspec specs and dual-format specs without Properties discover and check byte-identically to before (all 8 deployed specs have Properties rows — this is repo-wide)
 
 ## 5. Lint
 
