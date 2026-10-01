@@ -373,4 +373,36 @@ mod tests {
         );
         assert!(findings.is_empty());
     }
+
+    // ---- property-derived contract bindings (DDL pilot, design D6) --------
+    // Each p_<property> test is the human-owned binding a derived contract
+    // (.espectacular/lint/p-<property>.toml) executes via tests.cargo.flags.
+
+    #[test]
+    fn p_vague() {
+        vague_qualifier_flags_unbound_term_in_requirement_body();
+        vague_qualifier_accepts_bounded_term();
+        vague_qualifier_flags_qualifier_in_scenario_step();
+    }
+
+    #[test]
+    fn p_imperative() {
+        imperative_step_flags_ui_mechanics_in_when_step();
+        imperative_step_flags_url_navigation_and_field_fill();
+        imperative_step_accepts_declarative_business_steps();
+    }
+
+    #[test]
+    fn p_bloat() {
+        conjunctive_bloat_flags_scenario_over_default_limit();
+        conjunctive_bloat_accepts_scenario_exactly_at_limit();
+        conjunctive_bloat_honors_configured_max();
+    }
+
+    #[test]
+    fn p_negative() {
+        missing_negative_scenario_flags_happy_path_only_requirement();
+        missing_negative_scenario_accepts_negative_scenario();
+        missing_negative_scenario_accepts_rejection_language();
+    }
 }

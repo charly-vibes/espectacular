@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-correspondence@d1dedd7c5289"
+description = "each emits its structural finding and fails the gate"
+falsifiability_class = "safety"
+id = "p-correspondence"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_correspondence"
+timeout_seconds = 180

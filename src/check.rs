@@ -2380,4 +2380,57 @@ mod tests {
             no_toml.spec_path
         );
     }
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_correspondence() {
+        missing_contract_finding_present();
+        orphan_contract_finding_present();
+        findings_carry_action_fields_and_scenario_prose();
+    }
+
+    #[test]
+    fn p_schema() {
+        invalid_falsifiability_class_emits_structural_finding();
+        invalid_falsifiability_class_blocks_scenario_execution();
+        liveness_without_timeout_emits_warning_severity();
+        liveness_with_timeout_emits_no_warning();
+        structural_findings_carry_error_severity();
+        contract_stale_emitted_when_row_hash_differs();
+    }
+
+    #[test]
+    fn p_json() {
+        run_check_reports_success_with_empty_findings();
+        findings_ordered_by_spec_scenario_kind();
+        four_findings_fixture_emits_exactly_four();
+        findings_carry_action_fields_and_scenario_prose();
+    }
+
+    #[test]
+    fn p_overlay() {
+        run_check_with_change_adds_scenarios_to_scope();
+        run_check_reports_overlay_conflict_for_duplicate_added_scenarios();
+        run_check_overlay_modification_with_staged_contract_passes();
+        run_check_unsignaled_scenario_redefinition_still_conflicts();
+        run_check_conflicting_scenario_modifications_across_changes();
+        staged_superseded_contract_requires_replacement_in_scope();
+    }
+
+    #[test]
+    fn p_boundary() {
+        findings_carry_action_fields_and_scenario_prose();
+    }
+
+    #[test]
+    fn p_agent_actions() {
+        findings_carry_action_fields_and_scenario_prose();
+        findings_ordered_by_spec_scenario_kind();
+        four_findings_fixture_emits_exactly_four();
+    }
+
+    #[test]
+    fn p_apply_command() {
+        findings_carry_action_fields_and_scenario_prose();
+    }
 }

@@ -297,28 +297,27 @@ fn doctor_reports_manifest_detected_framework_as_recommendation() {
         .success()
         .stdout(predicates::str::contains("recommendation:"))
         .stdout(predicates::str::contains("ah doctor --enable cargo"));
-    // ---- property-derived contract bindings (DDL migration, design D6) ----
+}
 
-    #[test]
-    fn p_doctor() {
-        doctor_reports_configured_framework_as_framework_line();
-        doctor_reports_manifest_detected_framework_as_recommendation();
-    }
+#[test]
+fn p_doctor() {
+    doctor_reports_configured_framework_as_framework_line();
+    doctor_reports_manifest_detected_framework_as_recommendation();
+}
 
-    #[test]
-    fn p_enable() {
-        doctor_enable_pytest_writes_runner_and_reports_table();
-        doctor_enable_cargo_writes_runner_and_reports_table();
-        doctor_enable_vitest_writes_runner_and_reports_table();
-        doctor_enable_mutation_writes_quality_mutation_config();
-        doctor_enable_property_writes_capability_block();
-        doctor_enable_snapshot_writes_capability_block();
-        doctor_enable_unknown_capability_exits_nonzero();
-        doctor_enable_already_enabled_exits_zero_with_already_enabled_message();
-    }
+#[test]
+fn p_enable() {
+    doctor_enable_pytest_writes_runner_and_reports_table();
+    doctor_enable_cargo_writes_runner_and_reports_table();
+    doctor_enable_vitest_writes_runner_and_reports_table();
+    doctor_enable_mutation_writes_quality_mutation_config();
+    doctor_enable_property_writes_capability_block();
+    doctor_enable_snapshot_writes_capability_block();
+    doctor_enable_unknown_capability_exits_nonzero();
+    doctor_enable_already_enabled_exits_zero_with_already_enabled_message();
+}
 
-    #[test]
-    fn p_recommendation() {
-        doctor_json_emits_recommendation_findings();
-    }
+#[test]
+fn p_recommendation() {
+    doctor_json_emits_recommendation_findings();
 }

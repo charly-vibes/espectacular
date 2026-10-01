@@ -746,4 +746,13 @@ mod tests {
             .iter()
             .any(|f| f.kind == "entangled-spec" && f.spec_path == "auth"));
     }
+
+    // ---- property-derived contract bindings (DDL pilot, design D6) --------
+
+    #[test]
+    fn p_schema() {
+        lint_finding_serializes_shared_schema_fields();
+        exit_code_zero_on_warnings_and_empty_non_zero_on_errors();
+        malformed_spec_file_emits_error_finding_and_other_specs_still_lint();
+    }
 }

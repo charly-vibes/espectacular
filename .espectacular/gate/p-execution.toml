@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-execution@21dd415a1b7f"
+description = "exit-code verdicts with bounded tails; structural breakage fails before running; non-zero fails the check"
+falsifiability_class = "safety"
+id = "p-execution"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_execution"
+timeout_seconds = 180

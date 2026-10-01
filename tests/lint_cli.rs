@@ -232,14 +232,13 @@ fn ah_lint_bridge_is_inert_for_plain_openspec_fixtures() {
     let data = envelope_data(&output.stdout);
     let findings = data["findings"].as_array().unwrap();
     assert!(findings.is_empty());
-    // ---- property-derived contract bindings (DDL migration, design D6) ----
+}
 
-    #[test]
-    fn p_lint() {
-        ah_lint_clean_fixture_exits_zero_with_empty_findings();
-        ah_lint_defective_fixture_reports_all_scenario_flow_kinds_exits_zero();
-        ah_lint_changes_overlay_lints_change_specs_in_addition_to_deployed();
-        ah_lint_check_filter_runs_single_category();
-        ah_lint_json_finding_shape_matches_shared_schema();
-    }
+#[test]
+fn p_lint() {
+    ah_lint_clean_fixture_exits_zero_with_empty_findings();
+    ah_lint_defective_fixture_reports_all_scenario_flow_kinds_exits_zero();
+    ah_lint_changes_overlay_lints_change_specs_in_addition_to_deployed();
+    ah_lint_check_filter_runs_single_category();
+    ah_lint_json_finding_shape_matches_shared_schema();
 }

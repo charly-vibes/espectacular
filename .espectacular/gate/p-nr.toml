@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-nr@215d073e0b5a"
+description = "NR validates, runs in scope, and upgrades report the archetype addition"
+falsifiability_class = "safety"
+id = "p-nr"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_nr"
+timeout_seconds = 180

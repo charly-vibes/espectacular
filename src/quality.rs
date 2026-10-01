@@ -596,4 +596,21 @@ mod tests {
         assert!(findings.is_empty(), "no finding on tool failure");
         assert!(!errors.is_empty(), "tool failure must produce a tool error");
     }
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_quality() {
+        mutation_finding_emitted_when_below_threshold();
+        mutation_finding_carries_kill_rate_and_threshold();
+        no_mutation_finding_when_above_threshold();
+        no_mutation_finding_when_disabled();
+        mutation_skipped_in_precommit_scope();
+        mutation_findings_deterministically_ordered();
+    }
+
+    #[test]
+    fn p_quality_schema() {
+        mutation_placeholder_replaced_with_runner_script();
+        doctor_written_mutation_default_runs_without_tool_error();
+    }
 }

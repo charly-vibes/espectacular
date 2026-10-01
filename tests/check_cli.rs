@@ -958,22 +958,32 @@ fn ah_report_json_emits_failing_counts() {
     assert_eq!(compiler_row["failing"], 1);
     assert_eq!(compiler_row["total"], 1);
     assert_eq!(data["summary"]["failing"], 1);
-    // ---- property-derived contract bindings (DDL migration, design D6) ----
+}
 
-    #[test]
-    fn p_check() {
-        ah_check_success_emits_schema_valid_json();
-        ah_check_failure_emits_execution_details_and_exit_one();
-        ah_check_warning_only_findings_exit_zero();
-        ah_check_with_changes_includes_overlay_scope();
-        ah_check_missing_change_has_clear_diagnostic();
-    }
+#[test]
+fn p_check() {
+    ah_check_success_emits_schema_valid_json();
+    ah_check_failure_emits_execution_details_and_exit_one();
+    ah_check_warning_only_findings_exit_zero();
+    ah_check_with_changes_includes_overlay_scope();
+    ah_check_missing_change_has_clear_diagnostic();
+}
 
-    #[test]
-    fn p_report() {
-        ah_report_json_emits_matrix_with_coverage_counts();
-        ah_report_exits_zero_when_coverage_complete();
-        ah_report_exits_nonzero_when_missing_contracts();
-        ah_report_table_output_has_header();
-    }
+#[test]
+fn p_report() {
+    ah_report_json_emits_matrix_with_coverage_counts();
+    ah_report_exits_zero_when_coverage_complete();
+    ah_report_exits_nonzero_when_missing_contracts();
+    ah_report_table_output_has_header();
+}
+
+#[test]
+fn p_schema() {
+    ah_check_warning_only_findings_exit_zero();
+}
+
+#[test]
+fn p_matrix() {
+    ah_report_json_emits_matrix_with_coverage_counts();
+    ah_report_exits_nonzero_when_missing_contracts();
 }

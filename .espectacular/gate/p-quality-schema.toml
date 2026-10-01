@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-quality-schema@b78856accab3"
+description = "quality config never counted as a test entry; property/snapshot run as declared tests"
+falsifiability_class = "safety"
+id = "p-quality-schema"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_quality_schema"
+timeout_seconds = 180

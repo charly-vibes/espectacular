@@ -550,4 +550,16 @@ fi
         relay_with("/nonexistent/path/spk", &specs, &mut findings);
         assert!(findings.is_empty());
     }
+
+    // ---- property-derived contract bindings (DDL pilot, design D6) --------
+
+    #[test]
+    fn p_bridge() {
+        mismatched_kind_intent_file_emits_spk_frontmatter_mismatch();
+        graph_typing_violation_and_dangling_ref_are_relayed();
+        relay_maps_spk_issues_to_spk_prefixed_warning_findings();
+        relay_emits_single_advisory_when_spk_is_missing();
+        relay_emits_advisory_on_unparseable_output();
+        relay_is_inert_for_plain_openspec_files();
+    }
 }

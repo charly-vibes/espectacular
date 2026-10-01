@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-discovery@021b2c4c4235"
+description = "one scenario per logical scenario; collisions fail with findings; structured layers inert"
+falsifiability_class = "safety"
+id = "p-discovery"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_discovery"
+timeout_seconds = 180

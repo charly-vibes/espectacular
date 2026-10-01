@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-overlay@e4c76505d86f"
+description = "legal overlays apply deterministically; every illegal case is rejected"
+falsifiability_class = "safety"
+id = "p-overlay"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_overlay"
+timeout_seconds = 180

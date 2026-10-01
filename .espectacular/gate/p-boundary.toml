@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-boundary@331982a4f474"
+description = "verdicts and outputs are unchanged by test internals or prose content"
+falsifiability_class = "safety"
+id = "p-boundary"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_boundary"
+timeout_seconds = 180

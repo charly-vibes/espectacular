@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-matrix@51bc6841d713"
+description = "matrix counts coverage per spec and archetype, marks missing as uncovered, and is machine-readable"
+falsifiability_class = "safety"
+id = "p-matrix"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_matrix"
+timeout_seconds = 180

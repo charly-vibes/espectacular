@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-apply-command@dd1cc4f0ccfa"
+description = "`apply_command` non-null only for mechanical actions"
+falsifiability_class = "safety"
+id = "p-apply-command"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_apply_command"
+timeout_seconds = 180

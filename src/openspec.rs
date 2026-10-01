@@ -374,4 +374,16 @@ statement: \"#### Scenario: not-a-scenario\"
         let scenarios = parse_scenarios_from_spec(content, "compiler");
         assert_eq!(scenarios.len(), 2);
     }
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_discovery() {
+        discovers_scenarios_from_headings();
+        detects_slug_collision();
+        no_collisions_in_clean_fixture();
+        mirror_identical_id_and_body_yields_one_scenario();
+        mirror_dedupe_keeps_first_occurrence_source_line();
+        frontmatter_and_table_rows_never_yield_scenarios();
+        plain_openspec_discovery_unchanged();
+    }
 }

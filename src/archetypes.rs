@@ -219,4 +219,10 @@ mod tests {
         assert!(did_you_mean_for_version("n", "0.0.9").is_empty());
         assert_eq!(did_you_mean_for_version("n", "0.1.0"), vec!["NR"]);
     }
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_nr() {
+        current_catalog_includes_nr();
+    }
 }

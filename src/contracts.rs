@@ -258,4 +258,23 @@ unit = [{command = "echo nope"}]
         std::fs::write(&path, toml).unwrap();
         assert!(load_contract(path.to_str().unwrap()).is_err());
     }
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_schema() {
+        unknown_status_fails();
+        superseded_without_superseded_by_fails();
+        superseded_contract_has_superseded_by();
+        contract_without_falsifiability_class_defaults_empty();
+        contract_with_falsifiability_class_parses();
+        shell_entry_requires_command_only();
+        non_shell_entry_requires_flags_only();
+    }
+
+    #[test]
+    fn p_execution() {
+        contract_tests_non_empty();
+        shell_entry_requires_command_only();
+        non_shell_entry_requires_flags_only();
+    }
 }

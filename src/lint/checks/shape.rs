@@ -366,4 +366,26 @@ mod tests {
         );
         assert!(findings.is_empty());
     }
+
+    // ---- property-derived contract bindings (DDL pilot, design D6) --------
+
+    #[test]
+    fn p_non_goals() {
+        missing_non_goals_flags_spec_without_section();
+        missing_non_goals_accepts_out_of_scope_variant();
+    }
+
+    #[test]
+    fn p_ambiguity() {
+        unresolved_ambiguity_flags_marker_in_requirement_body();
+        unresolved_ambiguity_flags_marker_in_scenario_step();
+        unresolved_ambiguity_accepts_clean_spec();
+    }
+
+    #[test]
+    fn p_entangled() {
+        entangled_spec_flags_presentation_primitive_in_pf_scenario();
+        entangled_spec_is_archetype_gated();
+        entangled_spec_excludes_domain_legitimate_language();
+    }
 }

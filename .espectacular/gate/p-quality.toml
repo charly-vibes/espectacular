@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.8.0"
+derived_from = "P-quality@857a1a6a99ba"
+description = "measurement findings never fail on scores in v1; tool/command failures do; mutation off pre-commit"
+falsifiability_class = "safety"
+id = "p-quality"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "p_quality"
+timeout_seconds = 180

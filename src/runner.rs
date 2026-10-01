@@ -462,4 +462,13 @@ mod tests {
         assert_eq!(results.len(), 3);
         assert_eq!(fs::read_to_string(out).unwrap(), "p1\nu1\nu2\n");
     }
+    // ---- property-derived contract bindings (DDL migration, design D6) ----
+
+    #[test]
+    fn p_execution() {
+        composes_non_shell_runner_with_flags_as_one_token();
+        executes_shell_tests_via_bin_sh_c();
+        captures_non_zero_exit_and_output_tails();
+        timeouts_kill_long_running_commands();
+    }
 }
