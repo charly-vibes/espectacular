@@ -524,6 +524,7 @@ const GENERAL_TOPICS: &[&TopicEntry] = &[
     &ARCHETYPES,
     &PROGRESSIVE_ENABLEMENT,
     &LINT,
+    &SCENARIO_SCOPED_TESTS,
 ];
 
 const ADAPTER_TOPICS: &[&TopicEntry] = &[&ADAPTER_PYTEST, &ADAPTER_CARGO, &ADAPTER_VITEST];
@@ -1284,6 +1285,27 @@ understand the context, and decide on the appropriate action.",
 
 // ── General topics ────────────────────────────────────────────────────────────
 
+static SCENARIO_SCOPED_TESTS: TopicEntry = TopicEntry {
+    slug: "scenario-scoped-tests",
+    summary: "Scope each contract's test entries to only the tests that verify it.",
+    body: "## scenario-scoped-tests — Scope test entries to the scenario\n\nEach `[[tests.*]]` entry runs once per contract that declares it. An entry\nthat includes a whole test file (or an entire suite) re-executes everything\nin it for every contract that references any scenario in that file — N\ncontracts means N full runs, and a failure in any single test blurs\nattribution across every scenario sharing the file.\n\n**Recommended pattern**: scope each entry to the single test that verifies\nthe scenario, using the runner's selection mechanism:\n\n- `cargo`: substring filter — `flags = \"scenario_id\"` matches test names\n  containing the scenario id (this is how property-derived `p-*` contracts\n  bind).\n- `pytest`: node id or keyword — `flags = \"tests/unit/test_message.py::test_defaults\"`\n  or `flags = \"-k test_defaults\"`.\n- `vitest`: `flags = \"-t message_defaults\"`.\n- Frameworks without test filtering (e.g. Julia's `Test`): dispatch on the\n  scenario id inside the test file — pass it as an argument or environment\n  variable and select the matching `@testset` to run.\n\nIf a framework offers no selection mechanism at all and dispatching is not\nfeasible, split scenarios into separate test files so one include runs one\nscenario's assertions only.",
+    when: "A contract's test entries run more than the scenario they verify.",
+    do_action: "Scope each test entry to the single test that verifies the scenario (filter flag, node id, or dispatch argument).",
+    human_approval: false,
+    related_topics: &["no-tests-declared", "no-tests-ran", "workflow"],
+    hints: &[Hint {
+        kind: "example",
+        message: r#"[[tests.cargo]]
+flags = "message_defaults"
+timeout_seconds = 30
+
+# filter-less frameworks: dispatch on the scenario id
+[[tests.shell]]
+command = "julia --project=. test/unit/message_test.jl message_defaults"
+timeout_seconds = 60"#,
+    }],
+};
+
 static WORKFLOW: TopicEntry = TopicEntry {
     slug: "workflow",
     summary: "Overview of the espectacular spec-driven development workflow.",
@@ -1716,11 +1738,12 @@ mod tests {
         // 20 finding kinds + 7 suggested actions + 5 general (incl. lint)
         // + 3 adapter + 7 lint kinds (espectacular-eia) = 42; +2 finding/action
         // + 2 lint kinds from derive-contracts-from-specodelic (4.2/4.4)
-        // + 2 trace kinds from 5.3 = 48
+        // + 2 trace kinds from 5.3 = 48; +1 scenario-scoped-tests general
+        // topic (espectacular-ncu, GH#32) = 49
         assert_eq!(
             topics.len(),
-            48,
-            "expected 48 topics (21 finding + 8 action + 5 general + 3 adapter + 11 lint kinds), got {}",
+            49,
+            "expected 49 topics (21 finding + 8 action + 6 general + 3 adapter + 11 lint kinds), got {}",
             topics.len()
         );
     }

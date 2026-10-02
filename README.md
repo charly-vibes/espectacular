@@ -209,6 +209,36 @@ Test entry rules:
 - non-shell `[[tests.<type>]]` entries use `flags`
 - `timeout_seconds` is optional but must be positive when present
 
+#### Scenario-scoped test entries
+
+Each `[[tests.*]]` entry runs once per contract that declares it. An entry that includes a whole test file (or an entire suite) re-executes everything in it for every contract that references any scenario in that file — N contracts means N full runs, and a failure in any single test blurs attribution across every scenario sharing the file.
+
+Scope each entry to the single test that verifies the scenario, using the runner's selection mechanism:
+
+- **cargo**: substring filter — `flags = "scenario_id"` matches test names containing the scenario id (this is how the property-derived `p-*` contracts bind)
+- **pytest**: node id or keyword — `flags = "tests/unit/test_message.py::test_defaults"` or `flags = "-k test_defaults"`
+- **vitest**: `flags = "-t message_defaults"`
+- **Frameworks without test filtering** (e.g. Julia's `Test`): dispatch on the scenario id inside the test file — pass it as an argument or environment variable and select the matching `@testset` to run:
+
+```toml
+[[tests.shell]]
+command = "julia --project=. test/unit/message_test.jl message_defaults"
+timeout_seconds = 60
+```
+
+```julia
+# test/unit/message_test.jl
+using REPLy, Test
+const scenario = get(ARGS, 1, "all")
+if scenario in ("all", "message_defaults")
+    @testset "message defaults" begin
+        # ...
+    end
+end
+```
+
+If a framework offers no selection mechanism at all and dispatching is not feasible, split scenarios into separate test files so one include runs one scenario's assertions only. See `ah explain scenario-scoped-tests`.
+
 ### `falsifiability_class`
 
 Contracts may declare an optional `falsifiability_class`:

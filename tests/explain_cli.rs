@@ -78,6 +78,7 @@ fn ah_explain_general_topics() {
         "supersession",
         "archetypes",
         "progressive-enablement",
+        "scenario-scoped-tests",
     ] {
         Command::cargo_bin("ah")
             .unwrap()

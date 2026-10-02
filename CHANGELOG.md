@@ -9,6 +9,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`scenario-scoped-tests` explain topic** — documented recommended pattern
+  for scenario-scoped test entries: scope each `[[tests.*]]` entry to the
+  single test that verifies the scenario (cargo substring filter, pytest
+  node id/`-k`, vitest `-t`); for filter-less frameworks (Julia `Test`),
+  dispatch on the scenario id inside the test file. Addresses GH#32 — the
+  whole-file-include pattern re-runs the entire suite once per contract.
+
 ## [0.9.0] — 2026-10-02
 
 ### Added
