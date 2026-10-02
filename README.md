@@ -215,9 +215,9 @@ Each `[[tests.*]]` entry runs once per contract that declares it. An entry that 
 
 Scope each entry to the single test that verifies the scenario, using the runner's selection mechanism:
 
-- **cargo**: substring filter — `flags = "scenario_id"` matches test names containing the scenario id (this is how the property-derived `p-*` contracts bind)
-- **pytest**: node id or keyword — `flags = "tests/unit/test_message.py::test_defaults"` or `flags = "-k test_defaults"`
-- **vitest**: `flags = "-t message_defaults"`
+- **cargo**: substring filter — `flags = "scenario_id"` matches test names containing the scenario id (this is how the property-derived `p-*` contracts bind). A filter that matches nothing fails the gate via `no-tests-ran`, so a typo in the binding cannot silently pass
+- **pytest**: node id or keyword — `flags = "tests/unit/test_message.py::test_defaults"` or `flags = "-kmessage_defaults"`
+- **vitest**: `flags = "--testNamePattern=message_defaults"`
 - **Frameworks without test filtering** (e.g. Julia's `Test`): dispatch on the scenario id inside the test file — pass it as an argument or environment variable and select the matching `@testset` to run:
 
 ```toml
@@ -236,6 +236,8 @@ if scenario in ("all", "message_defaults")
     end
 end
 ```
+
+Note: `flags` reaches the runner as a single argument — prefer one-token forms (node ids, `--flag=value`, `-k<expr>`). When you need multiple arguments, use a `[[tests.shell]]` entry instead: its `command` is passed to `/bin/sh -c` and tokenizes normally (requires a POSIX shell).
 
 If a framework offers no selection mechanism at all and dispatching is not feasible, split scenarios into separate test files so one include runs one scenario's assertions only. See `ah explain scenario-scoped-tests`.
 
