@@ -59,6 +59,14 @@ become self-healing via suggestion footers and the error scratch.
 
 Give adopters a single command that turns lint-clean Properties rows into
 gate-readable contracts, safely refreshable in CI via `--check`.
+
+## Non-Goals
+
+- Changing `ah check` scope resolution, findings, or exit-code semantics — owned by the gate spec
+- Defining contract file format or `derived_from` semantics — owned by the gate spec's Contract Schema and Property-Derived Contracts requirements
+- Authoring or repairing spec text: `ah sync` derives contracts from existing lint-clean rows, it never edits the specs themselves
+- Vendoring or wrapping `spk` behavior: lint rules and their semantics live upstream in specodelic
+
 ## Requirements
 ### Requirement: CLI scaffold uses Guide
 

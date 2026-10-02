@@ -59,6 +59,13 @@ Make the entire spec corpus of this repository dual-format and machine-linted,
 flipping this repo's own enforcement from opt-in to mandated while preserving
 espectacular's opt-in promise to adopters.
 
+## Non-Goals
+
+- Making any espectacular product behavior depend on dual format — adopters' plain openspec repos remain fully valid (`C-adopters-unaffected`)
+- Automating archive-time re-derivation inside the tool: re-deriving the stripped specodelic half is a contributor step after `openspec archive`, not tool behavior
+- Retroactively migrating archived change deltas — the mandate covers deployed specs and active changes only
+- Extending the specodelic grammar itself — upstream concern (specodelic)
+
 ## Requirements
 
 ### Requirement: Dual-Format Spec Corpus
