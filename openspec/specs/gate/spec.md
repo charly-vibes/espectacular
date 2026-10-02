@@ -1,7 +1,7 @@
 ---
 id: spec
 kind: intent
-statement: "WHEN ah check validates a spec corpus THE gate SHALL discover scenarios, require one schema-valid sidecar contract each, execute declared tests with exit-code verdicts, emit stable JSON findings with agent-action fields, support deterministic change overlays and opt-in quality measurement plus an NR archetype and a conformance coverage matrix, and never semantically evaluate test quality or scenario prose."
+statement: "WHEN ah check validates a spec corpus THE gate SHALL discover scenarios, require one schema-valid sidecar contract each, execute declared tests with exit-code verdicts, emit stable JSON findings with agent-action fields, support deterministic change overlays and opt-in quality measurement plus an NR archetype and a conformance coverage matrix, never semantically evaluate test quality or scenario prose, derive one scenario contract per Properties row in a lint-clean dual-format spec, cover scenarios carrying a VERIFIES link via that property's contract, and detect derived-contract drift against its source row hash."
 
 ---
 
@@ -24,6 +24,12 @@ statement: "WHEN ah check validates a spec corpus THE gate SHALL discover scenar
 | C-quality-schema | invariant | quality measurement config (`[quality.mutation]`, property, snapshot) is not a test entry, while property and snapshot declarations are runnable test entries — baseline `tests.<type>` arrays stay runnable declarations | [[spec]] |
 | C-coverage-matrix | invariant | a per-spec, per-archetype coverage matrix aggregates scenario contract status across all specs in scope, counts covered scenarios and archetype totals, reports missing contracts as uncovered, and is available machine-readable | [[spec]] |
 | C-apply-command | invariant | `apply_command` is set only when the finding's `suggested_action` maps to a concrete mechanical shell command (e.g., `enable_capability`), and is null for findings requiring human review or code edits | [[spec]] |
+| C-property-contract | invariant | in a dual-format spec whose specodelic half is spk lint-clean, each Properties row derives exactly one scenario contract whose id is the slugified property id | [[spec]] |
+| C-verifies-covers | invariant | a scenario carrying a VERIFIES bullet linking to an existing property id is covered by that property's derived contract and emits no no-tests-declared finding | [[spec]] |
+| C-unlinked-unchanged | invariant | a scenario without a VERIFIES link keeps the per-scenario contract requirement and may still emit no-tests-declared | [[spec]] |
+| C-derived-stale | invariant | a derived contract whose derived_from hash does not match the canonical serialization of its source property row emits a contract-stale structural finding | [[spec]] |
+| C-sync-ownership | invariant | ah sync refreshes only derived fields (id, description, archetype, falsifiability_class, derived_from) and never overwrites human-owned fields (tests, status, superseded_by) | [[spec]] |
+| C-plain-unaffected | advisory | plain openspec specs and dual-format specs without Properties rows discover, gate, and check byte-identically to before this change | [[spec]] |
 
 ## Model
 
@@ -33,6 +39,7 @@ statement: "WHEN ah check validates a spec corpus THE gate SHALL discover scenar
 - `validating`
 - `executing`
 - `reporting`
+- `deriving`
 
 ### Transitions
 
@@ -45,6 +52,11 @@ statement: "WHEN ah check validates a spec corpus THE gate SHALL discover scenar
 | t-quality | executing | executing | [[spec.C-quality-measurement]] |
 | t-report | executing | reporting | [[spec.C-json-findings]] AND [[spec.C-agent-actions]] AND [[spec.C-coverage-matrix]] AND [[spec.C-apply-command]] |
 | t-bound | reporting | reporting | [[spec.C-scope-boundary]] |
+| t-derive | discovering | deriving | [[spec.C-property-contract]] |
+| t-match | deriving | validating | [[spec.C-verifies-covers]] |
+| t-stale | deriving | reporting | [[spec.C-derived-stale]] |
+| t-own | deriving | validating | [[spec.C-sync-ownership]] |
+| t-unlinked | discovering | validating | [[spec.C-unlinked-unchanged]] |
 
 ## Properties
 
@@ -63,12 +75,16 @@ statement: "WHEN ah check validates a spec corpus THE gate SHALL discover scenar
 | P-quality-schema | unit | [[spec.C-quality-schema]] | contracts with quality blocks and quality-declared runnable entries | quality config never counted as a test entry; property/snapshot run as declared tests |
 | P-matrix | unit | [[spec.C-coverage-matrix]] | multi-spec scopes with missing contracts | matrix counts coverage per spec and archetype, marks missing as uncovered, and is machine-readable |
 | P-apply-command | unit | [[spec.C-apply-command]] | findings across suggested_action classes | `apply_command` non-null only for mechanical actions |
+| P-derive | unit | [[spec.C-property-contract]] | a lint-clean dual-format file with N property rows | the contract set contains exactly N derived contracts with slugified ids |
+| P-covers | unit | [[spec.C-verifies-covers]] | a scenario carrying a VERIFIES link to an existing property id | no-tests-declared is suppressed for that scenario |
+| P-unlinked | unit | [[spec.C-unlinked-unchanged]] | a scenario without a VERIFIES link | the gate requires its own contract exactly as before this change |
+| P-stale | unit | [[spec.C-derived-stale]] | a derived contract whose source row predicate is edited after sync | contract-stale is emitted and ah sync --check exits non-zero without writing |
+| P-ownership | unit | [[spec.C-sync-ownership]] | a derived contract with hand-filled tests and status, re-synced after a predicate edit | derived fields change; tests, status, and superseded_by are byte-identical |
+| P-unaffected | unit | [[spec.C-plain-unaffected]] | a corpus of plain openspec specs and Properties-less dual-format specs | discovery and check output is byte-identical to pre-change behavior |
 
 ## Purpose
-TBD - created by archiving change add-spec-assertions. Update Purpose after archive.
-
+The behavioral verification gate: scenario discovery, sidecar correspondence, contract schema validation, test execution with exit-code verdicts, stable JSON findings, deterministic change overlays, opt-in quality measurement, the NR archetype, and the conformance coverage matrix. Since derive-contracts-from-specodelic, the gate also derives one scenario contract per Properties row of a lint-clean dual-format spec, covers VERIFIES-linked scenarios via that property's contract, and detects derived-contract drift against the source row hash.
 ## Requirements
-
 ### Requirement: Scenario Discovery
 The system SHALL discover OpenSpec scenarios from `#### Scenario:` headings in `spec.md` files, including dual-format files that additionally carry the specodelic four-layer grammar, deduplicating section-sync mirrors and ignoring structured layers.
 
@@ -572,3 +588,43 @@ The system SHALL set `apply_command` only when the finding's `suggested_action` 
 - **WHEN** the JSON output is inspected
 - **THEN** `apply_command` is null or absent
 - **VERIFIES** [[spec.P-apply-command]]
+
+### Requirement: Property-Derived Contracts
+The system SHALL derive one scenario contract per Properties row in a dual-format spec whose specodelic half is lint-clean, using the slugified property id as the contract id, and SHALL treat a scenario carrying a `**VERIFIES** [[spec.P-...]]` link as covered by that property's contract.
+
+#### Scenario: Derive contracts from properties
+- **GIVEN** a dual-format spec is `spk lint`-clean and carries three Properties rows
+- **WHEN** `ah sync` runs
+- **THEN** exactly three derived contracts exist with slugified property ids
+- **AND** each records `derived_from = "<property-id>@<hash>"`
+- **VERIFIES** [[spec.P-derive]]
+#### Scenario: Cover linked scenario
+- **GIVEN** a scenario carries `- **VERIFIES** [[spec.P-not-shipped]]` and the property's derived contract exists
+- **WHEN** `ah check` validates the spec
+- **THEN** the scenario emits no `no-tests-declared` finding
+- **VERIFIES** [[spec.P-covers]]
+#### Scenario: Unlinked scenario unchanged
+- **GIVEN** a scenario carries no `VERIFIES` link
+- **WHEN** `ah check` validates the spec
+- **THEN** the scenario requires its own contract exactly as before this change
+- **VERIFIES** [[spec.P-unlinked]]
+#### Scenario: Plain specs unaffected
+- **GIVEN** a corpus of plain openspec specs and dual-format specs without Properties rows
+- **WHEN** discovery and check run over the corpus
+- **THEN** their output is byte-identical to pre-change behavior
+- **VERIFIES** [[spec.P-unaffected]]
+### Requirement: Derived Contract Drift
+The system SHALL record `derived_from = "<property-id>@<hash>"` in each derived contract, emit a `contract-stale` structural finding when the hash no longer matches the source row's canonical serialization, and refresh only derived fields during `ah sync` — never `tests`, `status`, or `superseded_by`.
+
+#### Scenario: Detect stale contract
+- **GIVEN** a property row's predicate is edited after its contract was derived
+- **WHEN** `ah check` validates the spec
+- **THEN** a `contract-stale` structural finding is emitted
+- **AND** `ah sync --check` exits non-zero without writing
+- **VERIFIES** [[spec.P-stale]]
+#### Scenario: Refresh preserves owned fields
+- **GIVEN** a derived contract has hand-filled `tests` and `status`
+- **WHEN** the source predicate is edited and `ah sync` re-runs
+- **THEN** derived fields are updated to match the row
+- **AND** `tests`, `status`, and `superseded_by` are byte-identical to before
+- **VERIFIES** [[spec.P-ownership]]

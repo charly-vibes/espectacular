@@ -1,0 +1,16 @@
+archetype = "SA"
+authored_with = "0.9.0"
+derived_from = "P-refuse@31e606599a7c"
+description = "sync exits non-zero with a reason in both cases and writes nothing"
+falsifiability_class = "safety"
+id = "p-refuse"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "sync_refuses"
+timeout_seconds = 120
+
+[[tests.cargo]]
+flags = "spk_unavailable"
+timeout_seconds = 120

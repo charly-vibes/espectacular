@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.9.0"
+derived_from = "P-mismatch@1595af624f9a"
+description = "lint emits spk-frontmatter-mismatch naming the file and the expected id"
+falsifiability_class = "safety"
+id = "p-mismatch"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "spk_frontmatter_mismatch"
+timeout_seconds = 120

@@ -1,0 +1,12 @@
+archetype = "PF"
+authored_with = "0.9.0"
+derived_from = "P-scope@5b50b9b50a3c"
+description = "the default scope matches ah check's default scope"
+falsifiability_class = "safety"
+id = "p-scope"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "sync_creates_derived_contracts"
+timeout_seconds = 120

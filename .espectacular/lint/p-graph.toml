@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.9.0"
+derived_from = "P-graph@edccf004eb1f"
+description = "both are relayed as spk.graph.* warnings"
+falsifiability_class = "safety"
+id = "p-graph"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "graph_typing_violation"
+timeout_seconds = 120

@@ -1,7 +1,7 @@
 ---
 id: spec
 kind: intent
-statement: "WHEN ah lint inspects specification files THE linter SHALL flag vague qualifiers, imperative UI steps, conjunctive step bloat, missing negative scenarios, missing non-goals, unresolved ambiguities, and entangled presentation concerns, emit findings in the shared check finding schema with warning severity by default, and bridge specodelic findings for dual-format files without reimplementing specodelic rules."
+statement: "WHEN ah lint inspects specification files THE linter SHALL flag vague qualifiers, imperative UI steps, conjunctive step bloat, missing negative scenarios, missing non-goals, unresolved ambiguities, and entangled presentation concerns, emit findings in the shared check finding schema with warning severity by default, bridge specodelic findings for dual-format files without reimplementing specodelic rules, never skip a kind-intent file silently, relay spk graph typing violations and dangling references as spk.graph.* warnings, and report scenario-to-property trace gaps as advisory findings that never affect the exit code."
 
 ---
 
@@ -20,6 +20,10 @@ statement: "WHEN ah lint inspects specification files THE linter SHALL flag vagu
 | C-entangled-spec | invariant | a scenario with contract archetype `PF` or `SA` whose text references presentation-layer primitives (buttons, modals, colors, CSS selectors, component names, client routes) emits an `entangled-spec` finding suggesting the domain event or state; the same text in a `BP` scenario and domain-legitimate lookalike terms are not flagged | [[spec]] |
 | C-finding-schema | invariant | lint findings use the same stable JSON envelope as `ah check`: each carries `kind`, `severity`, `spec_path`, `message`, `suggested_action`, `playbook_command`, plus `scenario_id`/`scenario_title` when scenario-specific; findings default to `severity = "warning"`; a malformed spec file emits a `severity = "error"` finding and exits non-zero | [[spec]] |
 | C-dual-bridge | invariant | for dual-format files (`id: spec` frontmatter) `ah lint` invokes `spk lint` and relays each specodelic finding as `kind = "spk.<rule_id>"` with `severity = "warning"`; plain openspec files cause no specodelic invocation and identical pre-bridge output; a missing `spk` binary emits one advisory `spk-unavailable` finding with unchanged exit code; a non-envelope `spk` failure emits one advisory finding and linting continues | [[spec]] |
+| C-no-silent-skip | invariant | a kind-intent file whose frontmatter id does not match its filename stem emits an spk-frontmatter-mismatch finding instead of being skipped silently | [[spec]] |
+| C-graph-relay | invariant | spk graph typing violations and dangling references for dual-format files are relayed as spk.graph.* warning findings | [[spec]] |
+| C-trace-advisory | advisory | verifies-dangling, scenario-unlinked, and property-untraced are reported at advisory severity and never affect the lint exit code | [[spec]] |
+| C-plain-untouched | advisory | plain openspec files never trigger an spk invocation and produce no specodelic findings | [[spec]] |
 
 ## Model
 
@@ -28,6 +32,8 @@ statement: "WHEN ah lint inspects specification files THE linter SHALL flag vagu
 - `scanning`
 - `bridging`
 - `reported`
+- `relaying`
+- `tracing`
 
 ### Transitions
 
@@ -38,6 +44,10 @@ statement: "WHEN ah lint inspects specification files THE linter SHALL flag vagu
 | t-inert | scanning | scanning | [[spec.C-dual-bridge]] (plain file — no invocation) |
 | t-schema | bridging | reported | [[spec.C-finding-schema]] |
 | t-degrade | bridging | reported | [[spec.C-dual-bridge]] (missing binary or failed invocation — advisory only) |
+| t-relay | bridging | relaying | [[spec.C-no-silent-skip]] |
+| t-graph | relaying | tracing | [[spec.C-graph-relay]] |
+| t-trace | tracing | reported | [[spec.C-graph-relay]] |
+| t-plain | relaying | reported | [[spec.C-no-silent-skip]] |
 
 ## Properties
 
@@ -52,12 +62,14 @@ statement: "WHEN ah lint inspects specification files THE linter SHALL flag vagu
 | P-entangled | unit | [[spec.C-entangled-spec]] | PF/SA scenarios with presentation primitives vs BP scenarios and domain lookalikes | findings exactly in the PF/SA primitive cases |
 | P-schema | unit | [[spec.C-finding-schema]] | lint runs over well-formed and malformed specs | shared finding fields throughout, warning default, malformed → error + non-zero exit |
 | P-bridge | unit | [[spec.C-dual-bridge]] | dual files with spk findings, plain files, missing binary, and failing invocation | relaying with `spk.` kind prefix; inert for plain files; advisory-only degradation in both failure modes |
+| P-mismatch | unit | [[spec.C-no-silent-skip]] | a kind-intent file whose frontmatter id differs from its filename stem | lint emits spk-frontmatter-mismatch naming the file and the expected id |
+| P-graph | unit | [[spec.C-graph-relay]] | a dual-format corpus containing a typing violation and a dangling reference | both are relayed as spk.graph.* warnings |
+| P-trace | unit | [[spec.C-trace-advisory]] | a dual-format corpus with a dangling VERIFIES link, an unlinked scenario, and an untraced property | all three appear as advisory findings; the exit code is zero |
+| P-plain | unit | [[spec.C-plain-untouched]] | a corpus of plain openspec spec files | lint output contains no specodelic findings and no spk invocation occurs |
 
 ## Purpose
-TBD - created by archiving change add-spec-quality-checks. Update Purpose after archive.
-
+The spec linter: textual spec-shape findings (vague qualifiers, imperative steps, conjunctive bloat, missing negative scenarios and non-goals, unresolved ambiguities, entangled specs), the shared stable finding schema, and the dual-format specodelic bridge — complete since derive-contracts-from-specodelic: no silent skips, spk graph relay, and advisory scenario-to-property trace checks.
 ## Requirements
-
 ### Requirement: Vague Qualifier Detection
 The system SHALL flag requirements and scenario steps that contain unbound qualitative terms without an adjacent numeric measurement.
 
@@ -258,3 +270,42 @@ The system SHALL relay specodelic lint findings for dual-format spec files into 
 - **THEN** the command emits a single advisory finding describing the failure
 - **AND** continues linting the remaining spec files
 - **VERIFIES** [[spec.P-bridge]]
+
+### Requirement: Specodelic Relay Completeness
+The linter SHALL emit an `spk-frontmatter-mismatch` finding for every `kind: intent` file whose frontmatter id does not match its filename stem instead of skipping it silently, and SHALL relay `spk graph` typing violations and dangling references as `spk.graph.*` warning findings.
+
+#### Scenario: Mismatched id is reported
+- **GIVEN** a `kind: intent` file whose frontmatter id differs from its filename stem
+- **WHEN** `ah lint` runs over it
+- **THEN** an `spk-frontmatter-mismatch` finding names the file and the expected id
+- **AND** no specodelic file is skipped without a finding
+- **VERIFIES** [[spec.P-mismatch]]
+#### Scenario: Graph findings relayed
+- **GIVEN** a dual-format corpus containing a typing violation and a dangling reference
+- **WHEN** `ah lint` runs over the corpus
+- **THEN** both are relayed as `spk.graph.*` warnings
+- **VERIFIES** [[spec.P-graph]]
+#### Scenario: Clean dual-format file unchanged
+- **GIVEN** a dual-format file that passes `spk lint` and `spk graph`
+- **WHEN** `ah lint` runs over it
+- **THEN** no specodelic findings are emitted for the file
+
+### Requirement: Scenario Property Trace
+The linter SHALL report advisory trace findings — `verifies-dangling`, `scenario-unlinked`, and `property-untraced` — for dual-format files with Properties rows, without affecting the exit code.
+
+#### Scenario: Dangling verifies link
+- **GIVEN** a scenario carries `**VERIFIES** [[spec.P-missing]]` and no such property exists
+- **WHEN** `ah lint` runs over the file
+- **THEN** a `verifies-dangling` advisory finding is emitted
+
+#### Scenario: Unlinked scenario and untraced property
+- **GIVEN** a dual-format file with Properties rows where one scenario has no `VERIFIES` link and one property is cited by no scenario
+- **WHEN** `ah lint` runs over the file
+- **THEN** `scenario-unlinked` and `property-untraced` advisory findings are emitted
+- **AND** the exit code is zero
+- **VERIFIES** [[spec.P-trace]]
+#### Scenario: Plain files untouched
+- **GIVEN** a corpus of plain openspec spec files
+- **WHEN** `ah lint` runs over the corpus
+- **THEN** no specodelic findings are emitted and no spk invocation occurs
+- **VERIFIES** [[spec.P-plain]]

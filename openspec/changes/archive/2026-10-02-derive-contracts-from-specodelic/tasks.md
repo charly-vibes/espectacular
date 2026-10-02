@@ -49,7 +49,8 @@
 
 ## 7. Validation
 
-- [ ] 7.1 `spk lint openspec/changes/derive-contracts-from-specodelic/specs` exits zero
-- [ ] 7.2 `openspec validate derive-contracts-from-specodelic --strict` exits zero
-- [ ] 7.3 `ah check --changes derive-contracts-from-specodelic` reports no mirror-duplication conflicts
-- [ ] 7.4 Archive round-trip (Open question 5). Known issue: spk 0.3.0's widened mirror rule is unsatisfiable for dual-format files carrying both ADDED and MODIFIED deltas — filed upstream as specodelic#8; `just spec-lint` stays red on the archived adopt-genesis cli file until the fix (extended mirror committed here is the correct mirror for the per-requirement-containment fix): validate against plain `openspec archive` now; re-validate with `spk archive-companion` after group 1
+- [x] 7.1 `spk lint openspec/changes/derive-contracts-from-specodelic/specs` exits zero
+- [x] 7.2 `openspec validate derive-contracts-from-specodelic --strict` exits zero
+- [x] 7.3 `ah check --changes derive-contracts-from-specodelic` reports no mirror-duplication conflicts (expected: exit 1 with ~16 `no-toml` findings for the change's own new scenarios — overlay scenarios without staged contracts; the acceptance is the absence of mirror-duplication/overlay-conflict kinds)
+- [x] 7.4 Archive via plain `openspec archive` (design Open question 6, revised 2026-10-02: rehearsal showed `spk archive-companion`'s verbatim deploy guts delta-shaped corpora — the deltas here carry only their own requirements, so the companion would orphan all 60 derived contracts). Validate the Requirements merge, dual-format-half preservation, and that the archived copies lint clean (specodelic#8 shipped fixed in 0.3.1; pins now 0.4.0 — the mirror-containment rule is satisfied).
+- [x] 7.5 Post-archive corpus repair: merge each delta's specodelic layer (intent statement, Constraints, Model, Properties) into the three deployed specs (`cli-core`, `gate`, `lint`), reconcile the Model lifecycles so `spk lint`/`spk graph` stay clean, run `ah sync` to derive contracts for the new rows, bind the new properties' tests to the group 2–5 TDD tests, then `ah check --run-tests` green.

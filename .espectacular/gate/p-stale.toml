@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.9.0"
+derived_from = "P-stale@0755ba149461"
+description = "contract-stale is emitted and ah sync --check exits non-zero without writing"
+falsifiability_class = "safety"
+id = "p-stale"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "contract_stale_emitted_when_row_hash_differs"
+timeout_seconds = 120

@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.9.0"
+derived_from = "P-covers@63827e1fc461"
+description = "no-tests-declared is suppressed for that scenario"
+falsifiability_class = "safety"
+id = "p-covers"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "verifies_linked_scenario_is_covered"
+timeout_seconds = 120

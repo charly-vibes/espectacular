@@ -1,0 +1,12 @@
+archetype = "PF"
+authored_with = "0.9.0"
+derived_from = "P-unaffected@b7055b0cfbd1"
+description = "discovery and check output is byte-identical to pre-change behavior"
+falsifiability_class = "safety"
+id = "p-unaffected"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "unaffected"
+timeout_seconds = 120

@@ -95,7 +95,11 @@ Findings from grounding against the current implementation (`ah` 0.8.0,
   `lint` is scoping, not default behavior; task on byte-identical regression
   covers the rest.
 - Upstream dependency: specodelic `add-parse-command` implemented, released,
-  and pinned (see tasks group 1). `spk archive-companion` is on specodelic
+  and pinned (see tasks group 1). *(Update 2026-10-02: `spk archive-companion`
+  shipped in specodelic 0.3.0; full e2e rehearsal showed its verbatim deploy is
+  unsafe for delta-shaped corpora — this change archives via plain
+  `openspec archive` + explicit specodelic-layer merge, see design Open question
+  6 and tasks 7.4/7.5.)* `spk archive-companion` is on specodelic
   main but **not in any release** (verified: unrecognized by spk 0.2.0) — the
   archive round-trip task validates against plain `openspec archive` until the
   pin bump lands.

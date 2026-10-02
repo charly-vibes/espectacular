@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.9.0"
+derived_from = "P-unlinked@26144243001a"
+description = "the gate requires its own contract exactly as before this change"
+falsifiability_class = "safety"
+id = "p-unlinked"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "unlinked_scenario_still_requires_own_contract"
+timeout_seconds = 120

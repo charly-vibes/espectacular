@@ -1,0 +1,12 @@
+archetype = "SA"
+authored_with = "0.9.0"
+derived_from = "P-register@019bff714604"
+description = "sync appears with help text and completes like other subcommands"
+falsifiability_class = "safety"
+id = "p-register"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "sync_appears_in_help_and_completions"
+timeout_seconds = 120

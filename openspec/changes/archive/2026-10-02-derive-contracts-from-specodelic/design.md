@@ -127,13 +127,23 @@ follow the same recipe, gated on the byte-identical regression task.
    `tests`/`status`/`superseded_by` never overwritten; only `.espectacular/state/`
    and runtime state stay uncommitted. Confirmed verbatim by the human operator
    before any sync writes TOMLs.
-5. ~~**Archive round-trip.**~~ **Resolved 2026-10-01**: spk 0.3.0 shipped
-   `archive-companion`; `spk archive-companion --dry-run
-   derive-contracts-from-specodelic` resolves the restore plan
-   (cli-core, gate, lint deltas → verbatim deploy). This change must archive
-   via the companion, not plain `openspec archive`. (Empirical negative
-   result: running the companion on an *already-archived* change re-applies
-   the stale delta and clobbers the deployed spec — companion is an
-   at-archive-time tool only.)
-6. **Commit policy for derived contracts** (D8): needs explicit human
-   confirmation in task 6.1 before the pilot writes any derived TOMLs.
+6. ~~**Archive round-trip.**~~ **Resolved 2026-10-02 (revised after full
+   e2e rehearsal; supersedes the 2026-10-01 dry-run-only resolution)**:
+   archive via **plain `openspec archive`**, not the companion. Empirical
+   e2e result (tempdir rehearsal, spk 0.4.0 + specodelic 0.4.0 source
+   inspection): `spk archive-companion`'s restore step is a verbatim
+   `fs::copy` of each archived delta over the deployed spec (specodelic
+   D4 "no normalization") — safe only for deltas authored as complete
+   self-contained capability specs. This change's deltas are delta-shaped
+   (mirror = delta requirements, per the format law's natural mirror), so
+   the companion gutted the deployed corpus in rehearsal (60 derived
+   contracts orphaned, 188 live scenarios gone). Plain `openspec archive`
+   merges the (pure-ADDED) requirements cleanly and preserves each
+   deployed spec's dual-format half — but does not merge the deltas'
+   specodelic rows into the deployed tables, so the round-trip completes
+   with task 7.5's explicit layer merge + `ah sync`. (Second empirical
+   negative: running the companion on an *already-archived* change
+   re-applies the stale delta and clobbers the deployed spec — companion
+   is an at-archive-time tool only. The delta-shape/verbatim-deploy gap
+   for MODIFIED-delta changes is recorded as a specodelic upstream
+   follow-up.)

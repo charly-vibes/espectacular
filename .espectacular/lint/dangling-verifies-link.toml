@@ -1,0 +1,11 @@
+archetype = "CE"
+authored_with = "0.9.0"
+description = "a scenario carrying a VERIFIES link to an absent property emits a verifies-dangling advisory"
+falsifiability_class = "safety"
+id = "dangling-verifies-link"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "dangling_verifies_link_is_flagged"
+timeout_seconds = 120
