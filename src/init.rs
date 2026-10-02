@@ -234,11 +234,14 @@ fn update_managed_file(path: &Path, result: &mut InitResult) -> anyhow::Result<(
     Ok(())
 }
 
-// Leading \n keeps the start marker on its own line: ensure_wired
-// concatenates marker + content verbatim, and without it the glued line
-// begins with "#" — YAML comments swallow the ah-check key (genesis-au8
-// glue pattern). Found while pinning espectacular-n4v.
-const LEFTHOOK_AH_COMMAND: &str = "\n  ah-check:\n    run: ah check\n";
+// Content is the entries INSIDE the stage's `commands:` mapping
+// (genesis-r99 contract): ensure_wired inserts it verbatim after the
+// stage's `commands:` line, so it carries the commands:-child indent
+// (4 spaces). Leading \n keeps the start marker on its own line:
+// ensure_wired concatenates marker + content verbatim, and without it
+// the glued line begins with "#" — YAML comments swallow the ah-check
+// key (genesis-au8 glue pattern). Found while pinning espectacular-n4v.
+const LEFTHOOK_AH_COMMAND: &str = "\n    ah-check:\n      run: ah check\n";
 
 fn install_lefthook(repo_root: &Path, result: &mut InitResult) -> anyhow::Result<()> {
     // Managed block wired through genesis::git_hooks::lefthook::ensure_wired
@@ -531,7 +534,8 @@ mod tests {
     fn init_wires_lefthook_managed_block_via_genesis() {
         // RED (espectacular-6ye R2): injection must go through
         // genesis::git_hooks::lefthook::ensure_wired — managed markers +
-        // ah-check command land under the column-0 pre-commit anchor.
+        // ah-check command nested inside the stage's `commands:` mapping
+        // (genesis-r99: a stage-level key is silently ignored by lefthook).
         let repo = make_repo(true);
         fs::write(
             repo.path().join("lefthook.yml"),
@@ -545,6 +549,11 @@ mod tests {
             "injected block must carry ah:managed markers; got:\n{content}"
         );
         assert!(content.contains("ah check"));
+        assert!(
+            content
+                .contains("  commands:\n# ah:managed:start\n    ah-check:\n      run: ah check\n"),
+            "ah-check must nest inside commands: (genesis-r99); got:\n{content}"
+        );
         assert!(
             content.contains("lint"),
             "existing commands must be preserved"

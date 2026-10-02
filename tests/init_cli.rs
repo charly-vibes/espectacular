@@ -47,13 +47,16 @@ fn ah_init_anchors_lefthook_with_comments_mentioning_stage() {
         "each stage must carry a block with the start marker on its own line:\n{yml}"
     );
     assert_eq!(
-        yml.matches("\n  ah-check:\n    run: ah check\n").count(),
+        yml.matches("\n    ah-check:\n      run: ah check\n")
+            .count(),
         2,
-        "ah-check must be a real YAML key under each stage:\n{yml}"
+        "ah-check must be a real YAML key under each stage's commands: mapping:
+{yml}"
     );
     assert!(
-        yml.contains("pre-commit:\n# ah:managed:start\n"),
-        "block must land directly after the column-0 pre-commit anchor:\n{yml}"
+        yml.contains("pre-commit:\n  commands:\n# ah:managed:start\n"),
+        "block must nest inside the stage's commands: mapping — lefthook \
+         silently ignores stage-level keys (genesis-r99 / GH#31):\n{yml}"
     );
 
     // idempotence: a second init must not duplicate the block or refuse
