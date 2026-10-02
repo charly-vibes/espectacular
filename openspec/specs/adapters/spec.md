@@ -51,6 +51,12 @@ statement: "WHEN contracts declare test commands THE adapter layer SHALL detect 
 ## Purpose
 TBD - created by archiving change add-quality-measurement-and-adapters. Update Purpose after archive.
 
+## Non-Goals
+
+- Bundling adapters beyond the shipped pytest, cargo test, and vitest set — the custom runner plugin protocol is the extension path for everything else
+- Owning test-framework behavior, versions, or output formats — upstream tool concerns the adapters only normalize
+- Measuring test quality (mutation, coverage, flakiness) — that is the gate spec's quality-measurement domain
+
 ## Requirements
 
 ### Requirement: Adapter detection precedence
@@ -95,6 +101,13 @@ The system SHALL detect framework availability through a defined precedence chai
 - **WHEN** `ah doctor --json` or `ah check --json` reports the selected adapter
 - **THEN** the report includes `adapter`, `test_type`, and `detection_source`
 - **AND** `detection_source` is one of `manifest`, `environment`, `source_import`, or `configured`
+- **VERIFIES** [[spec.P-precedence]]
+
+#### Scenario: No detection signal fails to select an adapter
+- **GIVEN** a project with no configured adapter, no manifest declaration, no installed framework, and no test-file imports
+- **WHEN** adapter detection runs
+- **THEN** no adapter is selected and no detection source is fabricated
+- **AND** the contract test falls to the missing-adapter path instead of invoking a guessed runner
 - **VERIFIES** [[spec.P-precedence]]
 
 ### Requirement: Python pytest adapter
@@ -192,6 +205,14 @@ When a contract declares a test command but no adapter is configured or detected
 - **THEN** a `missing-adapter` finding is emitted with a message directing the user to run `ah doctor`
 - **AND** the finding is distinct from `no-tests-declared` because the contract did declare a test
 - **VERIFIES** [[spec.P-missing-adapter]]
+
+#### Scenario: Configured adapter suppresses missing-adapter
+- **GIVEN** a contract declares a test command
+- **AND** an adapter is configured in `.espectacular/config.toml` for the declared test type
+- **WHEN** `ah check` runs
+- **THEN** no `missing-adapter` finding is emitted for that contract
+- **AND** the run fails only when the declared test itself fails
+- **VERIFIES** [[spec.P-precedence]]
 
 ### Requirement: Custom runner plugin protocol
 The system SHALL support `[runners.custom.<name>]` config blocks that wire arbitrary shell commands into the adapter layer via a documented JSON envelope defined in `schemas/custom-runner.schema.json`.
