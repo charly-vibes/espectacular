@@ -47,6 +47,12 @@ Adopt `genesis::config` as the shared config substrate: the tool's config
 implements `ConfigFile`, all file I/O delegates to genesis, startup registers
 with `ConfigRegistry`, and dead local config code is removed cleanly.
 
+## Non-Goals
+
+- Defining the tool's config schema or default values — each tool owns its own config content
+- genesis::config internals — the substrate's behavior is an upstream concern
+- Remote or secret-management config sources — local file I/O only
+
 ## Requirements
 
 ### Requirement: Shared config management
@@ -78,3 +84,11 @@ The tool SHALL adopt `genesis::config` for shared config management.
 - **THEN** `cargo clippy` SHALL introduce no new warnings
 - **AND** `cargo test` SHALL pass
 - **VERIFIES** [[spec.P-prune]]
+
+#### Scenario: Config I/O bypassing genesis is rejected
+
+- **GIVEN** the tool has adopted `genesis::config`
+- **WHEN** a config read, write, or parse call routes anywhere other than genesis
+- **THEN** the delegation property is violated and the change is rejected
+- **AND** `cargo test` SHALL fail
+- **VERIFIES** [[spec.P-configfile]]
