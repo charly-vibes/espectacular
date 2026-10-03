@@ -1313,18 +1313,25 @@ mod tests {
     /// Fake spk: `parse <path> --json` emits an IR carrying exactly the
     /// P-token row from `p_token_row`.
     fn parse_shim(dir: &Path, name: &str) -> String {
+        // Payload goes to a file and the shim `cat`s it. The earlier form fed
+        // the JSON through printf's FORMAT string with \" escapes, which only
+        // bash collapses — dash (CI's /bin/sh) prints them literally and the
+        // parse result becomes invalid JSON (espectacular-pli CI failure).
         let mut cells = String::new();
         for (k, v) in P_TOKEN_CELLS {
-            cells.push_str(&format!("\\\"{k}\\\":\\\"{v}\\\","));
+            cells.push_str(&format!("\"{k}\":\"{v}\","));
         }
         cells.pop();
         let ir = format!(
-            "{{\\\"ok\\\":true,\\\"data\\\":{{\\\"properties\\\":[{{\\\"id\\\":\\\"P-token\\\",\\\"kind\\\":\\\"unit\\\",\\\"cells\\\":{{{cells}}}}}],\\\"constraints\\\":[],\\\"states\\\":[],\\\"transitions\\\":[]}}}}"
+            "{{\"ok\":true,\"data\":{{\"properties\":[{{\"id\":\"P-token\",\"kind\":\"unit\",\"cells\":{{{cells}}}}}],\"constraints\":[],\"states\":[],\"transitions\":[]}}}}"
         );
+        let payload = dir.join(format!("{name}.json"));
+        fs::write(&payload, &ir).unwrap();
         write_executable(
             &dir.join(name),
             &format!(
-                "if [ \"$1\" = parse ]; then\n  printf '{ir}'\nelse\n  echo '{{\\\"ok\\\":true,\\\"data\\\":{{\\\"issues\\\":[]}}}}'\nfi"
+                "if [ \"$1\" = parse ]; then\n  cat '{}'\nelse\n  printf '%s' '{{\"ok\":true,\"data\":{{\"issues\":[]}}}}'\nfi",
+                payload.display()
             ),
         );
         dir.join(name).to_string_lossy().into_owned()

@@ -178,30 +178,6 @@ fn intent_mismatch(spec: &SpecFile) -> Option<String> {
 
 // ---- spk graph relay (task 5.2) -------------------------------------------
 
-/// Spawn helper with a bounded retry on `ETXTBSY` (Text file busy). Executing a
-/// file that was just written can transiently race with the kernel's write-fd
-/// accounting when many tests spawn processes in parallel (observed as os
-/// error 26 under the full suite); a short retry resolves it without masking
-/// real failures (NotFound still maps to Unavailable upstream).
-fn spawn_with_text_busy_retry(
-    program: &str,
-    args: &[&str],
-) -> std::io::Result<std::process::Output> {
-    const ATTEMPTS: usize = 4;
-    let mut last_err = None;
-    for attempt in 0..ATTEMPTS {
-        if attempt > 0 {
-            std::thread::sleep(std::time::Duration::from_millis(25 * attempt as u64));
-        }
-        match Command::new(program).args(args).output() {
-            Ok(output) => return Ok(output),
-            Err(e) if e.raw_os_error() == Some(26) => last_err = Some(e),
-            Err(e) => return Err(e),
-        }
-    }
-    Err(last_err.expect("retry loop exhausted with no error"))
-}
-
 #[derive(Deserialize)]
 struct SpkGraphEnvelope {
     #[serde(default)]
@@ -238,10 +214,11 @@ pub(crate) fn relay_graph(
     path: &str,
     findings: &mut Vec<LintFinding>,
 ) {
-    let output = match spawn_with_text_busy_retry(program, &["graph", path, "--json"]) {
-        Ok(o) => o,
-        Err(_) => return,
-    };
+    let output =
+        match crate::runner::spawn_with_text_busy_retry(program, &["graph", path, "--json"]) {
+            Ok(o) => o,
+            Err(_) => return,
+        };
     let stdout = String::from_utf8_lossy(&output.stdout);
     let Ok(envelope) = serde_json::from_str::<SpkGraphEnvelope>(stdout.trim()) else {
         return;
@@ -279,13 +256,14 @@ pub(crate) fn relay_graph(
 /// Invoke `spk lint <path> --json` and extract its issues. Every failure mode
 /// maps to an advisory [`Failure`] — the bridge never hard-fails the lint run.
 pub(crate) fn invoke(program: &str, path: &str) -> Result<Vec<SpkIssue>, Failure> {
-    let output = spawn_with_text_busy_retry(program, &["lint", path, "--json"]).map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            Failure::Unavailable(format!("spk binary not found on PATH ('{program}')"))
-        } else {
-            Failure::Broken(format!("failed to invoke spk lint: {e}"))
-        }
-    })?;
+    let output = crate::runner::spawn_with_text_busy_retry(program, &["lint", path, "--json"])
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                Failure::Unavailable(format!("spk binary not found on PATH ('{program}')"))
+            } else {
+                Failure::Broken(format!("failed to invoke spk lint: {e}"))
+            }
+        })?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let envelope: SpkEnvelope = serde_json::from_str(stdout.trim())
         .map_err(|e| Failure::Broken(format!("spk lint produced unparseable output: {e}")))?;

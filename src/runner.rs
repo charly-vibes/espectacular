@@ -30,6 +30,30 @@ pub struct TestResult {
     pub stderr_tail: String,
 }
 
+/// Spawn helper with a bounded retry on `ETXTBSY` (Text file busy). Executing
+/// a file that was just written (test shims in tempdirs) can transiently race
+/// the kernel's write-fd accounting when the suite's many process-spawning
+/// tests run in parallel (observed as os error 26); a short retry resolves it
+/// without masking real failures (NotFound still surfaces to callers).
+pub(crate) fn spawn_with_text_busy_retry(
+    program: &str,
+    args: &[&str],
+) -> std::io::Result<std::process::Output> {
+    const ATTEMPTS: usize = 4;
+    let mut last_err = None;
+    for attempt in 0..ATTEMPTS {
+        if attempt > 0 {
+            std::thread::sleep(Duration::from_millis(25 * attempt as u64));
+        }
+        match Command::new(program).args(args).output() {
+            Ok(output) => return Ok(output),
+            Err(e) if e.raw_os_error() == Some(26) => last_err = Some(e),
+            Err(e) => return Err(e),
+        }
+    }
+    Err(last_err.expect("retry loop exhausted with no error"))
+}
+
 pub fn compose_command(
     config: &Config,
     test_type: &str,

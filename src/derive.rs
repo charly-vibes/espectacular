@@ -65,13 +65,12 @@ pub(crate) fn parse_ir(stdout: &str) -> Result<ParseData, String> {
 /// (task 4.2). Callers degrade on Err: a missing or broken spk binary means
 /// the consumer skips spk-dependent verification (design D2).
 pub(crate) fn parse_spec_ir(spk: &str, path: &std::path::Path) -> anyhow::Result<ParseData> {
-    let output = std::process::Command::new(spk)
-        .args(["parse"])
-        .arg(path)
-        .arg("--json")
-        .output()
-        .map_err(|e| anyhow::anyhow!("failed to invoke spk parse: {e}"))?
-        .stdout;
+    let output = crate::runner::spawn_with_text_busy_retry(
+        spk,
+        &["parse", path.to_str().unwrap_or(""), "--json"],
+    )
+    .map_err(|e| anyhow::anyhow!("failed to invoke spk parse: {e}"))?
+    .stdout;
     parse_ir(&String::from_utf8_lossy(&output))
         .map_err(|e| anyhow::anyhow!("spk parse failed for {}: {e}", path.display()))
 }
