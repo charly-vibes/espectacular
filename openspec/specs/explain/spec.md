@@ -52,6 +52,12 @@ statement: "WHEN a user runs ah explain THE playbook SHALL serve compile-enforce
 ## Purpose
 TBD - created by archiving change add-quality-measurement-and-adapters. Update Purpose after archive.
 
+## Non-Goals
+
+- Serving playbook content from runtime or external files — topics are embedded in the binary at compile time
+- Authoring playbooks for upstream tools' own findings (genesis, specodelic) — only espectacular's kinds and actions
+- Localizing or theming playbook text — English-only output
+
 ## Requirements
 
 ### Requirement: Playbook is compile-enforced
@@ -87,6 +93,11 @@ The system SHALL provide `ah explain` topics for every `FindingKind` value, ever
 - **THEN** the command prints general workflow guidance and exits zero
 - **VERIFIES** [[spec.P-coverage]]
 
+#### Scenario: Topic with no kind or action is refused
+- **WHEN** a user runs `ah explain` with a topic identifier that corresponds to no `FindingKind`, `SuggestedAction`, or general topic
+- **THEN** the command exits non-zero and prints no guidance for it
+- **VERIFIES** [[spec.P-unknown]]
+
 ### Requirement: Structured JSON output
 The system SHALL support `--json` output for `ah explain` that emits a machine-readable object.
 
@@ -102,6 +113,11 @@ The system SHALL support `--json` output for `ah explain` that emits a machine-r
 - **THEN** the output passes JSON schema validation
 - **VERIFIES** [[spec.P-json]]
 
+#### Scenario: JSON output is not emitted for an unknown topic
+- **WHEN** a user runs `ah explain no-such-topic --json`
+- **THEN** the command exits non-zero and emits a plain-text error, never a malformed JSON object
+- **VERIFIES** [[spec.P-unknown]]
+
 ### Requirement: Topic listing
 The system SHALL enumerate all available topics on demand.
 
@@ -113,6 +129,11 @@ The system SHALL enumerate all available topics on demand.
 #### Scenario: List is stable across runs
 - **WHEN** `ah explain --list` is run twice in succession
 - **THEN** the output is identical (topics are sorted alphabetically)
+- **VERIFIES** [[spec.P-listing]]
+
+#### Scenario: Invalid extra argument does not corrupt the listing
+- **WHEN** `ah explain --list` is run with a stray positional argument
+- **THEN** the command still prints the full sorted topic list and exits zero
 - **VERIFIES** [[spec.P-listing]]
 
 ### Requirement: Unknown topic handling
@@ -141,6 +162,11 @@ The system SHALL provide `ah explain` topics for every quality finding kind intr
 - **WHEN** a user runs `ah explain quality-snapshot`
 - **THEN** the command prints guidance for the `quality-snapshot` finding kind and exits zero
 - **VERIFIES** [[spec.P-quality]]
+
+#### Scenario: Unknown quality topic is refused
+- **WHEN** a user runs `ah explain quality-nonexistent`
+- **THEN** the command exits non-zero and prints no quality guidance
+- **VERIFIES** [[spec.P-unknown]]
 
 ### Requirement: Adapter topics ship with adapters
 The system SHALL include `ah explain` topics for progressive-enablement capabilities when their adapter modules are compiled in.
