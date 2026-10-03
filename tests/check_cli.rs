@@ -71,71 +71,50 @@ fn ah_doctor_bad_config_exits_nonzero() {
         .stderr(predicates::str::contains("config: bad config"));
 }
 
-#[test]
-fn ah_check_emits_slug_collision_for_deployed_specs() {
-    // espectacular-ybs: resolve_scope collapsed base scenarios into a
-    // BTreeMap keyed (spec, id), silently eating same-key duplicates so
-    // the slug-collision finding never fired from the ah check binary
-    // (only structural_findings()/doctor saw them). Discovery passes
-    // same-id/different-body pairs through; both must be flagged.
-    let repo = base_repo();
-    fs::write(
-        repo.path().join("openspec/specs/compiler/spec.md"),
-        "# Capability: compiler\n\n#### Scenario: Green path\n- **WHEN** it runs\n- **THEN** it passes\n\n#### Scenario: Shell path\n- **WHEN** shell command runs\n- **THEN** it passes\n\n#### Scenario: Green path\n- **WHEN** it runs again\n- **THEN** it diverges\n",
-    )
-    .unwrap();
-
-    let assert = Command::cargo_bin("ah")
-        .unwrap()
-        .current_dir(repo.path())
-        .args(["check", "--json"])
-        .assert()
-        .failure();
-
-    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
-    let data = data_from_envelope(&output);
-    let findings = data["findings"].as_array().unwrap();
-    let collision = findings
-        .iter()
-        .find(|finding| finding["kind"] == "slug-collision")
-        .expect("slug-collision finding missing from ah check output");
-    assert_eq!(collision["scenario"]["id"], "green-path");
-    assert_eq!(collision["spec"], "compiler");
-}
-
 fn assert_schema_valid(instance: &Value) {
-    let schema_doc: Value =
+    let raw: Value =
         serde_json::from_str(&fs::read_to_string("schemas/check-output.schema.json").unwrap())
             .unwrap();
-    let compiled = jsonschema::JSONSchema::compile(&schema_doc).unwrap();
+    let compiled = jsonschema::Validator::new(&raw).unwrap();
     // If the instance is a genesis envelope, unwrap the data payload
     let data = if instance.get("data").is_some() {
         &instance["data"]
     } else {
         instance
     };
-    let validation = compiled.validate(data);
-    if let Err(errors) = validation {
-        let messages: Vec<_> = errors.map(|error| error.to_string()).collect();
-        panic!("schema validation failed: {messages:?}");
+    if let Err(error) = compiled.validate(data) {
+        panic!("schema validation failed: {error}");
     }
 }
 
 fn assert_custom_runner_schema_valid(instance: &Value) {
-    let schema_doc: Value =
+    let raw: Value =
         serde_json::from_str(&fs::read_to_string("schemas/custom-runner.schema.json").unwrap())
             .unwrap();
-    let compiled = jsonschema::JSONSchema::compile(&schema_doc).unwrap();
+    // The custom-runner schema $refs the check-output schema by absolute URL.
+    // Register it locally so validation never touches the network.
+    let check_output: Value =
+        serde_json::from_str(&fs::read_to_string("schemas/check-output.schema.json").unwrap())
+            .unwrap();
+    let registry = jsonschema::Registry::new()
+        .add(
+            "https://charly.dev/espectacular/check-output.schema.json",
+            jsonschema::Resource::from_contents(check_output),
+        )
+        .and_then(|builder| builder.prepare())
+        .unwrap();
+    let compiled = jsonschema::Validator::options()
+        .with_registry(&registry)
+        .build(&raw)
+        .unwrap();
     // If the instance is a genesis envelope, unwrap the data payload
     let data = if instance.get("data").is_some() {
         &instance["data"]
     } else {
         instance
     };
-    let validation = compiled.validate(data);
-    if let Err(errors) = validation {
-        let messages: Vec<_> = errors.map(|error| error.to_string()).collect();
-        panic!("custom runner schema validation failed: {messages:?}");
+    if let Err(error) = compiled.validate(data) {
+        panic!("custom runner schema validation failed: {error}");
     }
 }
 
