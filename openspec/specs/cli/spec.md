@@ -65,6 +65,13 @@ statement: "WHEN a user drives the ah CLI THE system SHALL provide the command s
 ## Purpose
 TBD - created by archiving change add-spec-assertions. Update Purpose after archive.
 
+## Non-Goals
+
+- Defining contract TOML content or test-entry semantics — those live in the gate spec; the CLI only routes commands to it
+- Framework-specific test invocation logic — adapters own detection and dispatch (see the adapters spec)
+- Interactive prompts or wizards — every command is non-interactive and CI-safe
+- Replacing OpenSpec's own CLI — `ah` commands complement `openspec` commands and never parse or rewrite the change/proposal format
+
 ## Requirements
 
 ### Requirement: CLI Command Name
@@ -73,6 +80,11 @@ The system SHALL expose the standalone command-line interface as `ah`.
 #### Scenario: Invoke help
 - **WHEN** a user runs `ah --help`
 - **THEN** the CLI displays available `ah` commands
+- **VERIFIES** [[spec.P-name]]
+
+#### Scenario: Unknown subcommand fails with a suggestion
+- **WHEN** a user runs a subcommand name `ah` does not implement
+- **THEN** the command fails with a non-zero exit and a `Did you mean` suggestion naming the closest known command
 - **VERIFIES** [[spec.P-name]]
 
 ### Requirement: Project Initialization
@@ -97,7 +109,7 @@ The system SHALL provide an idempotent `ah init` command that prepares a reposit
 - **GIVEN** deployed OpenSpec scenarios exist under `openspec/specs/`
 - **WHEN** a user runs `ah init`
 - **THEN** the command creates matching `.espectacular/<spec>/<scenario>.toml` stubs for scenarios without contracts
-- **AND** the stubs declare no tests until the user or AI fills them in
+- **AND** the stubs declare no tests until the user or AI supplies them
 - **VERIFIES** [[spec.P-init]]
 
 #### Scenario: Install supported pre-commit integration
@@ -143,6 +155,12 @@ The system SHALL provide `ah check` as the deterministic gate command.
 - **AND** includes the selected change in the JSON scope
 - **VERIFIES** [[spec.P-check]]
 
+#### Scenario: Reject a selected change that does not exist
+- **GIVEN** no `openspec/changes/missing-change/specs/` directory exists
+- **WHEN** a user runs `ah check --changes missing-change`
+- **THEN** the command fails with a diagnostic naming the missing change path
+- **VERIFIES** [[spec.P-check]]
+
 ### Requirement: Health Check Command
 The system SHALL provide `ah doctor` for installation health checks.
 
@@ -173,6 +191,12 @@ The system SHALL expose built-in archetype guidance through `ah type` commands.
 #### Scenario: Show archetype details
 - **WHEN** a user runs `ah type PF`
 - **THEN** the command prints the full built-in documentation for the `PF` archetype
+- **VERIFIES** [[spec.P-type]]
+
+#### Scenario: Reject an unknown archetype code
+- **WHEN** a user runs `ah type NOPE`
+- **THEN** the command exits non-zero and names the known archetype codes
+- **AND** a near-miss input suggests the closest known code
 - **VERIFIES** [[spec.P-type]]
 
 ### Requirement: Scenario Lifecycle Commands
@@ -238,6 +262,13 @@ The system SHALL provide `ah upgrade` to make tool-version drift explicit.
 - **WHEN** a user runs `ah upgrade`
 - **THEN** the command reports config schema version changes, execution default changes, archetype additions, and archetype deprecations before updating the configured tool version
 - **AND** does not rewrite existing scenario contract `authored_with` values
+- **VERIFIES** [[spec.P-upgrade]]
+
+#### Scenario: Signal drift to CI with a non-zero exit
+- **GIVEN** `.espectacular/config.toml` pins an older tool version than the installed `ah`
+- **WHEN** a user runs `ah upgrade`
+- **THEN** the command updates the config and exits non-zero so CI can detect the compatibility change
+- **AND** an up-to-date config exits zero instead
 - **VERIFIES** [[spec.P-upgrade]]
 
 ### Requirement: Doctor enable flag
@@ -375,6 +406,13 @@ The system SHALL emit `recommendation` findings when `ah doctor` detects capabil
 - **AND** it carries a `playbook_command` field
 - **VERIFIES** [[spec.P-recommendation]]
 
+#### Scenario: Configured frameworks emit no recommendation
+- **GIVEN** every available framework is already configured in `.espectacular/config.toml`
+- **WHEN** `ah doctor --json` runs
+- **THEN** no `recommendation` finding is emitted for a configured framework — a duplicate enable suggestion would be an invalid nudge
+- **AND** the framework is reported as a detection instead
+- **VERIFIES** [[spec.P-recommendation]]
+
 ### Requirement: Spec Lint Command
 The system SHALL provide `ah lint` to statically analyze OpenSpec scenario files for quality findings without modifying files or running tests.
 
@@ -406,4 +444,10 @@ The system SHALL provide `ah lint` to statically analyze OpenSpec scenario files
 - **WHEN** a user runs `ah lint`
 - **THEN** the command exits zero
 - **AND** emits no findings
+- **VERIFIES** [[spec.P-lint]]
+
+#### Scenario: Reject an unknown check category
+- **WHEN** a user runs `ah lint --check no-such-check`
+- **THEN** the command fails with a non-zero exit and lists the valid check kinds
+- **AND** no spec files are analyzed
 - **VERIFIES** [[spec.P-lint]]
