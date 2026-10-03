@@ -109,7 +109,7 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v2
 
-      - name: Install specodelic (pinned crates.io release — 0.4.0: Rev 7 kinds + tiered single_root_reachable + graph dangling msgs)
+      - name: Install specodelic (pinned crates.io release 0.4.0 — Rev 7 kinds, tiered single_root_reachable, graph dangling msgs)
         run: cargo install specodelic --locked --version 0.4.0
 
       - name: Spec corpus mandate (spk lint + frontmatter over all non-archived spec.md)

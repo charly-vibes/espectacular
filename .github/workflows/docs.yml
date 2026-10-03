@@ -57,12 +57,13 @@ jobs:
         run: mdbook build
 
       - name: Copy llm.txt to site root
-        run: cp llm.txt book/llm.txt
+        # book.toml build-dir is docs/_book (DDL-jnt root-book standardization)
+        run: cp llm.txt docs/_book/llm.txt
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: book
+          path: docs/_book
 
   deploy:
     needs: build
