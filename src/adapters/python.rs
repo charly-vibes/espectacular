@@ -33,7 +33,7 @@ pub fn detect(repo_root: &Path, config: &Config) -> Option<DetectionSource> {
     detect_with_path(repo_root, config, env::var_os("PATH"))
 }
 
-fn detect_with_path(
+pub(crate) fn detect_with_path(
     repo_root: &Path,
     config: &Config,
     path_override: Option<std::ffi::OsString>,

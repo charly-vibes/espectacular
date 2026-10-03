@@ -156,8 +156,9 @@ mod tests {
         fs::create_dir_all(&env_dir).unwrap();
         write_executable(&env_dir.join("pytest"), "exit 0");
         let path = std::env::join_paths([env_dir]).unwrap();
-        let original_path = std::env::var_os("PATH");
-        std::env::set_var("PATH", path);
+        // Drive the detect_with_path seam instead of mutating the process-wide
+        // PATH: p_precedence re-runs this test in a parallel thread, and global
+        // env mutation races its own env::var_os reads (espectacular-pli).
 
         let empty = Config {
             tool_version: "0.1.0".to_string(),
@@ -173,29 +174,24 @@ mod tests {
         let configured = config_with_runner("pytest", vec!["pytest"]);
 
         assert_eq!(
-            detect(repo, &configured, "pytest"),
+            python::detect_with_path(repo, &configured, Some(path.clone())),
             Some(DetectionSource::Configured)
         );
         assert_eq!(
-            detect(repo, &empty, "pytest"),
+            python::detect_with_path(repo, &empty, Some(path.clone())),
             Some(DetectionSource::Manifest)
         );
 
         fs::remove_file(repo.join("pyproject.toml")).unwrap();
         assert_eq!(
-            detect(repo, &empty, "pytest"),
+            python::detect_with_path(repo, &empty, Some(path.clone())),
             Some(DetectionSource::Environment)
         );
 
-        std::env::remove_var("PATH");
         assert_eq!(
-            detect(repo, &empty, "pytest"),
+            python::detect_with_path(repo, &empty, None),
             Some(DetectionSource::SourceImport)
         );
-
-        if let Some(path) = original_path {
-            std::env::set_var("PATH", path);
-        }
     }
 
     #[test]
