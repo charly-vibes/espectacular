@@ -7,6 +7,20 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.9.2] — 2026-10-03
+
+### Fixed
+
+- **Bounded retry on `ETXTBSY` in the test-command spawn path** — executing a
+  runner that was just written (write-then-exec under parallel load) could
+  transiently fail with os error 26 (Text file busy); a short bounded retry
+  resolves the race without masking real failures (`NotFound` still surfaces).
+
+### Changed
+
+- Runtime dependencies: `toml` 0.8 → 1.1.6+spec (contract/config parsing,
+  no API changes), `clap` 4.6.4 → 4.6.7.
+
 ## [0.9.1] — 2026-10-03
 
 ### Fixed
@@ -352,6 +366,7 @@ Initial stable release. Covers two deployed change proposals:
 
 ---
 
+[0.9.2]: https://github.com/charly-vibes/espectacular/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/charly-vibes/espectacular/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/charly-vibes/espectacular/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/charly-vibes/espectacular/compare/v0.7.0...v0.8.0
