@@ -30,7 +30,6 @@ statement: "WHEN espectacular adopts genesis THE cli surface SHALL wrap check JS
 | t-envelope | pre-genesis | genesis-wired | [[spec.C-envelope-shape]] |
 | t-init | genesis-wired | genesis-wired | [[spec.C-init-genesis-injector]] |
 | t-feedback | genesis-wired | reported | [[spec.C-feedback-subcommand]] |
-| t-report-stable | reported | reported | [[spec.C-report-verb-stable]] |
 
 ## Properties
 

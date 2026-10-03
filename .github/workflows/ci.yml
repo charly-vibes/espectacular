@@ -37,8 +37,8 @@ jobs:
         uses: extractions/setup-just@v2
 
       # Run the exact same command as local development
-      - name: Install specodelic (corpus gate in `just ci`)
-        run: cargo install --git https://github.com/charly-vibes/specodelic.git --locked
+      - name: Install specodelic (corpus gate in `just ci`, pinned crates.io release 0.4.0)
+        run: cargo install specodelic --locked --version 0.4.0
 
       - name: Install ecosystem tools (§4 dogfood matrix, pinned)
         run: |
@@ -61,7 +61,10 @@ jobs:
           ddl status >/dev/null
           wai status >/dev/null
           openspec validate --all >/dev/null
-          pretender check >/dev/null
+          # guidance mode (not gate): pretender is a consumed tool here (mu5/djw
+          # decision A), not the repo's own gate; the lease fails closed when
+          # expired so the advisory stance stays a visible, renewable decision.
+          pretender check --mode guidance --advisory-until 2027-01-01 >/dev/null
       - name: Run CI pipeline
         run: just ci
 
@@ -80,6 +83,10 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      # contract-stale unit tests shell out to spk parse --json (espectacular-pli)
+      - name: Install specodelic (pinned crates.io release 0.4.0)
+        run: cargo install specodelic --locked --version 0.4.0
 
       - name: Install cargo-tarpaulin
         uses: taiki-e/install-action@cargo-tarpaulin
