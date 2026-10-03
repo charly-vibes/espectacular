@@ -30,7 +30,7 @@ jobs:
     name: Build Linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -59,7 +59,7 @@ jobs:
           cp target/x86_64-unknown-linux-gnu/release/ah bins/linux_amd64/ah
           cp target/aarch64-unknown-linux-gnu/release/ah bins/linux_arm64/ah
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: bins-linux
           path: bins/
@@ -69,7 +69,7 @@ jobs:
     name: Build macOS
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -91,7 +91,7 @@ jobs:
           cp target/x86_64-apple-darwin/release/ah bins/darwin_amd64/ah
           cp target/aarch64-apple-darwin/release/ah bins/darwin_arm64/ah
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: bins-darwin
           path: bins/
@@ -101,7 +101,7 @@ jobs:
     name: Build Windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -120,7 +120,7 @@ jobs:
           mkdir -p bins/windows_amd64
           cp target/x86_64-pc-windows-msvc/release/ah.exe bins/windows_amd64/ah.exe
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: bins-windows
           path: bins/
@@ -131,11 +131,11 @@ jobs:
     needs: [build-linux, build-darwin, build-windows]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: bins-*
           path: bins/
