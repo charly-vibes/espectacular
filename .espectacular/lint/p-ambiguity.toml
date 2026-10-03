@@ -1,6 +1,6 @@
 archetype = "SA"
 authored_with = "0.8.0"
-derived_from = "P-ambiguity@129d977bd369"
+derived_from = "P-ambiguity@0f5a752d6007"
 description = "finding with marker context exactly when present"
 falsifiability_class = "safety"
 id = "p-ambiguity"
