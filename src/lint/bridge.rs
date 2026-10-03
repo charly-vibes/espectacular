@@ -18,7 +18,6 @@
 use crate::lint::walker::SpecFile;
 use crate::lint::LintFinding;
 use serde::Deserialize;
-use std::process::Command;
 
 const SPK_PROGRAM: &str = "spk";
 

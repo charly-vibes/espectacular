@@ -104,10 +104,10 @@ fn ah_check_emits_slug_collision_for_deployed_specs() {
 }
 
 fn assert_schema_valid(instance: &Value) {
-    let raw: Value =
+    let schema_doc: Value =
         serde_json::from_str(&fs::read_to_string("schemas/check-output.schema.json").unwrap())
             .unwrap();
-    let compiled = jsonschema::JSONSchema::compile(&raw).unwrap();
+    let compiled = jsonschema::JSONSchema::compile(&schema_doc).unwrap();
     // If the instance is a genesis envelope, unwrap the data payload
     let data = if instance.get("data").is_some() {
         &instance["data"]
@@ -122,10 +122,10 @@ fn assert_schema_valid(instance: &Value) {
 }
 
 fn assert_custom_runner_schema_valid(instance: &Value) {
-    let raw: Value =
+    let schema_doc: Value =
         serde_json::from_str(&fs::read_to_string("schemas/custom-runner.schema.json").unwrap())
             .unwrap();
-    let compiled = jsonschema::JSONSchema::compile(&raw).unwrap();
+    let compiled = jsonschema::JSONSchema::compile(&schema_doc).unwrap();
     // If the instance is a genesis envelope, unwrap the data payload
     let data = if instance.get("data").is_some() {
         &instance["data"]
