@@ -167,6 +167,12 @@ fn resolve_scope(
     } else {
         Vec::new()
     };
+    // Deployed-spec slug collisions must be detected on the raw discovery
+    // list, BEFORE the (spec, id) map below collapses same-key duplicates
+    // (last wins) — otherwise the slug-collision finding is dead code in
+    // the ah check binary and only structural_findings()/doctor see it
+    // (espectacular-ybs).
+    let mut findings = slug_collision_findings(&base_scenarios, specs_dir);
     let mut scenarios: BTreeMap<(String, String), ResolvedScenario> = base_scenarios
         .into_iter()
         .map(|scenario| {
@@ -183,7 +189,6 @@ fn resolve_scope(
         .collect();
     let mut contract_overrides: HashMap<(String, String), PathBuf> = HashMap::new();
     let mut contract_files = collect_base_contract_files(contracts_dir);
-    let mut findings = Vec::new();
 
     let mut changes = selected_changes.to_vec();
     changes.sort();
@@ -295,6 +300,24 @@ fn resolve_scope(
         findings,
         covered,
     })
+}
+
+/// Flag every scenario whose (spec, id) appears more than once in the raw
+/// list. Detection runs over the raw discovery output, not the collapsed
+/// map, so colliding duplicates are seen before they merge (last wins).
+fn slug_collision_findings(
+    scenarios: &[openspec::Scenario],
+    specs_root: &Path,
+) -> Vec<ReportFinding> {
+    openspec::detect_slug_collisions(scenarios)
+        .into_iter()
+        .filter_map(|(spec, id, _)| {
+            scenarios
+                .iter()
+                .find(|s| s.spec_path == spec && s.id == id)
+                .map(|s| structural_report(s, specs_root, "slug-collision", None))
+        })
+        .collect()
 }
 
 /// Extract property ids from `- **VERIFIES** [[spec.P-x]]` bullets in a

@@ -9,6 +9,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`ah check` now reports `slug-collision` for deployed specs** — the gate
+  collapsed base scenarios into a `(spec, id)` map before collision detection,
+  so same-id/different-body scenario pairs never reached the finding (only
+  `ah doctor` saw them). Detection now runs on the raw discovery list before
+  the collapse; map semantics are unchanged downstream.
+
 ### Added
 
 - **`scenario-scoped-tests` explain topic** — documented recommended pattern

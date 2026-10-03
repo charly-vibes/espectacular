@@ -71,6 +71,38 @@ fn ah_doctor_bad_config_exits_nonzero() {
         .stderr(predicates::str::contains("config: bad config"));
 }
 
+#[test]
+fn ah_check_emits_slug_collision_for_deployed_specs() {
+    // espectacular-ybs: resolve_scope collapsed base scenarios into a
+    // BTreeMap keyed (spec, id), silently eating same-key duplicates so
+    // the slug-collision finding never fired from the ah check binary
+    // (only structural_findings()/doctor saw them). Discovery passes
+    // same-id/different-body pairs through; both must be flagged.
+    let repo = base_repo();
+    fs::write(
+        repo.path().join("openspec/specs/compiler/spec.md"),
+        "# Capability: compiler\n\n#### Scenario: Green path\n- **WHEN** it runs\n- **THEN** it passes\n\n#### Scenario: Shell path\n- **WHEN** shell command runs\n- **THEN** it passes\n\n#### Scenario: Green path\n- **WHEN** it runs again\n- **THEN** it diverges\n",
+    )
+    .unwrap();
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["check", "--json"])
+        .assert()
+        .failure();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
+    let findings = data["findings"].as_array().unwrap();
+    let collision = findings
+        .iter()
+        .find(|finding| finding["kind"] == "slug-collision")
+        .expect("slug-collision finding missing from ah check output");
+    assert_eq!(collision["scenario"]["id"], "green-path");
+    assert_eq!(collision["spec"], "compiler");
+}
+
 fn assert_schema_valid(instance: &Value) {
     let raw: Value =
         serde_json::from_str(&fs::read_to_string("schemas/check-output.schema.json").unwrap())
