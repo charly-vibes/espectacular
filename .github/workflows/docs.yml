@@ -58,7 +58,8 @@ jobs:
 
       - name: Copy llm.txt to site root
         # book.toml build-dir is docs/_book (DDL-jnt root-book standardization)
-        run: cp llm.txt docs/_book/llm.txt
+        # Deploy the LLM-oriented summaries to the Pages site root
+        run: cp llms.txt llm.txt docs/_book/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

@@ -14,6 +14,16 @@ Behavioral verification layer for the charly AI development ecosystem.
 
 ## Installation
 
+### Binary (curl)
+
+```bash
+V=$(basename "$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
+  https://github.com/charly-vibes/espectacular/releases/latest)" | sed 's/^v//')
+TGT="$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/^x86_64$/amd64/; s/^aarch64$/arm64/')"
+curl -fsSL "https://github.com/charly-vibes/espectacular/releases/download/v${V}/ah_${V}_${TGT}.tar.gz" | tar xz
+chmod +x ah && sudo mv ah /usr/local/bin/
+```
+
 ### Cargo (crates.io)
 
 ```bash

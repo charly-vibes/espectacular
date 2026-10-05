@@ -148,6 +148,10 @@ jobs:
           VERSION="${TAG#v}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           mkdir -p dist
+          # upload-artifact does not preserve file permissions across the
+          # artifact roundtrip — restore the exec bit or the archives ship
+          # 644 binaries and `curl | tar xz` installs are not runnable (DDL-3av).
+          chmod +x -- bins/*/*
           tar -czf "dist/ah_${VERSION}_linux_amd64.tar.gz"  -C bins/linux_amd64  ah
           tar -czf "dist/ah_${VERSION}_linux_arm64.tar.gz"  -C bins/linux_arm64  ah
           tar -czf "dist/ah_${VERSION}_darwin_amd64.tar.gz" -C bins/darwin_amd64 ah
