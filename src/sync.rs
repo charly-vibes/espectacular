@@ -216,7 +216,13 @@ mod tests {
 
     const CONFIG_TOML: &str = "tool_version = \"0.9.0\"\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n[runners]\npytest = [\"pytest\"]\ncargo = [\"cargo\", \"test\"]\n";
 
-    const SPEC_MD: &str = "---\nid: spec\nkind: intent\nstatement: \"WHEN auth is exercised THE system SHALL reject bad tokens\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| C-token | invariant | invalid tokens are rejected | [[spec]] |\n\n## Model\n\n### States\n\n- `checking`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t-reject | checking | checking | [[spec.C-token]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| P-token | unit | [[spec.C-token]] | valid vs invalid tokens | invalid tokens rejected with 401 |\n\n## Requirements\n\n### Requirement: Token check\n\nThe system SHALL reject invalid tokens.\n";
+    // Rev-18 naming law: the id derives from the parent directory (auth/ →
+    // `auth`), so the real-spk e2e lint stays clean.
+    const SPEC_MD: &str = "---\nid: auth\nkind: intent\nstatement: \"WHEN auth is exercised THE system SHALL reject bad tokens\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| C-token | invariant | invalid tokens are rejected | [[auth]] |\n\n## Model\n\n### States\n\n- `checking`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t-reject | checking | checking | [[auth.C-token]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| P-token | unit | [[auth.C-token]] | valid vs invalid tokens | invalid tokens rejected with 401 |\n\n## Requirements\n\n### Requirement: Token check\n\nThe system SHALL reject invalid tokens.\n";
+
+    /// A real (non-`spec`) id under the rev-18 parent-dir naming law — the
+    /// sync gate must route it to spk exactly like the legacy `id: spec`.
+    const SPEC_MD_REAL_ID: &str = "---\nid: auth.tokens\nkind: intent\nstatement: \"WHEN auth is exercised THE system SHALL reject bad tokens\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| C-token | invariant | invalid tokens are rejected | [[auth.tokens]] |\n\n## Model\n\n### States\n\n- `checking`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t-reject | checking | checking | [[auth.tokens.C-token]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| P-token | unit | [[auth.tokens.C-token]] | valid vs invalid tokens | invalid tokens rejected with 401 |\n\n## Requirements\n\n### Requirement: Token check\n\nThe system SHALL reject invalid tokens.\n";
 
     fn write_executable(dir: &Path, name: &str, body: &str) -> PathBuf {
         let path = dir.join(name);
@@ -228,7 +234,7 @@ mod tests {
     /// A fake spk whose `lint` reports clean and whose `parse` emits a valid
     /// IR envelope for the auth fixture spec.
     fn clean_spk_shim(dir: &Path) -> String {
-        let parse_output = r#"{"ok":true,"data":{"properties":[{"id":"P-token","kind":"unit","cells":{"id":"P-token","kind":"unit","derives_from":"[[spec.C-token]]","generator":"valid vs invalid tokens","predicate":"invalid tokens rejected with 401"}}],"constraints":[{"id":"C-token","kind":"invariant","cells":{}}],"states":[],"transitions":[]}}"#;
+        let parse_output = r#"{"ok":true,"data":{"properties":[{"id":"P-token","kind":"unit","cells":{"id":"P-token","kind":"unit","derives_from":"[[auth.C-token]]","generator":"valid vs invalid tokens","predicate":"invalid tokens rejected with 401"}}],"constraints":[{"id":"C-token","kind":"invariant","cells":{}}],"states":[],"transitions":[]}}"#;
         let body = format!(
             "#!/bin/sh\nif [ \"$1\" = lint ]; then\n  echo '{{\"ok\":true,\"data\":{{\"issues\":[]}}}}'\nelse\n  cat <<'JSON'\n{}\nJSON\nfi\n",
             parse_output
@@ -435,5 +441,28 @@ mod tests {
         let outcome = run_sync("spk", &root, false).unwrap();
         assert!(outcome.is_ok(), "real spk refused: {outcome:?}");
         assert!(contract_path(&root).exists());
+    }
+
+    // ---- Revision 18: real (non-`spec`) ids must derive contracts too ----
+
+    #[test]
+    fn sync_derives_contracts_for_real_id_dual_format() {
+        let (_dir, root) = repo();
+        // Replace the legacy-id spec with a real-id one in its own directory.
+        fs::remove_dir_all(root.join("openspec/specs/auth")).unwrap();
+        fs::create_dir_all(root.join("openspec/specs/auth-tokens")).unwrap();
+        fs::write(
+            root.join("openspec/specs/auth-tokens/spec.md"),
+            SPEC_MD_REAL_ID,
+        )
+        .unwrap();
+        let spk = clean_spk_shim(&root);
+        let outcome = run_sync(&spk, &root, false).unwrap();
+        assert!(
+            outcome.refusals.is_empty(),
+            "real-id file must not be refused: {outcome:?}"
+        );
+        assert_eq!(outcome.wrote.len(), 1, "{outcome:?}");
+        assert!(root.join(".espectacular/auth-tokens/p-token.toml").exists());
     }
 }

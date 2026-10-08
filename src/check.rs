@@ -102,7 +102,7 @@ struct ResolvedScope {
     findings: Vec<ReportFinding>,
     /// VERIFIES coverage (derive-contracts-from-specodelic task 4.1):
     /// (spec_path, scenario_id) → derived contract id. A scenario whose body
-    /// carries `- **VERIFIES** [[spec.P-x]]` is covered by the property's
+    /// carries `- **VERIFIES** [[<file-id>.P-x]]` is covered by the property's
     /// derived contract (`.espectacular/<spec>/<slug>.toml`) when it exists
     /// (design D1); the entry is absent when no derived contract backs the
     /// link, leaving the scenario's own contract requirement unchanged
@@ -291,7 +291,15 @@ fn resolve_scope(
         }
     }
 
-    let covered = resolve_verifies_coverage(&mut scenarios, contracts_dir);
+    // Frontmatter id per deployed spec — VERIFIES links are file-local
+    // (`<own-file-id>.<property-id>` under the rev-18 naming law).
+    let file_ids = if specs_dir.exists() {
+        openspec::frontmatter_ids(specs_dir.to_str().unwrap()).unwrap_or_default()
+    } else {
+        BTreeMap::new()
+    };
+
+    let covered = resolve_verifies_coverage(&mut scenarios, contracts_dir, &file_ids);
 
     Ok(ResolvedScope {
         scenarios: scenarios.into_values().collect(),
@@ -320,18 +328,31 @@ fn slug_collision_findings(
         .collect()
 }
 
-/// Extract property ids from `- **VERIFIES** [[spec.P-x]]` bullets in a
-/// scenario body (design D1 coverage convention).
-pub(crate) fn verifies_property_ids(body: &str) -> Vec<String> {
+/// Extract property ids from `- **VERIFIES** [[P-x]]` bullets in a scenario
+/// body (design D1 coverage convention). The link is file-local: under the
+/// specodelic Revision 18 naming law it reads `<own-file-id>.<property-id>`
+/// (the legacy rev-17 spelling was `spec.<property-id>`), so the file's own
+/// frontmatter id is stripped when present; a dotted link whose prefix does
+/// not match falls back to everything after the last dot. Bare property ids
+/// pass through unchanged.
+pub(crate) fn verifies_property_ids(body: &str, file_id: Option<&str>) -> Vec<String> {
     let mut ids = Vec::new();
     for line in body.lines() {
-        let Some(rest) = line.trim().strip_prefix("- **VERIFIES** [[spec.") else {
+        let Some(rest) = line.trim().strip_prefix("- **VERIFIES** [[") else {
             continue;
         };
-        if let Some(id) = rest.strip_suffix("]]") {
-            if !id.is_empty() {
-                ids.push(id.to_string());
-            }
+        let Some(link) = rest.strip_suffix("]]") else {
+            continue;
+        };
+        if link.is_empty() {
+            continue;
+        }
+        let property_id = match file_id {
+            Some(fid) if link.starts_with(&format!("{fid}.")) => &link[fid.len() + 1..],
+            _ => link.rsplit('.').next().unwrap_or(link),
+        };
+        if !property_id.is_empty() {
+            ids.push(property_id.to_string());
         }
     }
     ids
@@ -346,11 +367,13 @@ pub(crate) fn verifies_property_ids(body: &str) -> Vec<String> {
 fn resolve_verifies_coverage(
     scenarios: &mut BTreeMap<(String, String), ResolvedScenario>,
     contracts_dir: &Path,
+    file_ids: &BTreeMap<String, String>,
 ) -> BTreeMap<(String, String), Vec<String>> {
     let mut covered = BTreeMap::new();
     let mut redirected = std::collections::HashSet::new();
     for ((spec, id), resolved) in scenarios.iter_mut() {
-        for property_id in verifies_property_ids(&resolved.scenario.body) {
+        let file_id = file_ids.get(spec).map(String::as_str);
+        for property_id in verifies_property_ids(&resolved.scenario.body, file_id) {
             let contract_id = crate::sync::slugify_property_id(&property_id);
             let path = contracts_dir.join(spec).join(format!("{contract_id}.toml"));
             if path.exists() {
@@ -1200,6 +1223,39 @@ mod tests {
             assert!(
                 !output.findings.iter().any(|f| f.kind == kind),
                 "VERIFIES-linked scenario must not emit {kind}; got: {:?}",
+                output.findings
+            );
+        }
+    }
+
+    #[test]
+    fn verifies_real_id_frontmatter_link_is_covered_by_derived_contract() {
+        // Revision 18: the link is file-local under the real parent-dir id
+        // (`auth.tokens.P-token`), not the legacy `spec.P-token` spelling.
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        fs::create_dir_all(repo.join("openspec/specs/auth-tokens")).unwrap();
+        fs::create_dir_all(repo.join(".espectacular/auth-tokens")).unwrap();
+        fs::write(
+            repo.join(".espectacular/config.toml"),
+            "tool_version = \"0.1.0\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\n",
+        )
+        .unwrap();
+        fs::write(
+            repo.join("openspec/specs/auth-tokens/spec.md"),
+            "---\nid: auth.tokens\nkind: intent\nstatement: \"WHEN checked THE system SHALL reject invalid tokens\"\n---\n\n# Capability: auth tokens\n\n#### Scenario: Token check 0\n- **WHEN** a token is checked\n- **THEN** invalid tokens are rejected\n- **VERIFIES** [[auth.tokens.P-token]]\n",
+        )
+        .unwrap();
+        fs::write(
+            repo.join(".espectacular/auth-tokens/p-token.toml"),
+            DERIVED_CONTRACT,
+        )
+        .unwrap();
+        let output = run_check(repo, &[], false).unwrap();
+        for kind in ["no-toml", "orphan-toml"] {
+            assert!(
+                !output.findings.iter().any(|f| f.kind == kind),
+                "real-id VERIFIES link must resolve; got: {:?}",
                 output.findings
             );
         }

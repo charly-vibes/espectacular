@@ -73,9 +73,10 @@ impl LintCheck for VerifiesDanglingCheck {
             return;
         }
         let ids = property_ids(&spec.raw);
+        let file_id = crate::openspec::frontmatter_id(&spec.raw);
         for req in &spec.requirements {
             for scenario in &req.scenarios {
-                for prop in verifies_property_ids(&scenario.body) {
+                for prop in verifies_property_ids(&scenario.body, file_id.as_deref()) {
                     if !ids.contains(&prop) {
                         findings.push(LintFinding::warning(
                             self.kind(),
@@ -108,15 +109,16 @@ impl LintCheck for ScenarioUnlinkedCheck {
         if !trace_target(spec) {
             return;
         }
+        let file_id = crate::openspec::frontmatter_id(&spec.raw);
         for req in &spec.requirements {
             for scenario in &req.scenarios {
-                if verifies_property_ids(&scenario.body).is_empty() {
+                if verifies_property_ids(&scenario.body, file_id.as_deref()).is_empty() {
                     findings.push(LintFinding::warning(
                         self.kind(),
                         &spec.spec_path,
                         &scenario.id,
                         "scenario has no VERIFIES link — in a file with Properties rows it relies on its own contract toml (design D1 fallback)",
-                        "add a `- **VERIFIES** [[spec.P-id]]` bullet to link the scenario to a property's derived contract, or keep the scenario's own contract",
+                        "add a `- **VERIFIES** [[<file-id>.P-id]]` bullet to link the scenario to a property's derived contract, or keep the scenario's own contract",
                         "edit_spec",
                         "ah explain scenario-unlinked",
                     ));
@@ -137,11 +139,12 @@ impl LintCheck for PropertyUntracedCheck {
         if !trace_target(spec) {
             return;
         }
+        let file_id = crate::openspec::frontmatter_id(&spec.raw);
         let cited: Vec<String> = spec
             .requirements
             .iter()
             .flat_map(|req| req.scenarios.iter())
-            .flat_map(|s| verifies_property_ids(&s.body))
+            .flat_map(|s| verifies_property_ids(&s.body, file_id.as_deref()))
             .collect();
         for prop in property_ids(&spec.raw) {
             if !cited.contains(&prop) {

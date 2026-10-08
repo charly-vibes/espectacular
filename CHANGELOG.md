@@ -7,6 +7,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.9.3] — 2026-10-08
+
+### Fixed
+
+- **Dual-format detection follows specodelic Revision 18** — `ah` hardcoded
+  the legacy `id: spec` frontmatter marker as THE dual-format convention.
+  Revision 18's parent-dir naming law (`linter.id_matches_file`) means
+  deployed dual-format files now carry real ids (`auth.tokens`, not `spec`),
+  which `ah sync` and the spk lint/trace bridges silently skipped — sync
+  became a no-op on rev-18 trees and rekeys orphaned every derived contract.
+  Detection is now "frontmatter with an `id:` line"; the id VALUE is spk's
+  `id_matches_file` to enforce, never espectacular's. The
+  `spk-frontmatter-mismatch` check narrows accordingly (fires only for
+  `kind: intent` frontmatter with no id line).
+
+
 ## [0.9.2] — 2026-10-03
 
 ### Fixed

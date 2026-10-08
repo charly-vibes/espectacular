@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
@@ -51,6 +52,44 @@ pub fn discover_scenarios(specs_dir: &str) -> anyhow::Result<Vec<Scenario>> {
 
 fn extract_scenario_heading(line: &str) -> Option<&str> {
     line.strip_prefix("#### Scenario: ").map(str::trim)
+}
+
+/// Extract the frontmatter `id:` value from a spec file's content, mirroring
+/// specodelic's convention. Under Revision 18 the value is the parent-dir
+/// derived real id (any value is accepted here — the naming law is spk's
+/// `linter.id_matches_file` to enforce). None when there is no frontmatter
+/// or no id line.
+pub fn frontmatter_id(content: &str) -> Option<String> {
+    let rest = content.strip_prefix("---")?;
+    let end = rest.find("\n---")?;
+    rest[..end].lines().find_map(|l| {
+        let value = l.trim().strip_prefix("id:")?.trim();
+        (!value.is_empty()).then(|| value.to_string())
+    })
+}
+
+/// Frontmatter id per deployed spec (`<dir>/spec.md`), keyed by the spec
+/// directory name. VERIFIES links inside a dual-format file are file-local
+/// (`<own-file-id>.<property-id>`), so resolving them to property-derived
+/// contracts requires knowing each file's own id.
+pub fn frontmatter_ids(specs_dir: &str) -> anyhow::Result<BTreeMap<String, String>> {
+    let mut ids = BTreeMap::new();
+    let specs_path = Path::new(specs_dir);
+    for spec_entry in fs::read_dir(specs_path)
+        .with_context(|| format!("reading specs directory `{}`", specs_path.display()))?
+    {
+        let spec_entry = spec_entry?;
+        let spec_name = spec_entry.file_name().to_string_lossy().into_owned();
+        let spec_file = spec_entry.path().join("spec.md");
+        if !spec_file.exists() {
+            continue;
+        }
+        let content = fs::read_to_string(&spec_file)?;
+        if let Some(id) = frontmatter_id(&content) {
+            ids.insert(spec_name, id);
+        }
+    }
+    Ok(ids)
 }
 
 fn extract_body(lines: &[&str], after: usize) -> String {

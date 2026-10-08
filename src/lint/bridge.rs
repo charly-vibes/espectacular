@@ -21,16 +21,13 @@ use serde::Deserialize;
 
 const SPK_PROGRAM: &str = "spk";
 
-/// A dual-format spec file carries `id: spec` in its YAML frontmatter
-/// (repo convention from adopt-dual-format-specs).
+/// A dual-format spec file carries YAML frontmatter with an `id:` line.
+/// Since specodelic Revision 18 the id VALUE follows the parent-dir naming
+/// law (`linter.id_matches_file`): any id value routes the file to spk —
+/// whether the value is correct is spk's call, never espectacular's. The
+/// old rev-17 `id: spec` convention is just one accepted spelling now.
 pub(crate) fn is_dual_format(raw: &str) -> bool {
-    let Some(rest) = raw.strip_prefix("---") else {
-        return false;
-    };
-    let Some(end) = rest.find("\n---") else {
-        return false;
-    };
-    rest[..end].lines().any(|l| l.trim() == "id: spec")
+    crate::openspec::frontmatter_id(raw).is_some()
 }
 
 #[derive(Deserialize)]
@@ -141,37 +138,34 @@ pub(crate) enum Failure {
 /// Returns the mismatch finding message when the frontmatter id does not match
 /// the filename stem (or is absent) — the file declares itself specodelic but
 /// the bridge's `id: spec` activation rule skips it.
+/// Task 5.1: a non-dual-format file whose frontmatter declares `kind: intent`
+/// but carries NO `id` line — the bridge would skip it silently, so flag it.
+/// Files WITH an id line are dual-format (routed to spk); a wrong id VALUE is
+/// spk's `linter.id_matches_file` to report, never this check's.
 fn intent_mismatch(spec: &SpecFile) -> Option<String> {
     let rest = spec.raw.strip_prefix("---")?;
     let end = rest.find("\n---")?;
     let front = &rest[..end];
     let mut is_intent = false;
-    let mut id: Option<&str> = None;
+    let mut has_id = false;
     for line in front.lines() {
-        if line.trim() == "kind: intent" {
+        let trimmed = line.trim();
+        if trimmed == "kind: intent" {
             is_intent = true;
-        } else if let Some(v) = line.trim().strip_prefix("id:") {
-            id = Some(v.trim());
+        }
+        if trimmed.starts_with("id:") {
+            has_id = true;
         }
     }
-    if !is_intent {
-        return None;
-    }
-    let stem = spec
-        .source_path
-        .file_stem()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    // spk's id_matches_file convention: filename stem, '-' mapped to '.'.
-    let expected = stem.replace('-', ".");
-    match id {
-        Some(found) if found == expected => None,
-        Some(found) => Some(format!(
-            "file declares kind: intent but its frontmatter id `{found}` does not match the filename stem (expected `{expected}`) — the dual-format bridge skips it silently"
-        )),
-        None => Some(format!(
-            "file declares kind: intent but has no frontmatter id (expected `{expected}`) — the dual-format bridge skips it silently"
-        )),
+    if is_intent && !has_id {
+        Some(
+            "file declares kind: intent but has no frontmatter id — add one; \
+             specodelic (Revision 18) derives the expected id from the parent \
+             directory and `spk lint` enforces it"
+                .to_string(),
+        )
+    } else {
+        None
     }
 }
 
@@ -318,6 +312,10 @@ echo '{"ok":true,"envelope_version":"0.1","cli_version":"0.1.0","envelope_kind":
 
     const DUAL_RAW: &str = "---\nid: spec\nkind: intent\nstatement: \"do it\"\n---\n\n## Requirements\n\n### Requirement: Login\nThe system SHALL log in.\n";
 
+    /// Revision 18 spelling: the id value is the parent-dir-derived real id,
+    /// not the legacy `spec` placeholder.
+    const REAL_ID_RAW: &str = "---\nid: auth.tokens\nkind: intent\nstatement: \"do it\"\n---\n\n## Requirements\n\n### Requirement: Login\nThe system SHALL log in.\n";
+
     const PLAIN_RAW: &str =
         "# Capability: auth\n\n## Requirements\n\n### Requirement: Login\nThe system SHALL log in.\n";
 
@@ -344,20 +342,18 @@ fi
     // ---- task 5.1 — spk-frontmatter-mismatch closes the bare-continue gap --
 
     #[test]
-    fn mismatched_kind_intent_file_emits_spk_frontmatter_mismatch() {
-        // Nonexistent spk program proves the finding is emitted WITHOUT an
-        // invocation — a second (spk-unavailable) finding would mean the
-        // bridge still tried to relay it.
+    fn id_bearing_kind_intent_file_routes_to_spk_even_when_id_value_differs() {
+        // An id VALUE that differs from the naming law is spk's
+        // linter.id_matches_file to report — espectacular must still ROUTE
+        // the file to spk. A nonexistent spk proves routing happened (the
+        // old behavior flagged a mismatch WITHOUT any invocation).
         let specs = vec![spec_with_raw("auth", INTENT_MISMATCH_RAW)];
         let mut findings = Vec::new();
         relay_with("/nonexistent/path/spk", &specs, &mut findings);
-        assert_eq!(findings.len(), 1, "exactly one mismatch finding");
-        let f = &findings[0];
-        assert_eq!(f.kind, "spk-frontmatter-mismatch");
-        assert_eq!(f.severity, crate::lint::Severity::Warning);
-        assert_eq!(f.spec_path, "auth");
-        assert!(f.message.contains("wrong"), "names the file's id: {f:?}");
-        assert!(f.message.contains("spec"), "names the expected id: {f:?}");
+        assert_eq!(findings.len(), 1, "exactly one routing finding");
+        assert_eq!(findings[0].kind, "spk-unavailable");
+        assert_eq!(findings[0].severity, crate::lint::Severity::Warning);
+        assert_eq!(findings[0].spec_path, "auth");
     }
 
     #[test]
@@ -368,7 +364,17 @@ fi
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].kind, "spk-frontmatter-mismatch");
         let msg = &findings[0].message;
-        assert!(msg.contains("spec"), "expected id: {msg}");
+        assert!(msg.contains("no frontmatter id"), "names the gap: {msg}");
+    }
+
+    // ---- Revision 18: any frontmatter id makes a file dual-format --------
+
+    #[test]
+    fn real_id_frontmatter_is_dual_format() {
+        assert!(is_dual_format(REAL_ID_RAW));
+        assert!(is_dual_format(DUAL_RAW));
+        assert!(!is_dual_format(INTENT_NO_ID_RAW));
+        assert!(!is_dual_format(PLAIN_RAW));
     }
 
     #[test]
@@ -496,13 +502,19 @@ fi
     #[test]
     fn is_dual_format_detects_id_spec_frontmatter() {
         assert!(is_dual_format(DUAL_RAW));
+        assert!(is_dual_format(REAL_ID_RAW));
     }
 
     #[test]
-    fn is_dual_format_ignores_plain_and_other_ids() {
+    fn is_dual_format_requires_frontmatter_with_an_id_line() {
+        // Revision 18: the id VALUE is spk's naming law (parent-dir derived);
+        // espectacular only routes frontmattered specs. What is NOT dual-
+        // format: no frontmatter at all, frontmatter without an id, or a
+        // bare id line outside frontmatter.
         assert!(!is_dual_format(PLAIN_RAW));
-        assert!(!is_dual_format("---\nid: auth.login\n---\n\nbody\n"));
+        assert!(!is_dual_format(INTENT_NO_ID_RAW));
         assert!(!is_dual_format("id: spec\n"));
+        assert!(!is_dual_format("no frontmatter\n---\nid: spec\n"));
     }
 
     #[test]
@@ -556,7 +568,7 @@ fi
 
     #[test]
     fn p_bridge() {
-        mismatched_kind_intent_file_emits_spk_frontmatter_mismatch();
+        id_bearing_kind_intent_file_routes_to_spk_even_when_id_value_differs();
         graph_typing_violation_and_dangling_ref_are_relayed();
         relay_maps_spk_issues_to_spk_prefixed_warning_findings();
         relay_emits_single_advisory_when_spk_is_missing();
