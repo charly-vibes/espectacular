@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-coverage@e1568811a4b8"
+derived_from = "P-coverage@173b6439bb16"
 description = "each resolves via `ah explain <topic>` printing guidance and exiting zero"
 falsifiability_class = "safety"
 id = "p-coverage"

@@ -1,6 +1,6 @@
 archetype = "PF"
 authored_with = "0.9.0"
-derived_from = "P-scope@5b50b9b50a3c"
+derived_from = "P-scope@8378ca1e1497"
 description = "the default scope matches ah check's default scope"
 falsifiability_class = "safety"
 id = "p-scope"

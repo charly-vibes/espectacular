@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-configfile@a0ccd57236ca"
+derived_from = "P-configfile@4e9365847e3e"
 description = "it implements `ConfigFile`; every read, write, and parse call routes through genesis; tests pass"
 falsifiability_class = "safety"
 id = "p-configfile"

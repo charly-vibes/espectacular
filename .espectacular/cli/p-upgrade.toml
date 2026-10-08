@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-upgrade@0c6bf7e2c626"
+derived_from = "P-upgrade@fff83322fb30"
 description = "compatibility changes reported explicitly"
 falsifiability_class = "safety"
 id = "p-upgrade"

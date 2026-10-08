@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-enable@bf0ed2824a5a"
+derived_from = "P-enable@9d72375230bc"
 description = "one config table per enable with reported path/table; unknown errors; active is a no-op"
 falsifiability_class = "safety"
 id = "p-enable"

@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-apply-command@dd1cc4f0ccfa"
+derived_from = "P-apply-command@86594bd02d28"
 description = "`apply_command` non-null only for mechanical actions"
 falsifiability_class = "safety"
 id = "p-apply-command"

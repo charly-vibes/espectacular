@@ -1,5 +1,5 @@
 ---
-id: spec
+id: spec.authoring
 kind: intent
 statement: "WHEN any spec file in this repository is added, edited, or deployed by archive THE corpus SHALL stay lint-clean under specodelic dual format, with the mandate enforced in the repo hook chain and CI and the specodelic half re-derived from the archived delta whenever archive strips it."
 ---
@@ -19,11 +19,11 @@ This delta is itself authored in dual format, extending the pilot from
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-corpus-dual | invariant | every `spec.md` under `openspec/specs/` and under active `openspec/changes/*/specs/` carries YAML frontmatter (`id: spec`, `kind: intent`, EARS statement) and the Constraints, Model, and Properties tables | [[spec]] |
-| C-lint-clean | invariant | `spk lint` exits zero over the corpus, and the repo hook chain plus CI run it on every change to a spec file | [[spec]] |
-| C-open-half-stable | invariant | migrating a file leaves its openspec requirement and scenario text textually identical (section-sync mirror and `ah check` stay green) | [[spec]] |
-| C-adopters-unaffected | advisory | no espectacular product behavior requires dual format; plain openspec repos remain fully valid | [[spec]] |
-| C-archive-rederive | invariant | when `openspec archive` merges new requirements into a deployed spec and strips its specodelic half, the half is re-derived — frontmatter copied from the archived delta, surviving constraint/property rows carried over from the pre-archive version, rows added for newly merged requirements — and the gates re-run | [[spec]] |
+| C-corpus-dual | invariant | every `spec.md` under `openspec/specs/` and under active `openspec/changes/*/specs/` carries YAML frontmatter (`id: spec`, `kind: intent`, EARS statement) and the Constraints, Model, and Properties tables | [[spec.authoring]] |
+| C-lint-clean | invariant | `spk lint` exits zero over the corpus, and the repo hook chain plus CI run it on every change to a spec file | [[spec.authoring]] |
+| C-open-half-stable | invariant | migrating a file leaves its openspec requirement and scenario text textually identical (section-sync mirror and `ah check` stay green) | [[spec.authoring]] |
+| C-adopters-unaffected | advisory | no espectacular product behavior requires dual format; plain openspec repos remain fully valid | [[spec.authoring]] |
+| C-archive-rederive | invariant | when `openspec archive` merges new requirements into a deployed spec and strips its specodelic half, the half is re-derived — frontmatter copied from the archived delta, surviving constraint/property rows carried over from the pre-archive version, rows added for newly merged requirements — and the gates re-run | [[spec.authoring]] |
 
 ## Model
 
@@ -37,20 +37,20 @@ This delta is itself authored in dual format, extending the pilot from
 
 | id | from | to | guard |
 |----|------|----|-------|
-| t-migrate | plain | dual | [[spec.C-corpus-dual]] |
-| t-lint | dual | linted | [[spec.C-lint-clean]] |
-| t-stable | linted | linted | [[spec.C-open-half-stable]] |
-| t-strip | linted | dual | [[spec.C-archive-rederive]] |
+| t-migrate | plain | dual | [[spec.authoring.C-corpus-dual]] |
+| t-lint | dual | linted | [[spec.authoring.C-lint-clean]] |
+| t-stable | linted | linted | [[spec.authoring.C-open-half-stable]] |
+| t-strip | linted | dual | [[spec.authoring.C-archive-rederive]] |
 
 ## Properties
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
-| P-corpus | unit | [[spec.C-corpus-dual]] | any `spec.md` under `openspec/` | the file parses as dual format: frontmatter plus all three tables present |
-| P-lint | unit | [[spec.C-lint-clean]] | the full corpus after any edit to a spec file | `spk lint` exits zero |
-| P-open-half | unit | [[spec.C-open-half-stable]] | the openspec half of a migrated file diffed against its pre-migration git blob | the diff is empty outside frontmatter and the three tables |
-| P-adopter | unit | [[spec.C-adopters-unaffected]] | a plain openspec spec file with no frontmatter | `ah check` discovers scenarios and imposes no dual-format finding |
-| P-rederive | unit | [[spec.C-archive-rederive]] | a deployed spec whose specodelic half was stripped by an archive that also merged new requirements | after re-derivation, constraint and property rows cover both pre-existing and newly merged requirements, and `spk lint` exits zero |
+| P-corpus | unit | [[spec.authoring.C-corpus-dual]] | any `spec.md` under `openspec/` | the file parses as dual format: frontmatter plus all three tables present |
+| P-lint | unit | [[spec.authoring.C-lint-clean]] | the full corpus after any edit to a spec file | `spk lint` exits zero |
+| P-open-half | unit | [[spec.authoring.C-open-half-stable]] | the openspec half of a migrated file diffed against its pre-migration git blob | the diff is empty outside frontmatter and the three tables |
+| P-adopter | unit | [[spec.authoring.C-adopters-unaffected]] | a plain openspec spec file with no frontmatter | `ah check` discovers scenarios and imposes no dual-format finding |
+| P-rederive | unit | [[spec.authoring.C-archive-rederive]] | a deployed spec whose specodelic half was stripped by an archive that also merged new requirements | after re-derivation, constraint and property rows cover both pre-existing and newly merged requirements, and `spk lint` exits zero |
 
 ## Purpose
 

@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-matrix@51bc6841d713"
+derived_from = "P-matrix@b9405d95c7aa"
 description = "matrix counts coverage per spec and archetype, marks missing as uncovered, and is machine-readable"
 falsifiability_class = "safety"
 id = "p-matrix"

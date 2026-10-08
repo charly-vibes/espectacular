@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-json@912bd6e99e7e"
+derived_from = "P-json@9f8b9e57264d"
 description = "output is a valid object with exactly the required fields and typed `hints` entries"
 falsifiability_class = "safety"
 id = "p-json"

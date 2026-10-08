@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-init@df515fe6f8f7"
+derived_from = "P-init@4227cf583198"
 description = "idempotent preparation; refusal without OpenSpec; scenario stubs; hook preference order; honest missing-framework report"
 falsifiability_class = "safety"
 id = "p-init"

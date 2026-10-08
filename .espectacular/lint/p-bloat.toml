@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-bloat@8fd03df01a7d"
+derived_from = "P-bloat@8f9a7e3ba0ad"
 description = "finding only above the configured limit; exact limit accepted"
 falsifiability_class = "safety"
 id = "p-bloat"

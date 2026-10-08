@@ -1,6 +1,6 @@
 archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-name@35e80aad841b"
+derived_from = "P-name@fa806fbf3164"
 description = "it answers to `ah` with help"
 falsifiability_class = "safety"
 id = "p-name"

@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-agent-actions@fce4347b2e6c"
+derived_from = "P-agent-actions@c66178e6120b"
 description = "every finding has both agent fields; prose verbatim; deterministic sort; kind counts in summary"
 falsifiability_class = "safety"
 id = "p-agent-actions"

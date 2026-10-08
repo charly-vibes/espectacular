@@ -1,6 +1,6 @@
 archetype = "PF"
 authored_with = "0.9.0"
-derived_from = "P-unaffected@b7055b0cfbd1"
+derived_from = "P-unaffected@612ee9d92967"
 description = "discovery and check output is byte-identical to pre-change behavior"
 falsifiability_class = "safety"
 id = "p-unaffected"

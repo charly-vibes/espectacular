@@ -1,6 +1,6 @@
 archetype = "PF"
 authored_with = "0.9.0"
-derived_from = "P-trace@3b12cf41a7fb"
+derived_from = "P-trace@2daf166835dd"
 description = "all three appear as advisory findings; the exit code is zero"
 falsifiability_class = "safety"
 id = "p-trace"

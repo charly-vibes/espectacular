@@ -1,6 +1,6 @@
 archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-handlers@0a542d49c80d"
+derived_from = "P-handlers@69318d31dfe6"
 description = "handlers return `Output<T>` or use `ErrorSink` where the advisory is honored"
 falsifiability_class = "safety"
 id = "p-handlers"

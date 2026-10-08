@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-explain@12ab0314aa61"
+derived_from = "P-explain@10f69e6c4eab"
 description = "guidance printed per topic class; JSON valid; list complete; unknown errors"
 falsifiability_class = "safety"
 id = "p-explain"

@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-imperative@535b3a3cdade"
+derived_from = "P-imperative@109779a529d4"
 description = "findings exactly in the mechanical cases, with business-action suggestions"
 falsifiability_class = "safety"
 id = "p-imperative"

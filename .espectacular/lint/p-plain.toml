@@ -1,6 +1,6 @@
 archetype = "PF"
 authored_with = "0.9.0"
-derived_from = "P-plain@1b5cc0bab526"
+derived_from = "P-plain@cef5f0809f82"
 description = "lint output contains no specodelic findings and no spk invocation occurs"
 falsifiability_class = "safety"
 id = "p-plain"

@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-listing@b954eeaa2b30"
+derived_from = "P-listing@f63bbf840d82"
 description = "outputs are byte-identical and alphabetically sorted"
 falsifiability_class = "safety"
 id = "p-listing"

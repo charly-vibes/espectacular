@@ -1,6 +1,6 @@
 archetype = "SA"
 authored_with = "0.8.0"
-derived_from = "P-open-half@c1294ada2f8f"
+derived_from = "P-open-half@768f8558778d"
 description = "the diff is empty outside frontmatter and the three tables"
 falsifiability_class = "safety"
 id = "p-open-half"

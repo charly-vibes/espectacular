@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-entangled@292822d0736c"
+derived_from = "P-entangled@00bb143e31ca"
 description = "findings exactly in the PF/SA primitive cases"
 falsifiability_class = "safety"
 id = "p-entangled"

@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-quality@a113f4bec8a3"
+derived_from = "P-quality@e10ca30bec8c"
 description = "each prints kind-specific guidance (mutation meaning/enablement) and exits zero"
 falsifiability_class = "safety"
 id = "p-quality"

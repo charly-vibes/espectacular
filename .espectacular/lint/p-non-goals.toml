@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-non-goals@b9e3e1abc256"
+derived_from = "P-non-goals@e71af6d04c30"
 description = "finding exactly when no variant is present"
 falsifiability_class = "safety"
 id = "p-non-goals"

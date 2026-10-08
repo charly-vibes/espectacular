@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-bridge@38b1035e1576"
+derived_from = "P-bridge@d4a7854d136d"
 description = "relaying with `spk.` kind prefix; inert for plain files; advisory-only degradation in both failure modes"
 falsifiability_class = "safety"
 id = "p-bridge"

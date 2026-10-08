@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-report@f21a9cececf8"
+derived_from = "P-report@e850965994f2"
 description = "zero exit on completeness, non-zero on gaps, JSON output available"
 falsifiability_class = "safety"
 id = "p-report"

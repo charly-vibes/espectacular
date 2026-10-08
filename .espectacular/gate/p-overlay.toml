@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-overlay@e4c76505d86f"
+derived_from = "P-overlay@20ed2c20e725"
 description = "legal overlays apply deterministically; every illegal case is rejected"
 falsifiability_class = "safety"
 id = "p-overlay"

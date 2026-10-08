@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.9.0"
-derived_from = "P-unlinked@26144243001a"
+derived_from = "P-unlinked@3eea66671fb4"
 description = "the gate requires its own contract exactly as before this change"
 falsifiability_class = "safety"
 id = "p-unlinked"

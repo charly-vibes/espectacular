@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-schema@ec7c104bfbaa"
+derived_from = "P-schema@7ead464f8e11"
 description = "validation precedes execution; invalid status fails; superseded runs only with a replacement"
 falsifiability_class = "safety"
 id = "p-schema"

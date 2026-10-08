@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.9.0"
-derived_from = "P-graph@edccf004eb1f"
+derived_from = "P-graph@38774b19273b"
 description = "both are relayed as spk.graph.* warnings"
 falsifiability_class = "safety"
 id = "p-graph"

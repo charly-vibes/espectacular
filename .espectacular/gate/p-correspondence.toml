@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-correspondence@d1dedd7c5289"
+derived_from = "P-correspondence@9d3397db00a6"
 description = "each emits its structural finding and fails the gate"
 falsifiability_class = "safety"
 id = "p-correspondence"

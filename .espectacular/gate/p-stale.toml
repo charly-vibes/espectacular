@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.9.0"
-derived_from = "P-stale@0755ba149461"
+derived_from = "P-stale@c3d2a5876bac"
 description = "contract-stale is emitted and ah sync --check exits non-zero without writing"
 falsifiability_class = "safety"
 id = "p-stale"

@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-envelope@10e90139b0a0"
+derived_from = "P-envelope@748b6e77160d"
 description = "each outcome maps to the mandated emission; no invocation occurs without config"
 falsifiability_class = "safety"
 id = "p-envelope"

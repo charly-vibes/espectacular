@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.9.0"
-derived_from = "P-register@019bff714604"
+derived_from = "P-register@07d7d1ad1027"
 description = "sync appears with help text and completes like other subcommands"
 falsifiability_class = "safety"
 id = "p-register"

@@ -1,6 +1,6 @@
 archetype = "SA"
 authored_with = "0.8.0"
-derived_from = "P-corpus@4c33807c5a31"
+derived_from = "P-corpus@fc7b41e6905c"
 description = "the file parses as dual format: frontmatter plus all three tables present"
 falsifiability_class = "safety"
 id = "p-corpus"

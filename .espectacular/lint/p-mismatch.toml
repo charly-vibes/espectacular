@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.9.0"
-derived_from = "P-mismatch@1595af624f9a"
+derived_from = "P-mismatch@84be89bf2cdb"
 description = "lint emits spk-frontmatter-mismatch naming the file and the expected id"
 falsifiability_class = "safety"
 id = "p-mismatch"

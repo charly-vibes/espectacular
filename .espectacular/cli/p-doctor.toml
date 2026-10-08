@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-doctor@e811b8dec324"
+derived_from = "P-doctor@996fab4b82f6"
 description = "diagnoses setup and correspondence wiring"
 falsifiability_class = "safety"
 id = "p-doctor"

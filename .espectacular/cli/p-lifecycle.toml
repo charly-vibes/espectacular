@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-lifecycle@e4b7e14e3aa5"
+derived_from = "P-lifecycle@56113f6e60f2"
 description = "legal authoring succeeds append-only; both illegal cases rejected"
 falsifiability_class = "safety"
 id = "p-lifecycle"

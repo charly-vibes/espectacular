@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.9.0"
-derived_from = "P-refuse@31e606599a7c"
+derived_from = "P-refuse@f845fadb3378"
 description = "sync exits non-zero with a reason in both cases and writes nothing"
 falsifiability_class = "safety"
 id = "p-refuse"

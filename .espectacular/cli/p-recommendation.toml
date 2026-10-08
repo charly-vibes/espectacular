@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-recommendation@01980950b75e"
+derived_from = "P-recommendation@ace35915dca8"
 description = "recommendation findings carry enable commands and are finding kinds"
 falsifiability_class = "safety"
 id = "p-recommendation"

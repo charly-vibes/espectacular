@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-cargo@f3d5e135e398"
+derived_from = "P-cargo@9d77b94af473"
 description = "pass normalization and `test-failing` with bounded tails"
 falsifiability_class = "safety"
 id = "p-cargo"

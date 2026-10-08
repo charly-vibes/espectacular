@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-vitest@ff35644d8691"
+derived_from = "P-vitest@92a0f945e1d9"
 description = "pass normalization and `test-failing` with bounded tails"
 falsifiability_class = "safety"
 id = "p-vitest"

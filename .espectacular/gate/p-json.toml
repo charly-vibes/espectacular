@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-json@2a5b9e843c5e"
+derived_from = "P-json@535620dcf65b"
 description = "stable ordering, verbatim bodies, scope and command details present"
 falsifiability_class = "safety"
 id = "p-json"

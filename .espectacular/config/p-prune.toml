@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-prune@2cfd3ab31d26"
+derived_from = "P-prune@37027149541e"
 description = "no old config parsing code remains; `cargo clippy` adds no new warnings and `cargo test` passes"
 falsifiability_class = "safety"
 id = "p-prune"

@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-guide-builder@6c09235f1620"
+derived_from = "P-guide-builder@fdfb8094b318"
 description = "CLI setup is constructed via `Guide::builder()` and tests pass"
 falsifiability_class = "safety"
 id = "p-guide-builder"

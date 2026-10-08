@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.9.0"
-derived_from = "P-check@1c0dea76d9cd"
+derived_from = "P-check@17a4ee6f30db"
 description = "check mode exits zero, non-zero, and non-zero respectively; no file is modified in any case"
 falsifiability_class = "safety"
 id = "p-check"

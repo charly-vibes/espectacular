@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-check@ea57ba7ea945"
+derived_from = "P-check@5b8c9de616f8"
 description = "deterministic gate behavior on both scopes"
 falsifiability_class = "safety"
 id = "p-check"

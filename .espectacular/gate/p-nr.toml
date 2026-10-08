@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-nr@215d073e0b5a"
+derived_from = "P-nr@20305a6f56fb"
 description = "NR validates, runs in scope, and upgrades report the archetype addition"
 falsifiability_class = "safety"
 id = "p-nr"

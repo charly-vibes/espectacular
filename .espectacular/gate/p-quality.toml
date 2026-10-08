@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-quality@857a1a6a99ba"
+derived_from = "P-quality@da422d0ed762"
 description = "measurement findings never fail on scores in v1; tool/command failures do; mutation off pre-commit"
 falsifiability_class = "safety"
 id = "p-quality"

@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-quality-schema@b78856accab3"
+derived_from = "P-quality-schema@c31487e6795a"
 description = "quality config never counted as a test entry; property/snapshot run as declared tests"
 falsifiability_class = "safety"
 id = "p-quality-schema"

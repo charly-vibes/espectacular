@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-execution@21dd415a1b7f"
+derived_from = "P-execution@f8d6d791e9ec"
 description = "exit-code verdicts with bounded tails; structural breakage fails before running; non-zero fails the check"
 falsifiability_class = "safety"
 id = "p-execution"

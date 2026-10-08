@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.9.0"
-derived_from = "P-derive@e42f0ee625c2"
+derived_from = "P-derive@22d9cf575958"
 description = "the contract set contains exactly N derived contracts with slugified ids"
 falsifiability_class = "safety"
 id = "p-derive"

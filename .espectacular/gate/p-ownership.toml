@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.9.0"
-derived_from = "P-ownership@e05e44c2bbe8"
+derived_from = "P-ownership@5339dbe7a5d2"
 description = "derived fields change; tests, status, and superseded_by are byte-identical"
 falsifiability_class = "safety"
 id = "p-ownership"

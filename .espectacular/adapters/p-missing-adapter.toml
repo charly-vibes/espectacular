@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-missing-adapter@16a33c141dee"
+derived_from = "P-missing-adapter@c66d49fa0ad4"
 description = "`missing-adapter` finding with all four fields, distinct from `no-tests-declared`"
 falsifiability_class = "safety"
 id = "p-missing-adapter"

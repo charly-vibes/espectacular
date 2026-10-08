@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-archive@ea50ac12a3a2"
+derived_from = "P-archive@aa60371e46db"
 description = "staged contracts move only post-archive and refuse collisions"
 falsifiability_class = "safety"
 id = "p-archive"

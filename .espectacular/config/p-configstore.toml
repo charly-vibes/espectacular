@@ -1,6 +1,6 @@
 archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-configstore@56b2a438371f"
+derived_from = "P-configstore@81a2f963a3ad"
 description = "they use `ConfigStore` where the advisory is honored"
 falsifiability_class = "safety"
 id = "p-configstore"

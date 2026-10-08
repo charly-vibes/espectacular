@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-vague@2a4429c820a1"
+derived_from = "P-vague@f04506269344"
 description = "findings exactly in the unbound cases, with measurable-condition suggestions"
 falsifiability_class = "safety"
 id = "p-vague"

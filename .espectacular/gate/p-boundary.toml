@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-boundary@331982a4f474"
+derived_from = "P-boundary@0a9edbd50303"
 description = "verdicts and outputs are unchanged by test internals or prose content"
 falsifiability_class = "safety"
 id = "p-boundary"

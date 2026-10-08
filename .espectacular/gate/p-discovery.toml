@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-discovery@021b2c4c4235"
+derived_from = "P-discovery@715d832fec5b"
 description = "one scenario per logical scenario; collisions fail with findings; structured layers inert"
 falsifiability_class = "safety"
 id = "p-discovery"

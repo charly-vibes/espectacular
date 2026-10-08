@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-pytest@d2f190538d61"
+derived_from = "P-pytest@f5bd4b853086"
 description = "pass normalization and `test-failing` classification with bounded tails and correct `test.type` context"
 falsifiability_class = "safety"
 id = "p-pytest"

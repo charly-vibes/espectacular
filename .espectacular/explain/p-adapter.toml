@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-adapter@b8d51e6d253c"
+derived_from = "P-adapter@ffa03ec550cd"
 description = "the first serves `ah explain pytest` enablement guidance; the second fails the build naming the conflict"
 falsifiability_class = "safety"
 id = "p-adapter"

@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-type@85de4408e744"
+derived_from = "P-type@2313631f2c70"
 description = "all archetypes listed; details render per archetype"
 falsifiability_class = "safety"
 id = "p-type"

@@ -1,6 +1,6 @@
 archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-adopter@13abdcdffa42"
+derived_from = "P-adopter@8ae43e8348b9"
 description = "`ah check` discovers scenarios and imposes no dual-format finding"
 falsifiability_class = "safety"
 id = "p-adopter"

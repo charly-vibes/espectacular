@@ -1,6 +1,6 @@
-archetype = "SA"
+archetype = "PF"
 authored_with = "0.8.0"
-derived_from = "P-negative@1cdec279c709"
+derived_from = "P-negative@1a5f454d6e4f"
 description = "finding exactly in the happy-path-only case"
 falsifiability_class = "safety"
 id = "p-negative"

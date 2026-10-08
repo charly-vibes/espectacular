@@ -1,5 +1,5 @@
 ---
-id: spec
+id: cli.core
 kind: intent
 statement: "WHEN the tool adopts genesis::guide THE CLI scaffold SHALL be built via Guide::builder, with command handlers returning Output or using ErrorSink and errors surfaced with suggestion footers."
 ---
@@ -10,9 +10,9 @@ statement: "WHEN the tool adopts genesis::guide THE CLI scaffold SHALL be built 
 
 | id | kind | expr | traces_to |
 |----|------|----|-----------|
-| C-guide-builder | invariant | the tool's `main.rs` CLI setup uses `genesis::guide::Guide::builder()` when the tool adopts `genesis::guide` (adoption is the maintainer's decision — this spec fixes the contract, not the timing), with `cargo test` passing | [[spec]] |
-| C-output-handlers | advisory | command handlers SHOULD return `Output<T>` or use `ErrorSink` | [[spec]] |
-| C-errorsink-selfheal | advisory | on a command error, `ErrorSink` SHOULD print the error with a suggestion footer and write to the error scratch (for `--from-last-error`) | [[spec]] |
+| C-guide-builder | invariant | the tool's `main.rs` CLI setup uses `genesis::guide::Guide::builder()` when the tool adopts `genesis::guide` (adoption is the maintainer's decision — this spec fixes the contract, not the timing), with `cargo test` passing | [[cli.core]] |
+| C-output-handlers | advisory | command handlers SHOULD return `Output<T>` or use `ErrorSink` | [[cli.core]] |
+| C-errorsink-selfheal | advisory | on a command error, `ErrorSink` SHOULD print the error with a suggestion footer and write to the error scratch (for `--from-last-error`) | [[cli.core]] |
 
 ## Model
 
@@ -25,15 +25,15 @@ statement: "WHEN the tool adopts genesis::guide THE CLI scaffold SHALL be built 
 
 | id | from | to | guard |
 |----|------|----|-------|
-| t-build | ad-hoc-cli | guide-built | [[spec.C-guide-builder]] |
+| t-build | ad-hoc-cli | guide-built | [[cli.core.C-guide-builder]] |
 
 ## Properties
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
-| P-guide-builder | unit | [[spec.C-guide-builder]] | the adopted `main.rs` | CLI setup is constructed via `Guide::builder()` and tests pass |
-| P-handlers | unit | [[spec.C-output-handlers]] | each command handler | handlers return `Output<T>` or use `ErrorSink` where the advisory is honored |
-| P-selfheal | unit | [[spec.C-errorsink-selfheal]] | a failing command run | the error prints with a suggestion footer and lands in the error scratch readable by `--from-last-error` |
+| P-guide-builder | unit | [[cli.core.C-guide-builder]] | the adopted `main.rs` | CLI setup is constructed via `Guide::builder()` and tests pass |
+| P-handlers | unit | [[cli.core.C-output-handlers]] | each command handler | handlers return `Output<T>` or use `ErrorSink` where the advisory is honored |
+| P-selfheal | unit | [[cli.core.C-errorsink-selfheal]] | a failing command run | the error prints with a suggestion footer and lands in the error scratch readable by `--from-last-error` |
 
 ## Purpose
 
