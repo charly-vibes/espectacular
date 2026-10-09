@@ -48,11 +48,30 @@ pub struct CheckOutput {
 /// Layer 1 selection (espectacular-0k8): capability-granular, spec-provenance
 /// selection. `selected` lists capability names whose contract tests ran;
 /// `skipped` counts scenarios skipped by selection.
+/// Layer 1 selection state (espectacular-0k8): which capability contracts
+/// the run narrows to, or a conservative run-all whose bypass is reported.
+enum SelectionState {
+    /// No selection: run everything, report nothing (no changed files).
+    None,
+    /// Conservative run-all with reported provenance: the --all-tests
+    /// escape hatch (review F3) or a zero-overlap/unmapped bypass
+    /// (review F1/F9). `selected` is the caps that ran (all-tests) or
+    /// empty (bypassed — selection did not narrow anything).
+    All {
+        source: &'static str,
+        unmapped_files: usize,
+        selected: Vec<String>,
+    },
+    /// Selected capability contracts only (review F0).
+    Caps(std::collections::HashSet<String>),
+}
+
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct Selection {
     pub selected: Vec<String>,
     pub skipped: usize,
     pub source: String,
+    pub unmapped_files: usize,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -167,33 +186,63 @@ pub fn run_check_with_selection(
     )
 }
 
+/// First non-empty path segment, mapped to a capability name.
+fn first_segment(rest: &str) -> Option<String> {
+    rest.split('/')
+        .next()
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
 /// Map a changed file (repo-relative) to the capability it belongs to,
-/// via either the deployed specs tree (`<specs>/<capability>/...`) or the
+/// via either the deployed specs tree (`<specs>/<capability>/...`), the
+/// change-overlay specs tree (`<changes>/<change>/specs/<capability>/...`,
+/// review F4: overlay spec edits previously selected nothing), or the
 /// contracts tree (`.espectacular/<capability>/...`, including change
 /// overlays `.espectacular/changes/<change>/<capability>/...`).
-fn affected_capability(file: &str, specs_dir: &str) -> Option<String> {
-    for prefix in [
-        format!("{}/", specs_dir.trim_end_matches('/')),
-        ".espectacular/".to_string(),
-    ] {
-        let rest = match file.strip_prefix(prefix.as_str()) {
-            Some(rest) => rest,
-            None => continue,
-        };
-        let mut segments = rest.split('/').filter(|s| !s.is_empty());
-        // change overlay: .espectacular/changes/<change>/<capability>/...
-        let cap = if rest.starts_with("changes/") {
-            segments.next(); // "changes"
-            segments.next(); // change name
-            segments.next()
-        } else {
-            segments.next()
-        };
-        if let Some(cap) = cap {
-            if !cap.is_empty() {
-                return Some(cap.to_string());
+/// Everything else (agent code, change proposal/tasks files) maps to no
+/// capability.
+fn affected_capability(file: &str, specs_dir: &str, changes_dir: &str) -> Option<String> {
+    let specs_prefix = format!("{}/", specs_dir.trim_end_matches('/'));
+    let changes_prefix = format!("{}/", changes_dir.trim_end_matches('/'));
+    const CONTRACTS_PREFIX: &str = ".espectacular/";
+
+    // deployed specs tree: <specs_dir>/<capability>/...
+    if let Some(rest) = file.strip_prefix(specs_prefix.as_str()) {
+        return first_segment(rest);
+    }
+
+    // change-overlay specs tree: <changes_dir>/<change>/specs/<cap>/...
+    // Only files under specs/ select a capability; change proposal, tasks
+    // and design files select nothing.
+    if let Some(rest) = file.strip_prefix(changes_prefix.as_str()) {
+        let mut segments = rest.split('/');
+        let _change = segments.next();
+        if segments.next() == Some("specs") {
+            if let Some(cap) = segments.next() {
+                if !cap.is_empty() {
+                    return Some(cap.to_string());
+                }
             }
         }
+        return None;
+    }
+
+    // contracts tree: .espectacular/<capability>/...
+    // staged contracts: .espectacular/changes/<change>/<capability>/...
+    if let Some(rest) = file.strip_prefix(CONTRACTS_PREFIX) {
+        if rest.starts_with("changes/") {
+            let mut segments = rest.split('/');
+            segments.next(); // "changes"
+            segments.next(); // change name
+            if let Some(cap) = segments.next() {
+                if !cap.is_empty() {
+                    return Some(cap.to_string());
+                }
+            }
+            return None;
+        }
+        return first_segment(rest);
     }
     None
 }
@@ -485,24 +534,57 @@ fn evaluate_scope(
 
     let blocked = blocked_scenarios(&findings);
     // Layer 1 selection (espectacular-0k8): only when a changed-file set is
-    // supplied and --all-tests was not given. Capabilities with changed spec
-    // or contract files are selected; the rest are skipped. A changed set
-    // that maps to no capability selects nothing → conservative run-all.
-    let selected: Option<std::collections::HashSet<String>> =
-        if run_tests && !all_tests && !changed_files.is_empty() {
-            let caps: std::collections::HashSet<String> = changed_files
+    // supplied. Capabilities with changed spec or contract files are
+    // selected; the rest are skipped. --all-tests reports the escape hatch
+    // (review F3). Zero-overlap guard (review F1/F9): a changed set that
+    // maps to no capability, maps only to capabilities owning no in-scope
+    // scenario, or contains files mapping to no capability at all must NOT
+    // deselect anything — conservative run-all, bypass reported in the
+    // JSON, never a hidden green.
+    let mut selection_state = SelectionState::None;
+    if run_tests && !changed_files.is_empty() {
+        if all_tests {
+            let mut all_caps: Vec<String> = scope
+                .scenarios
                 .iter()
-                .filter_map(|f| affected_capability(f, &cfg.paths.specs))
+                .map(|s| s.scenario.spec_path.clone())
                 .collect();
-            if caps.is_empty() {
-                None
-            } else {
-                Some(caps)
-            }
+            all_caps.sort();
+            all_caps.dedup();
+            selection_state = SelectionState::All {
+                source: "all-tests",
+                unmapped_files: 0,
+                selected: all_caps,
+            };
         } else {
-            None
-        };
-    let mut selected_report: Option<Vec<String>> = None;
+            let mut caps = std::collections::HashSet::new();
+            let mut unmapped = 0usize;
+            for f in changed_files {
+                match affected_capability(f, &cfg.paths.specs, &cfg.paths.changes) {
+                    Some(cap) => {
+                        caps.insert(cap);
+                    }
+                    None => {
+                        unmapped += 1;
+                    }
+                }
+            }
+            let zero_overlap = caps.is_empty()
+                || !scope
+                    .scenarios
+                    .iter()
+                    .any(|s| caps.contains(&s.scenario.spec_path));
+            if unmapped > 0 || zero_overlap {
+                selection_state = SelectionState::All {
+                    source: "bypassed",
+                    unmapped_files: unmapped,
+                    selected: Vec::new(),
+                };
+            } else {
+                selection_state = SelectionState::Caps(caps);
+            }
+        }
+    }
     let mut skipped = 0usize;
     let mut passed = 0usize;
     let mut extra_quality_findings: Vec<quality::QualityFinding> = Vec::new();
@@ -514,8 +596,8 @@ fn evaluate_scope(
                 continue;
             }
 
-            if let Some(sel) = &selected {
-                if !sel.contains(&scenario.spec_path) {
+            if let SelectionState::Caps(caps) = &selection_state {
+                if !caps.contains(&scenario.spec_path) {
                     skipped += 1;
                     continue;
                 }
@@ -654,11 +736,29 @@ fn evaluate_scope(
         });
     }
 
-    if let Some(sel) = &selected {
-        let mut v: Vec<String> = sel.iter().cloned().collect();
-        v.sort();
-        selected_report = Some(v);
-    }
+    let selection_report = match &selection_state {
+        SelectionState::None => None,
+        SelectionState::All {
+            source,
+            unmapped_files,
+            selected,
+        } => Some(Selection {
+            selected: selected.clone(),
+            skipped,
+            source: source.to_string(),
+            unmapped_files: *unmapped_files,
+        }),
+        SelectionState::Caps(caps) => {
+            let mut v: Vec<String> = caps.iter().cloned().collect();
+            v.sort();
+            Some(Selection {
+                selected: v,
+                skipped,
+                source: "spec-provenance".to_string(),
+                unmapped_files: 0,
+            })
+        }
+    };
 
     Ok(CheckOutput {
         scope: Scope {
@@ -673,11 +773,7 @@ fn evaluate_scope(
         },
         findings,
         quality_findings,
-        selection: selected_report.map(|selected| Selection {
-            selected,
-            skipped,
-            source: "spec-provenance".to_string(),
-        }),
+        selection: selection_report,
     })
 }
 
@@ -2643,8 +2739,10 @@ mod tests {
             .as_ref()
             .expect("selection must be reported");
         assert_eq!(selection.selected.len(), 1, "one capability selected");
-        assert!(selection.selected[0].contains("compiler"));
+        assert_eq!(selection.selected[0], "compiler");
         assert_eq!(selection.skipped, 1, "untouched capability skipped");
+        assert_eq!(selection.source, "spec-provenance");
+        assert_eq!(selection.unmapped_files, 0, "spec file maps directly");
         assert_eq!(output.summary.passed, 1, "only the affected contract ran");
     }
 
@@ -2665,7 +2763,7 @@ mod tests {
     /// and run every declared contract test even when a changed-file set
     /// is supplied.
     #[test]
-    fn all_tests_bypasses_selection() {
+    fn all_tests_reports_all_tests_source() {
         let dir = two_capability_repo();
         let output = run_check_with_selection(
             dir.path(),
@@ -2675,7 +2773,12 @@ mod tests {
             true,
         )
         .unwrap();
-        assert!(output.selection.is_none(), "--all-tests bypasses selection");
+        let selection = output
+            .selection
+            .as_ref()
+            .expect("--all-tests must report its bypass");
+        assert_eq!(selection.source, "all-tests");
+        assert_eq!(selection.skipped, 0, "everything ran");
         assert_eq!(output.summary.passed, 2);
     }
 
@@ -2689,6 +2792,40 @@ mod tests {
             run_check_with_selection(dir.path(), &[], true, &["src/parser.rs".to_string()], false)
                 .unwrap();
         assert_eq!(output.summary.passed, 2, "conservative: all contracts run");
+    }
+
+    /// Zero-overlap guard (review F1): a changed set that maps to
+    /// capabilities owning NO in-scope scenario (e.g. .espectacular/
+    /// config.toml -> bogus "config") must NOT deselect everything — the
+    /// run is conservative (all pass through) and the bypass is reported
+    /// in the JSON, never a hidden green. unmapped_files counts changed
+    /// files that map to no capability at all (review F9).
+    #[test]
+    fn selection_zero_overlap_reports_bypassed_runs_everything() {
+        let dir = two_capability_repo();
+        let output = run_check_with_selection(
+            dir.path(),
+            &[],
+            true,
+            &[
+                ".espectacular/config.toml".to_string(),
+                "src/parser.rs".to_string(),
+            ],
+            false,
+        )
+        .unwrap();
+        let selection = output
+            .selection
+            .as_ref()
+            .expect("bypass must be reported, not silent");
+        assert_eq!(selection.source, "bypassed");
+        assert!(selection.selected.is_empty(), "nothing was selected");
+        assert_eq!(selection.skipped, 0, "everything ran");
+        assert_eq!(
+            selection.unmapped_files, 1,
+            "src/parser.rs maps to no capability"
+        );
+        assert_eq!(output.summary.passed, 2, "conservative: all contracts ran");
     }
 
     fn two_capability_repo() -> tempfile::TempDir {
@@ -2707,6 +2844,56 @@ mod tests {
         )
         .unwrap();
         dir
+    }
+
+    /// Overlay mapping (review F3): a changed file under
+    /// openspec/changes/<change>/specs/<capability>/ must select the
+    /// owning capability — change-overlay spec edits previously selected
+    /// nothing.
+    #[test]
+    fn selection_change_overlay_spec_file_selects_capability() {
+        let dir = success_repo();
+        fs::create_dir_all(
+            dir.path()
+                .join("openspec/changes/add-parser/specs/compiler"),
+        )
+        .unwrap();
+        fs::create_dir_all(dir.path().join(".espectacular/changes/add-parser/compiler")).unwrap();
+        fs::write(
+            dir.path().join("openspec/changes/add-parser/specs/compiler/spec.md"),
+            "# Capability: compiler\n\n#### Scenario: Added path\n- **WHEN** change applies\n- **THEN** it passes\n",
+        ).unwrap();
+        fs::write(
+            dir.path().join(".espectacular/changes/add-parser/compiler/added-path.toml"),
+            "id = \"added-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"ok\"\n",
+        ).unwrap();
+
+        let output = run_check_with_selection(
+            dir.path(),
+            &["add-parser".to_string()],
+            true,
+            &["openspec/changes/add-parser/specs/compiler/spec.md".to_string()],
+            false,
+        )
+        .unwrap();
+        let selection = output
+            .selection
+            .as_ref()
+            .expect("overlay spec edit must select its capability");
+        assert_eq!(selection.selected, vec!["compiler"]);
+        assert_eq!(output.summary.passed, 2, "deployed + staged contract ran");
+    }
+
+    /// Selection is property-backed (review F6): selection reporting,
+    /// conservative fallbacks, and the escape hatch all carry the p_ group.
+    #[test]
+    fn p_selection() {
+        selection_changed_spec_file_runs_only_affected_capability();
+        selection_absent_changed_files_run_everything();
+        all_tests_reports_all_tests_source();
+        selection_zero_overlap_reports_bypassed_runs_everything();
+        selection_change_overlay_spec_file_selects_capability();
+        code_only_change_without_store_runs_everything();
     }
 
     #[test]
