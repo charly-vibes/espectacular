@@ -20,3 +20,5 @@ docs/src/specs/
 docs/src/release.md
 docs/_book/
 docs/src/https:/
+# turu private zone — machine-specific knowledge, never pushed (git history is forever)
+.whisper/private/
