@@ -267,20 +267,13 @@ impl DoctorCheck for OrphanContractCheck {
         // though no scenario shares their filename — same suppression as the
         // ah check gate (task 4.1 / full-corpus migration).
         let mut linked_contract_ids: HashSet<(String, String)> = HashSet::new();
+        let file_ids = openspec::frontmatter_ids(&specs_str).unwrap_or_default();
         for s in scenarios {
-            for line in s.body.lines() {
-                let Some(rest) = line.trim().strip_prefix("- **VERIFIES** [[spec.") else {
-                    continue;
-                };
-                let Some(property_id) = rest.strip_suffix("]]") else {
-                    continue;
-                };
-                if property_id.is_empty() {
-                    continue;
-                }
+            let file_id = file_ids.get(&s.spec_path).map(String::as_str);
+            for property_id in crate::check::verifies_property_ids(&s.body, file_id) {
                 linked_contract_ids.insert((
                     s.spec_path.clone(),
-                    crate::sync::slugify_property_id(property_id),
+                    crate::sync::slugify_property_id(property_id.as_str()),
                 ));
             }
         }
@@ -1220,6 +1213,36 @@ changes = "openspec/changes"
         assert!(
             !has_issue(&report, "orphan-contracts"),
             "VERIFIES-referenced derived contract must not be orphan; got: {:?}",
+            issues(&report)
+        );
+    }
+
+    #[test]
+    fn rev18_verifies_link_with_real_file_id_is_not_orphan() {
+        // rev-18 trees carry real capability ids in VERIFIES links
+        // ([[auth.P-token]], [[lint.P-vague]], ...) instead of the legacy
+        // [[spec.P-x]] shape. Doctor's orphan suppression must parse the
+        // open-ended link shape (same as ah check) or every derived
+        // contract is reported as an orphan.
+        let repo = make_healthy_repo();
+        let spec_dir = repo.path().join("openspec/specs/auth");
+        fs::create_dir_all(&spec_dir).unwrap();
+        fs::write(
+            spec_dir.join("spec.md"),
+            "---\nid: auth\nkind: intent\nstatement: \"WHEN checked THE system SHALL reject invalid tokens\"\n---\n\n# Capability: auth\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| P-token | unit | [[auth.C-a]] | input | output |\n\n## Requirements\n\n### Requirement: Token check\nThe system SHALL reject invalid tokens.\n\n#### Scenario: Token rejected\n- **WHEN** a token is checked\n- **THEN** invalid tokens are rejected\n- **VERIFIES** [[auth.P-token]]\n",
+        )
+        .unwrap();
+        let contract_dir = repo.path().join(".espectacular/auth");
+        fs::create_dir_all(&contract_dir).unwrap();
+        fs::write(
+            contract_dir.join("p-token.toml"),
+            "id = \"p-token\"\ndescription = \"invalid tokens rejected\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n[tests]\n",
+        )
+        .unwrap();
+        let report = run_doctor(repo.path()).unwrap();
+        assert!(
+            !has_issue(&report, "orphan-contracts"),
+            "rev-18 VERIFIES-referenced derived contract must not be orphan; got: {:?}",
             issues(&report)
         );
     }
