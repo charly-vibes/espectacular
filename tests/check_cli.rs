@@ -652,12 +652,14 @@ fn ah_check_typescript_vitest_e2e_zero_findings() {
 
 // ── batched vitest bindings (batch-runner-spawns, GH#40) ─────────────────────
 
-// Fixture: a repo with `n` contracts binding scenario-scoped vitest patterns
-// (`--testNamePattern=p_spawn-N`, the tambor shape — pattern-scoped, no file
+// Fixture: a repo with vitest-bound contracts (scenario-scoped
+// `--testNamePattern=p_<id>`, the tambor shape — pattern-scoped, no file
 // notion) plus a vitest shim that appends one line per invocation to
-// `invocations.log` and emits the vitest JSON-reporter shape with every test
-// passing, so per-contract attribution from structured output is exercisable.
-fn vitest_pattern_repo(n: usize) -> tempfile::TempDir {
+// `invocations.log` and emits the vitest JSON-reporter shape with each test's
+// declared status, so per-contract attribution from structured output is
+// exercisable. A status of `None` omits the test from the report entirely
+// (matched-zero shape).
+fn vitest_pattern_repo_with(statuses: &[(&str, Option<&str>)]) -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
     let repo = dir.path();
     fs::create_dir_all(repo.join("openspec/specs/ui")).unwrap();
@@ -665,11 +667,11 @@ fn vitest_pattern_repo(n: usize) -> tempfile::TempDir {
 
     let mut spec = String::from("# Capability: ui\n\n");
     let mut assertions: Vec<String> = Vec::new();
-    for i in 1..=n {
+    let mut declared = 0usize;
+    for (id, status) in statuses.iter() {
         spec.push_str(&format!(
-            "#### Scenario: Spawn {i}\n- **WHEN** vitest runs\n- **THEN** it passes\n\n"
+            "#### Scenario: {id}\n- **WHEN** vitest runs\n- **THEN** it passes\n\n"
         ));
-        let id = format!("spawn-{i}");
         fs::write(
             repo.join(format!(".espectacular/ui/{id}.toml")),
             format!(
@@ -677,9 +679,12 @@ fn vitest_pattern_repo(n: usize) -> tempfile::TempDir {
             ),
         )
         .unwrap();
-        assertions.push(format!(
-            r#"{{"ancestorTitles": [], "fullName": "p_{id}", "status": "passed", "title": "{id}"}}"#
-        ));
+        if let Some(status) = status {
+            declared += 1;
+            assertions.push(format!(
+                r#"{{"ancestorTitles": [], "fullName": "p_{id}", "status": "{status}", "title": "{id}"}}"#
+            ));
+        }
     }
     let assertions = assertions.join(", ");
     fs::write(repo.join("openspec/specs/ui/spec.md"), spec).unwrap();
@@ -694,7 +699,7 @@ fn vitest_pattern_repo(n: usize) -> tempfile::TempDir {
     .unwrap();
 
     let json = format!(
-        r#"{{"numTotalTests": {n}, "numPassedTests": {n}, "numFailedTests": 0, "success": true, "testResults": [{{"name": "src/ui.test.ts", "status": "passed", "assertionResults": [{assertions}]}}]}}"#
+        r#"{{"numTotalTests": {declared}, "numPassedTests": {declared}, "numFailedTests": 0, "success": true, "testResults": [{{"name": "src/ui.test.ts", "status": "passed", "assertionResults": [{assertions}]}}]}}"#
     );
     write_executable(
         &repo.join("vitest.sh"),
@@ -702,6 +707,15 @@ fn vitest_pattern_repo(n: usize) -> tempfile::TempDir {
     );
 
     dir
+}
+
+fn vitest_pattern_repo(n: usize) -> tempfile::TempDir {
+    let statuses: Vec<(String, Option<&str>)> = (1..=n)
+        .map(|i| (format!("spawn-{i}"), Some("passed")))
+        .collect();
+    let statuses: Vec<(&str, Option<&str>)> =
+        statuses.iter().map(|(id, s)| (id.as_str(), *s)).collect();
+    vitest_pattern_repo_with(&statuses)
 }
 
 // batch-runner-spawns task 1.1 (GH#40): above the batching threshold, all
@@ -778,6 +792,123 @@ fn ah_check_js_only_pattern_binding_runs_per_binding_alongside_batch() {
         per_binding, 1,
         "exactly one per-binding invocation must carry the lookahead; log:\n{log}"
     );
+}
+
+// batch-runner-spawns task 2.1 (C-batch-attribution, e2e): in a batched run,
+// a failed test matched by one binding's pattern fails ONLY that contract —
+// the batched exit code never leaks into other bindings' verdicts.
+#[test]
+fn ah_check_batched_failed_test_fails_only_its_contract() {
+    let statuses: Vec<(String, Option<&str>)> = (1..=10)
+        .map(|i| {
+            let id = format!("spawn-{i}");
+            let status = if i == 3 { "failed" } else { "passed" };
+            (id, Some(status))
+        })
+        .collect();
+    let statuses: Vec<(&str, Option<&str>)> =
+        statuses.iter().map(|(id, s)| (id.as_str(), *s)).collect();
+    let repo = vitest_pattern_repo_with(&statuses);
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["check", "--run-tests", "--json"])
+        .assert()
+        .failure();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
+    assert_schema_valid(&output);
+
+    let findings = data["findings"].as_array().unwrap();
+    let failing: Vec<_> = findings
+        .iter()
+        .filter(|f| f["kind"] == "test-failing")
+        .collect();
+    assert_eq!(failing.len(), 1, "only the failed test's contract fails");
+    assert_eq!(failing[0]["scenario"]["id"], "spawn-3");
+    assert_eq!(failing[0]["category"], "execution");
+    assert_eq!(failing[0]["suggested_action"], "edit_code_not_scenario");
+    assert_eq!(failing[0]["test"]["type"], "vitest");
+    assert_eq!(data["summary"]["passed"], 9);
+    assert_eq!(data["summary"]["counts_by_kind"]["test-failing"], 1);
+}
+
+// batch-runner-spawns task 2.1 (C-batch-matched-zero, e2e): a pattern that
+// matches nothing in the structured output emits no-tests-ran even though the
+// batched invocation exited zero — the exit code never covers a contract.
+#[test]
+fn ah_check_batched_matched_zero_emits_no_tests_ran_despite_zero_exit() {
+    let statuses: Vec<(String, Option<&str>)> = (1..=10)
+        .map(|i| {
+            let id = format!("spawn-{i}");
+            // spawn-7's test is absent from the report entirely.
+            let status = if i == 7 { None } else { Some("passed") };
+            (id, status)
+        })
+        .collect();
+    let statuses: Vec<(&str, Option<&str>)> =
+        statuses.iter().map(|(id, s)| (id.as_str(), *s)).collect();
+    let repo = vitest_pattern_repo_with(&statuses);
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["check", "--run-tests", "--json"])
+        .assert()
+        .failure();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
+    assert_schema_valid(&output);
+
+    let findings = data["findings"].as_array().unwrap();
+    let no_tests: Vec<_> = findings
+        .iter()
+        .filter(|f| f["kind"] == "no-tests-ran")
+        .collect();
+    assert_eq!(no_tests.len(), 1, "matched-zero contract must be flagged");
+    assert_eq!(no_tests[0]["scenario"]["id"], "spawn-7");
+    assert_eq!(data["summary"]["passed"], 9);
+    assert_eq!(data["summary"]["counts_by_kind"]["no-tests-ran"], 1);
+}
+
+// batch-runner-spawns task 2.1 (e2e): a pattern matching only skipped tests
+// emits no-tests-ran — a skipped test cannot cover a contract.
+#[test]
+fn ah_check_batched_skipped_match_emits_no_tests_ran() {
+    let statuses: Vec<(String, Option<&str>)> = (1..=10)
+        .map(|i| {
+            let id = format!("spawn-{i}");
+            let status = if i == 4 { "skipped" } else { "passed" };
+            (id, Some(status))
+        })
+        .collect();
+    let statuses: Vec<(&str, Option<&str>)> =
+        statuses.iter().map(|(id, s)| (id.as_str(), *s)).collect();
+    let repo = vitest_pattern_repo_with(&statuses);
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["check", "--run-tests", "--json"])
+        .assert()
+        .failure();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
+    assert_schema_valid(&output);
+
+    let findings = data["findings"].as_array().unwrap();
+    let no_tests: Vec<_> = findings
+        .iter()
+        .filter(|f| f["kind"] == "no-tests-ran")
+        .collect();
+    assert_eq!(no_tests.len(), 1);
+    assert_eq!(no_tests[0]["scenario"]["id"], "spawn-4");
+    assert_eq!(data["summary"]["passed"], 9);
+    assert_eq!(data["summary"]["counts_by_kind"]["no-tests-ran"], 1);
 }
 
 // batch-runner-spawns task 1.2: below the threshold (≤ 8 bindings) the
