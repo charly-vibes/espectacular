@@ -303,7 +303,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             // Selection input (espectacular-0k8): explicit --files wins;
             // otherwise the worktree git diff supplies the changed-file set.
             let changed_files = if files.is_empty() && run_tests && !all_tests {
-                changed_files_from_git(&repo_root)
+                changed_files_from_git(&repo_root)?
             } else {
                 files.clone()
             };
@@ -723,18 +723,21 @@ fn run(cli: Cli) -> anyhow::Result<()> {
 }
 
 /// Worktree changed files (unstaged + staged vs HEAD), repo-relative.
-fn changed_files_from_git(repo_root: &Path) -> Vec<String> {
+/// Git failure surfaces as an explicit error (espectacular-o77) — the
+/// previous silent empty `Vec` degraded hidden; transitional form below
+/// still swallows the error until the genesis::git migration lands.
+fn changed_files_from_git(repo_root: &Path) -> anyhow::Result<Vec<String>> {
     let output = std::process::Command::new("git")
         .args(["diff", "--name-only", "HEAD"])
         .current_dir(repo_root)
         .output();
     match output {
-        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+        Ok(out) if out.status.success() => Ok(String::from_utf8_lossy(&out.stdout)
             .lines()
             .map(|l| l.trim().to_string())
             .filter(|l| !l.is_empty())
-            .collect(),
-        _ => Vec::new(),
+            .collect()),
+        _ => Ok(Vec::new()),
     }
 }
 
@@ -870,6 +873,19 @@ mod tests {
         assert!(
             missing_from_clap.is_empty(),
             "AH_COMMANDS entries not in clap subcommands (stale typo targets): {missing_from_clap:?}"
+        );
+    }
+
+    /// espectacular-o77: a git failure must surface as an explicit error
+    /// (delegated to genesis::git::changed_files), not a silent empty set.
+    #[test]
+    fn changed_files_git_failure_is_explicit_error() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let result = changed_files_from_git(dir.path());
+        assert!(
+            result.is_err(),
+            "git failure must be an explicit error, got {:?}",
+            result
         );
     }
 
