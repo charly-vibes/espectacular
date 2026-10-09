@@ -790,6 +790,20 @@ fn print_check_report(report: &check::CheckOutput, run_tests: bool) {
             println!("  {kind}: {count}");
         }
     }
+    if let Some(sel) = &report.selection {
+        let testaruda = sel
+            .testaruda
+            .as_ref()
+            .map(|t| format!(", {} pruned by testaruda", t.pruned))
+            .unwrap_or_default();
+        println!(
+            "selection: {} — {} selected, {} skipped{}",
+            sel.source,
+            sel.selected.len(),
+            sel.skipped,
+            testaruda
+        );
+    }
 }
 
 #[cfg(test)]

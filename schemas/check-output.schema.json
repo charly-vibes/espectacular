@@ -33,7 +33,8 @@
     "quality_findings": {
       "type": "array",
       "items": { "$ref": "#/$defs/qualityFinding" }
-    }
+    },
+    "selection": { "$ref": "#/$defs/selection" }
   },
   "$defs": {
     "finding": {
@@ -83,6 +84,25 @@
         "suggested_action": { "type": "string" },
         "playbook_command": { "type": "string" },
         "message": { "type": "string" }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "required": ["selected", "skipped", "source", "unmapped_files"],
+      "additionalProperties": false,
+      "properties": {
+        "selected": { "type": "array", "items": { "type": "string" } },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "source": { "type": "string" },
+        "unmapped_files": { "type": "integer", "minimum": 0 },
+        "testaruda": {
+          "type": "object",
+          "required": ["pruned"],
+          "additionalProperties": false,
+          "properties": {
+            "pruned": { "type": "integer", "minimum": 0 }
+          }
+        }
       }
     },
     "testResult": {
