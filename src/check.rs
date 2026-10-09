@@ -923,7 +923,12 @@ fn evaluate_scope(
                     batching::BatchedVerdict::NoTestsRan(result) => {
                         findings.push(no_tests_ran_report(scenario, specs_root, result));
                     }
-                    batching::BatchedVerdict::Fallback => {
+                    batching::BatchedVerdict::Fallback(reason) => {
+                        // batch-runner-spawns task 2.2 (C-batch-fallback):
+                        // the degradation is named, non-silently surfaced as
+                        // a warning-severity finding, and the per-binding
+                        // re-run carries the authoritative verdict.
+                        findings.push(batch_fallback_report(scenario, specs_root, &reason));
                         run_binding_fallback(
                             repo_root,
                             cfg,
@@ -1519,7 +1524,7 @@ fn report_finding(
     message: Option<String>,
 ) -> ReportFinding {
     let suggested_action = suggested_action_for(kind).to_string();
-    let severity = if kind == "missing-liveness-timeout" {
+    let severity = if kind == "missing-liveness-timeout" || kind == "batch-fallback" {
         "warning"
     } else {
         "error"
@@ -1558,6 +1563,29 @@ fn no_tests_ran_report(scenario: &Scenario, specs_root: &Path, test: TestResult)
         Some(scenario.body.clone()),
         Some(test),
         None,
+    )
+}
+
+/// Named, non-gating degradation signal for a batched invocation that fell
+/// back to per-binding execution (batch-runner-spawns task 2.2,
+/// C-batch-fallback): severity warning keeps the gate green when the
+/// per-binding re-runs pass, while the reason makes the fallback auditable.
+fn batch_fallback_report(scenario: &Scenario, specs_root: &Path, reason: &str) -> ReportFinding {
+    report_finding(
+        "batch-fallback",
+        "warning",
+        scenario.spec_path.clone(),
+        spec_markdown_path(specs_root, &scenario.spec_path),
+        ScenarioContext {
+            id: scenario.id.clone(),
+            title: scenario.heading.clone(),
+            body_markdown: scenario.body.clone(),
+        },
+        Some(scenario.body.clone()),
+        None,
+        Some(format!(
+            "batched runner invocation degraded; binding re-ran per-contract ({reason})"
+        )),
     )
 }
 

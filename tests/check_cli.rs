@@ -911,6 +911,69 @@ fn ah_check_batched_skipped_match_emits_no_tests_ran() {
     assert_eq!(data["summary"]["counts_by_kind"]["no-tests-ran"], 1);
 }
 
+// batch-runner-spawns task 2.2 (C-batch-fallback, e2e): a batched invocation
+// whose structured output is unparseable emits a NAMED fallback signal (a
+// warning-severity batch-fallback finding per affected scenario) and re-runs
+// every binding per-contract with exit-code verdicts — correctness comes
+// from the re-runs, the signal makes the degradation non-silent.
+#[test]
+fn ah_check_batched_unparseable_output_falls_back_per_binding_with_named_signal() {
+    let repo = vitest_pattern_repo(10);
+    // The batched invocation (only it carries --reporter=json) emits garbage;
+    // per-binding invocations exit zero silently.
+    write_executable(
+        &repo.path().join("vitest.sh"),
+        concat!(
+            "#!/bin/sh\n",
+            "printf '%s\\n' \"$*\" >> invocations.log\n",
+            "case \"$*\" in *--reporter=json*) printf 'not json\\n' ;; *) exit 0 ;; esac\n"
+        ),
+    );
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["check", "--run-tests", "--json"])
+        .assert()
+        .success();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
+    assert_schema_valid(&output);
+
+    // Per-binding re-runs are authoritative: all 10 pass via exit-code verdicts.
+    assert_eq!(data["summary"]["passed"], 10);
+    assert_eq!(data["summary"]["counts_by_kind"].get("test-failing"), None);
+
+    // Named, non-gating signal: one warning-severity batch-fallback finding
+    // per affected scenario, message carrying the reason.
+    let findings = data["findings"].as_array().unwrap();
+    let fallbacks: Vec<_> = findings
+        .iter()
+        .filter(|f| f["kind"] == "batch-fallback")
+        .collect();
+    assert_eq!(fallbacks.len(), 10, "one signal per affected binding");
+    for f in &fallbacks {
+        assert_eq!(f["severity"], "warning");
+        assert_eq!(f["category"], "warning");
+        let message = f["message"].as_str().unwrap();
+        assert!(
+            message.contains("unparseable"),
+            "signal must name the reason: {message}"
+        );
+    }
+    let ids: std::collections::BTreeSet<&str> = fallbacks
+        .iter()
+        .map(|f| f["scenario"]["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids.len(), 10, "every scenario is covered by a signal");
+
+    // 1 batched invocation + 10 per-binding re-runs.
+    let log = fs::read_to_string(repo.path().join("invocations.log")).unwrap();
+    let invocations = log.lines().filter(|l| !l.trim().is_empty()).count();
+    assert_eq!(invocations, 11, "batch + 10 re-runs; log:\n{log}");
+}
+
 // batch-runner-spawns task 1.2: below the threshold (≤ 8 bindings) the
 // per-binding spawn behavior is unchanged — one invocation per contract.
 #[test]

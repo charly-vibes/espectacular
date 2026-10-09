@@ -55,6 +55,7 @@ enum FindingKind {
     ContractStale,
     TestFailing,
     NoTestsRan,
+    BatchFallback,
     Recommendation,
     UnknownAction,
     QualityMutation,
@@ -91,6 +92,7 @@ const ALL_FINDING_KINDS: &[FindingKind] = &[
     FindingKind::ContractStale,
     FindingKind::TestFailing,
     FindingKind::NoTestsRan,
+    FindingKind::BatchFallback,
     FindingKind::Recommendation,
     FindingKind::UnknownAction,
     FindingKind::QualityMutation,
@@ -160,6 +162,7 @@ fn finding_kind_entry(kind: FindingKind) -> &'static TopicEntry {
         FindingKind::ContractStale => &CONTRACT_STALE,
         FindingKind::TestFailing => &TEST_FAILING,
         FindingKind::NoTestsRan => &NO_TESTS_RAN,
+        FindingKind::BatchFallback => &BATCH_FALLBACK,
         FindingKind::Recommendation => &RECOMMENDATION,
         FindingKind::UnknownAction => &UNKNOWN_ACTION,
         FindingKind::QualityMutation => &QUALITY_MUTATION,
@@ -973,6 +976,17 @@ test function, or add the missing test function to the codebase.",
     }],
 };
 
+static BATCH_FALLBACK: TopicEntry = TopicEntry {
+    slug: "batch-fallback",
+    summary: "A batched runner invocation degraded; its contracts re-ran per-binding instead.",
+    body: "## batch-fallback — Batched invocation degraded, per-binding re-runs used\n\nAbove the batching threshold, contracts bound to the same runner normally\nshare one invocation whose structured output is attributed per contract.\nThis finding means that batched invocation degenerated (unparseable or\noversized structured output, invocation error, or timeout) and every\naffected binding was re-run individually with plain exit-code verdicts.\n\n**Why it matters**: correctness is unaffected — the per-binding re-runs\nare the authoritative verdicts — but the push gate lost its batching\nspeedup for this run, and a persistently degenerate runner (e.g. a JSON\nreporter emitting non-JSON) is worth fixing.\n\n**How to fix**: check the runner's structured reporter (the message names\nthe reason). If the degradation is transient (timeout under load),\nnothing to do; if it repeats, fix the reporter or the hanging tests.",
+    when: "A batched invocation's structured output could not be attributed.",
+    do_action: "Inspect the runner's structured reporter; per-binding verdicts already carry the truth.",
+    human_approval: false,
+    related_topics: &["no-tests-ran", "test-failing", "human_review_required"],
+    hints: &[],
+};
+
 static RECOMMENDATION: TopicEntry = TopicEntry {
     slug: "recommendation",
     summary: "ah detected a quality capability that is available but not yet enabled.",
@@ -1739,11 +1753,12 @@ mod tests {
         // + 3 adapter + 7 lint kinds (espectacular-eia) = 42; +2 finding/action
         // + 2 lint kinds from derive-contracts-from-specodelic (4.2/4.4)
         // + 2 trace kinds from 5.3 = 48; +1 scenario-scoped-tests general
-        // topic (espectacular-ncu, GH#32) = 49
+        // topic (espectacular-ncu, GH#32) = 49; +1 batch-fallback finding
+        // kind (batch-runner-spawns task 2.2) = 50
         assert_eq!(
             topics.len(),
-            49,
-            "expected 49 topics (21 finding + 8 action + 6 general + 3 adapter + 11 lint kinds), got {}",
+            50,
+            "expected 50 topics (22 finding + 8 action + 6 general + 3 adapter + 11 lint kinds), got {}",
             topics.len()
         );
     }

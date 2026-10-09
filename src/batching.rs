@@ -104,9 +104,11 @@ pub(crate) enum BatchedVerdict {
     /// The pattern matched nothing, or matched only skipped/pending/todo
     /// tests — falsification did not run, never covered by the exit code.
     NoTestsRan(TestResult),
-    /// Attribution was impossible (regex compile failure); the caller
-    /// re-runs this binding per-contract with exit-code verdicts.
-    Fallback,
+    /// Attribution was impossible; the caller re-runs this binding
+    /// per-contract with exit-code verdicts. The reason names the
+    /// degenerate outcome (batch-runner-spawns task 2.2: named, non-silent
+    /// fallback signals).
+    Fallback(String),
 }
 
 /// Run all bindings as one OR-joined batched invocation and attribute each
@@ -120,22 +122,35 @@ pub(crate) fn run_batch(
     config: &Config,
     bindings: &[BatchableBinding],
 ) -> Vec<BatchedVerdict> {
-    let fallback_all = || vec![BatchedVerdict::Fallback; bindings.len()];
+    let fallback_all = |reason: String| vec![BatchedVerdict::Fallback(reason); bindings.len()];
 
     let planned = match plan(config, bindings) {
         Ok(planned) => planned,
-        Err(_) => return fallback_all(),
+        Err(error) => {
+            return fallback_all(format!("batched invocation composition failed: {error}"))
+        }
     };
     let (result, stdout) = match execute_command_full(repo_root, &planned) {
         Ok((result, stdout)) => (result, stdout),
-        Err(_) => return fallback_all(),
+        Err(error) => return fallback_all(format!("batched invocation failed: {error}")),
     };
-    if result.timed_out || stdout.len() > MAX_PARSE_BYTES {
-        return fallback_all();
+    if result.timed_out {
+        return fallback_all(
+            "batched invocation timed out; per-binding re-runs carry the verdicts".to_string(),
+        );
+    }
+    if stdout.len() > MAX_PARSE_BYTES {
+        return fallback_all(
+            "batched structured output exceeds the parse cap; per-binding re-runs carry the verdicts"
+                .to_string(),
+        );
     }
     match attribute(bindings, &result, &String::from_utf8_lossy(&stdout)) {
         Some(verdicts) => verdicts,
-        None => fallback_all(),
+        None => fallback_all(
+            "batched structured output unparseable; per-binding re-runs carry the verdicts"
+                .to_string(),
+        ),
     }
 }
 
@@ -224,7 +239,9 @@ fn attribute(
             // The batched invocation already matched with the JS engine;
             // if the Rust engine cannot compile the same pattern the
             // attribution view is incomplete → per-binding fallback.
-            Err(_) => BatchedVerdict::Fallback,
+            Err(_) => BatchedVerdict::Fallback(
+                "pattern not compilable by the attribution engine".to_string(),
+            ),
             Ok(re) => {
                 let mut any_matched = false;
                 let mut any_failed = false;
@@ -383,7 +400,10 @@ mod tests {
         let verdicts = attribute(&bindings, &batch_result(Some(0)), &stdout).unwrap();
 
         assert!(matches!(verdicts[0], BatchedVerdict::NoTestsRan(_)));
-        assert!(matches!(verdicts[1], BatchedVerdict::Fallback));
+        assert!(matches!(
+            verdicts[1],
+            BatchedVerdict::Fallback(ref reason) if reason.contains("attribution engine")
+        ));
     }
 
     // Eligibility: only exact `--testNamePattern=<regex>` flags batch.
@@ -472,6 +492,71 @@ mod tests {
                 .is_some(),
                 "dual-engine pattern must stay batchable: {pattern}"
             );
+        }
+    }
+
+    // batch-runner-spawns task 2.2 (C-batch-fallback): a batched invocation
+    // that degenerates (here: timed out) yields per-binding Fallback verdicts
+    // carrying a named reason so the caller can re-run per-contract and
+    // surface the degradation non-silently.
+    #[test]
+    fn run_batch_reports_fallback_with_reason_on_timed_out_batch() {
+        let dir = tempfile::tempdir().unwrap();
+        let helper = dir.path().join("sleepy.sh");
+        std::fs::write(&helper, "#!/bin/sh\nsleep 3\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&helper).unwrap().permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&helper, perms).unwrap();
+        }
+        let config = Config {
+            tool_version: "0.1.0".to_string(),
+            paths: Paths {
+                specs: "openspec/specs".to_string(),
+                changes: "openspec/changes".to_string(),
+            },
+            runners: HashMap::from([(
+                "vitest".to_string(),
+                vec!["/bin/sh".to_string(), helper.to_str().unwrap().to_string()],
+            )]),
+            quality: Default::default(),
+            capabilities: Default::default(),
+            lint: Default::default(),
+        };
+        let bindings = vec![
+            BatchableBinding {
+                pattern: "p_a".to_string(),
+                entry: TestEntry {
+                    flags: Some("--testNamePattern=p_a".to_string()),
+                    command: None,
+                    timeout_seconds: Some(1),
+                },
+            },
+            BatchableBinding {
+                pattern: "p_b".to_string(),
+                entry: TestEntry {
+                    flags: Some("--testNamePattern=p_b".to_string()),
+                    command: None,
+                    timeout_seconds: Some(1),
+                },
+            },
+        ];
+
+        let verdicts = run_batch(dir.path(), &config, &bindings);
+
+        assert_eq!(verdicts.len(), 2);
+        for verdict in &verdicts {
+            match verdict {
+                BatchedVerdict::Fallback(reason) => {
+                    assert!(
+                        reason.contains("timed out"),
+                        "fallback reason must be named: {reason}"
+                    );
+                }
+                other => panic!("expected Fallback, got {other:?}"),
+            }
         }
     }
 
