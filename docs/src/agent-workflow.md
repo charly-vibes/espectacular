@@ -203,6 +203,53 @@ ah check --json
 The `--run-tests` flag forces contract test execution even when no spec
 changes are detected (useful in CI when dependencies may have changed).
 
+### Test selection (avoiding full contract runs)
+
+By default `ah check --run-tests` executes every declared contract test.
+When a changed-file set is known, pass it to narrow the run:
+
+```bash
+# Explicit file list (repo-relative, comma-separated)
+ah check --run-tests --files src/check.rs,openspec/specs/compiler/spec.md
+
+# Omit --files to default to the worktree git diff
+ah check --run-tests
+
+# Escape hatch: ignore changes and run everything
+ah check --run-tests --all-tests
+```
+
+Selection is layered and conservative — it never produces a hidden green:
+
+1. **Capability selection (always on)**: changed files are mapped to
+   capabilities via spec provenance (deployed specs, change-overlay specs,
+   and contract trees). Only affected capabilities' contracts run. Files
+   that map to no capability trigger a conservative run-all, reported as
+   `source: "bypassed"` in the JSON `selection` object.
+2. **testaruda refinement (when a `.testaruda/` store exists)**: within the
+   run, contract bindings whose runner filter matches nothing in
+   `testaruda select --agent`'s selected test set are pruned. Guards keep
+   this safe: an EMPTY selection (exit 20 — no code affected) skips the
+   refinement but still runs the capability set; unresolved changed files
+   or a selection where no binding matches disable pruning entirely.
+   Pruning is reported as `selection.testaruda.pruned` in JSON.
+
+The JSON `selection` object summarizes what ran:
+
+```json
+"selection": {
+  "selected": ["compiler"],
+  "skipped": 3,
+  "source": "spec-provenance",
+  "unmapped_files": 0,
+  "testaruda": { "pruned": 1 }
+}
+```
+
+`source` is `spec-provenance` (capability selection narrowed the run),
+`all-tests` (escape hatch), or `bypassed` (conservative run-all — e.g. the
+changed set contains files that map to no capability).
+
 ### Forcing a commit through findings
 
 On a WIP branch or when findings are acceptable, you can commit despite

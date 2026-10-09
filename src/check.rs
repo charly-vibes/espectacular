@@ -72,6 +72,98 @@ pub struct Selection {
     pub skipped: usize,
     pub source: String,
     pub unmapped_files: usize,
+    /// Layer 2 refinement (espectacular-0k8): contract bindings pruned
+    /// because testaruda's selection deemed their underlying tests
+    /// unaffected. Present whenever a testaruda store was consulted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub testaruda: Option<TestarudaRefinement>,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct TestarudaRefinement {
+    pub pruned: usize,
+}
+
+/// Layer 2 selection facts parsed from `testaruda select --agent`.
+struct TestarudaSelection {
+    /// Selected test node_ids (includes always_run fallbacks — testaruda's
+    /// own conservative over-approximation flows through).
+    selected: Vec<String>,
+    /// EMPTY selection (exit 20): no code affected. Refinement is skipped,
+    /// the Layer 1 set still runs (spec change must verify own contracts).
+    empty: bool,
+    /// A changed file testaruda could not resolve to a content unit —
+    /// its dependency view is incomplete, so pruning is unsafe.
+    any_unresolved: bool,
+}
+
+fn testaruda_store_present(repo_root: &Path) -> bool {
+    repo_root.join(".testaruda/store.db").is_file()
+}
+
+/// Run `testaruda select --agent --files <changed>` in the repo. Returns
+/// None when the store is absent, the binary is missing, or the output
+/// cannot be parsed — every failure path is conservative (no pruning).
+fn testaruda_select(repo_root: &Path, changed_files: &[String]) -> Option<TestarudaSelection> {
+    use std::process::Stdio;
+    let output = std::process::Command::new("testaruda")
+        .args([
+            "select",
+            "--agent",
+            "--files",
+            &changed_files.join(","),
+            "-q",
+        ])
+        .current_dir(repo_root)
+        .stdin(Stdio::null())
+        .output()
+        .ok()?;
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
+    let selected = value
+        .get("selected")?
+        .as_array()?
+        .iter()
+        .filter_map(|t| {
+            t.get("node_id")
+                .and_then(|n| n.as_str())
+                .map(str::to_string)
+        })
+        .collect();
+    let selected_count = value
+        .get("summary")
+        .and_then(|s| s.get("selected_count"))
+        .and_then(|c| c.as_u64())
+        .unwrap_or(0);
+    let any_unresolved = value
+        .get("changed_units")
+        .and_then(|u| u.as_array())
+        .map(|units| {
+            units.iter().any(|u| {
+                u.get("unresolved")
+                    .and_then(|b| b.as_bool())
+                    .unwrap_or(false)
+            })
+        })
+        .unwrap_or(false);
+    Some(TestarudaSelection {
+        selected,
+        empty: selected_count == 0,
+        any_unresolved,
+    })
+}
+
+/// The runner filter a contract binding injects, if it is prunable at all.
+/// Shell commands are opaque (no filter into a test runner) and never
+/// pruned; bindings without a non-empty flags filter are never pruned.
+fn prunable_filter<'a>(test_type: &str, entry: &'a crate::contracts::TestEntry) -> Option<&'a str> {
+    if test_type == "shell" {
+        return None;
+    }
+    entry.flags.as_deref().filter(|f| !f.is_empty())
+}
+
+fn node_contains_filter(selected: &[String], filter: &str) -> bool {
+    selected.iter().any(|node| node.contains(filter))
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -589,6 +681,63 @@ fn evaluate_scope(
     let mut passed = 0usize;
     let mut extra_quality_findings: Vec<quality::QualityFinding> = Vec::new();
 
+    // Layer 2 refinement (espectacular-0k8): when a testaruda store exists
+    // and a changed-file set is supplied, consult it to prune contract
+    // bindings whose underlying tests are unaffected. Guards, all
+    // conservative (never a hidden green):
+    // - --all-tests or empty changed set -> no consultation at all;
+    // - select failure or unparseable output -> no pruning;
+    // - EMPTY selection (exit 20, no code affected) -> skip refinement only,
+    //   the Layer 1 set still runs;
+    // - unresolved changed files -> the dependency view is incomplete, no
+    //   pruning;
+    // - anchor guard: pruning activates only when at least one binding in
+    //   scope matches the selected set — an adapter that discovers nothing
+    //   must not deselect anything.
+    let l2_selection = if run_tests
+        && !all_tests
+        && !changed_files.is_empty()
+        && testaruda_store_present(repo_root)
+    {
+        testaruda_select(repo_root, changed_files)
+    } else {
+        None
+    };
+    let l2_active = l2_selection
+        .as_ref()
+        .is_some_and(|sel| !sel.empty && !sel.any_unresolved && !sel.selected.is_empty());
+    let mut l2_anchor_matched = false;
+    if l2_active {
+        let selected = &l2_selection.as_ref().unwrap().selected;
+        for resolved in sorted_resolved_scenarios(&scope.scenarios) {
+            let scenario = &resolved.scenario;
+            if blocked.contains(&(scenario.spec_path.clone(), scenario.id.clone())) {
+                continue;
+            }
+            if let SelectionState::Caps(caps) = &selection_state {
+                if !caps.contains(&scenario.spec_path) {
+                    continue;
+                }
+            }
+            let contract = match contracts::load_contract(resolved.contract_path.to_str().unwrap())
+            {
+                Ok(contract) => contract,
+                Err(_) => continue,
+            };
+            for (test_type, entries) in &contract.tests {
+                for entry in entries {
+                    if let Some(filter) = prunable_filter(test_type, entry) {
+                        if node_contains_filter(selected, filter) {
+                            l2_anchor_matched = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let l2_prunes = l2_active && l2_anchor_matched;
+    let mut testaruda_pruned = 0usize;
+
     if run_tests {
         for resolved in sorted_resolved_scenarios(&scope.scenarios) {
             let scenario = &resolved.scenario;
@@ -620,6 +769,20 @@ fn evaluate_scope(
             for test_type in test_types {
                 let entries = &contract.tests[&test_type];
                 for entry in entries {
+                    // Layer 2 pruning: drop bindings whose runner filter
+                    // matches nothing in testaruda's selected set.
+                    if l2_prunes {
+                        if let Some(filter) = prunable_filter(&test_type, entry) {
+                            if !node_contains_filter(
+                                &l2_selection.as_ref().unwrap().selected,
+                                filter,
+                            ) {
+                                testaruda_pruned += 1;
+                                continue;
+                            }
+                        }
+                    }
+
                     if test_type == "custom" {
                         match adapters::custom::invoke(repo_root, cfg, entry) {
                             Ok(adapters::custom::CustomRunnerResult::Passed) => {
@@ -747,6 +910,9 @@ fn evaluate_scope(
             skipped,
             source: source.to_string(),
             unmapped_files: *unmapped_files,
+            testaruda: l2_selection.as_ref().map(|_| TestarudaRefinement {
+                pruned: testaruda_pruned,
+            }),
         }),
         SelectionState::Caps(caps) => {
             let mut v: Vec<String> = caps.iter().cloned().collect();
@@ -756,6 +922,9 @@ fn evaluate_scope(
                 skipped,
                 source: "spec-provenance".to_string(),
                 unmapped_files: 0,
+                testaruda: l2_selection.as_ref().map(|_| TestarudaRefinement {
+                    pruned: testaruda_pruned,
+                }),
             })
         }
     };
