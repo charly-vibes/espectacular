@@ -1,7 +1,7 @@
 ## 1. Batching planner (RED→GREEN)
-- [ ] 1.1 RED: spawn-counting e2e — fixture corpus with N vitest-bound contracts sharing one runner runs exactly 1 runner invocation when N > threshold (assert execute_command invocations ≤ file count; today 1 per contract)
-- [ ] 1.2 RED: below-threshold corpus (≤ 8 bindings) keeps per-binding spawn count
-- [ ] 1.3 GREEN: batch planner groups eligible bindings per runner type, composes OR-joined pattern + structured reporter flags, max(timeout_seconds) invocation timeout
+- [x] 1.1 RED: spawn-counting e2e — fixture corpus with N vitest-bound contracts sharing one runner runs exactly 1 runner invocation when N > threshold (assert execute_command invocations ≤ file count; today 1 per contract)
+- [x] 1.2 RED: below-threshold corpus (≤ 8 bindings) keeps per-binding spawn count
+- [x] 1.3 GREEN: batch planner groups eligible bindings per runner type, composes OR-joined pattern + structured reporter flags, max(timeout_seconds) invocation timeout
 - [ ] 1.4 GREEN: JS-only-regex patterns (lookahead/backrefs) excluded from batching, run per-binding
 
 ## 2. Attribution (RED→GREEN)

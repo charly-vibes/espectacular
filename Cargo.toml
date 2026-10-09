@@ -23,6 +23,7 @@ jsonschema = "0.58"
 anyhow = "1"
 genesis-vibes = "0.12.0"
 libc = "0.2"
+regex = "1"
 sha2 = "0.11.0"
 
 [dev-dependencies]

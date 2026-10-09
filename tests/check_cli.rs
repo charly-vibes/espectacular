@@ -650,6 +650,118 @@ fn ah_check_typescript_vitest_e2e_zero_findings() {
     assert_eq!(data["summary"]["passed"], 1);
 }
 
+// ── batched vitest bindings (batch-runner-spawns, GH#40) ─────────────────────
+
+// Fixture: a repo with `n` contracts binding scenario-scoped vitest patterns
+// (`--testNamePattern=p_spawn-N`, the tambor shape — pattern-scoped, no file
+// notion) plus a vitest shim that appends one line per invocation to
+// `invocations.log` and emits the vitest JSON-reporter shape with every test
+// passing, so per-contract attribution from structured output is exercisable.
+fn vitest_pattern_repo(n: usize) -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = dir.path();
+    fs::create_dir_all(repo.join("openspec/specs/ui")).unwrap();
+    fs::create_dir_all(repo.join(".espectacular/ui")).unwrap();
+
+    let mut spec = String::from("# Capability: ui\n\n");
+    let mut assertions: Vec<String> = Vec::new();
+    for i in 1..=n {
+        spec.push_str(&format!(
+            "#### Scenario: Spawn {i}\n- **WHEN** vitest runs\n- **THEN** it passes\n\n"
+        ));
+        let id = format!("spawn-{i}");
+        fs::write(
+            repo.join(format!(".espectacular/ui/{id}.toml")),
+            format!(
+                "id = \"{id}\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.vitest]]\nflags = \"--testNamePattern=p_{id}\"\n"
+            ),
+        )
+        .unwrap();
+        assertions.push(format!(
+            r#"{{"ancestorTitles": [], "fullName": "p_{id}", "status": "passed", "title": "{id}"}}"#
+        ));
+    }
+    let assertions = assertions.join(", ");
+    fs::write(repo.join("openspec/specs/ui/spec.md"), spec).unwrap();
+    fs::write(
+        repo.join(".espectacular/config.toml"),
+        concat!(
+            "tool_version = \"",
+            env!("CARGO_PKG_VERSION"),
+            "\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nvitest = [\"/bin/sh\", \"vitest.sh\"]\n"
+        ),
+    )
+    .unwrap();
+
+    let json = format!(
+        r#"{{"numTotalTests": {n}, "numPassedTests": {n}, "numFailedTests": 0, "success": true, "testResults": [{{"name": "src/ui.test.ts", "status": "passed", "assertionResults": [{assertions}]}}]}}"#
+    );
+    write_executable(
+        &repo.join("vitest.sh"),
+        &format!("printf '%s\\n' \"$*\" >> invocations.log\ncat <<'JSON'\n{json}\nJSON\n"),
+    );
+
+    dir
+}
+
+// batch-runner-spawns task 1.1 (GH#40): above the batching threshold, all
+// pattern-scoped vitest bindings share ONE runner invocation instead of one
+// spawn per contract; per-contract verdicts still come from the structured
+// output, so the summary and findings are unchanged.
+#[test]
+fn ah_check_batched_vitest_bindings_spawn_one_invocation_above_threshold() {
+    let repo = vitest_pattern_repo(9);
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["check", "--run-tests", "--json"])
+        .assert()
+        .success();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
+    assert_schema_valid(&output);
+    assert_eq!(
+        data["findings"],
+        Value::Array(vec![]),
+        "batched run must attribute per-contract verdicts from structured output"
+    );
+    assert_eq!(data["summary"]["passed"], 9);
+
+    let log = fs::read_to_string(repo.path().join("invocations.log")).unwrap();
+    let invocations = log.lines().filter(|l| !l.trim().is_empty()).count();
+    assert_eq!(
+        invocations, 1,
+        "9 above-threshold vitest bindings must share 1 runner invocation; log:\n{log}"
+    );
+}
+
+// batch-runner-spawns task 1.2: below the threshold (≤ 8 bindings) the
+// per-binding spawn behavior is unchanged — one invocation per contract.
+#[test]
+fn ah_check_below_threshold_vitest_bindings_keep_per_binding_spawns() {
+    let repo = vitest_pattern_repo(3);
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["check", "--run-tests", "--json"])
+        .assert()
+        .success();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
+    assert_schema_valid(&output);
+    assert_eq!(data["findings"], Value::Array(vec![]));
+    assert_eq!(data["summary"]["passed"], 3);
+
+    let log = fs::read_to_string(repo.path().join("invocations.log")).unwrap();
+    let invocations = log.lines().filter(|l| !l.trim().is_empty()).count();
+    assert_eq!(
+        invocations, 3,
+        "below-threshold bindings keep one spawn per contract; log:\n{log}"
+    );
+}
+
 // 8.7/8.8: quality findings do not cause non-zero exit
 
 fn make_mutation_repo() -> (tempfile::TempDir, tempfile::TempDir) {

@@ -8,7 +8,7 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
+pub(crate) const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
 const OUTPUT_TAIL_BYTES: usize = 8 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -98,6 +98,16 @@ pub fn compose_command(
 }
 
 pub fn execute_command(repo_root: &Path, planned: &PlannedCommand) -> anyhow::Result<TestResult> {
+    execute_command_full(repo_root, planned).map(|(result, _)| result)
+}
+
+/// Like [`execute_command`] but also returns the full stdout bytes.
+/// Batching (batch-runner-spawns) parses structured per-test output from the
+/// complete captured stdout; tails stay 8 KiB findings-only.
+pub(crate) fn execute_command_full(
+    repo_root: &Path,
+    planned: &PlannedCommand,
+) -> anyhow::Result<(TestResult, Vec<u8>)> {
     let mut command = Command::new(&planned.argv[0]);
     command
         .args(&planned.argv[1..])
@@ -133,14 +143,15 @@ pub fn execute_command(repo_root: &Path, planned: &PlannedCommand) -> anyhow::Re
 
     let output = child.wait_with_output()?;
 
-    Ok(TestResult {
+    let result = TestResult {
         test_type: planned.test_type.clone(),
         command: planned.display.clone(),
         exit_code: output.status.code(),
         timed_out,
         stdout_tail: tail_string(&output.stdout),
         stderr_tail: tail_string(&output.stderr),
-    })
+    };
+    Ok((result, output.stdout))
 }
 
 #[allow(dead_code)]

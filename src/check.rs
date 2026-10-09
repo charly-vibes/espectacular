@@ -1,4 +1,5 @@
 use crate::adapters;
+use crate::batching;
 use crate::config;
 use crate::contracts;
 use crate::openspec::{self, Scenario};
@@ -758,8 +759,14 @@ fn evaluate_scope(
     let l2_prunes = l2_active && l2_anchor_matched;
     let mut testaruda_pruned = 0usize;
 
+    // Batched execution (batch-runner-spawns): pattern-scoped vitest
+    // bindings are collected during the loop and either batched (count
+    // above BATCH_THRESHOLD) or executed per-binding after it.
+    let mut batchable: Vec<(usize, batching::BatchableBinding)> = Vec::new();
+    let sorted_scenarios = sorted_resolved_scenarios(&scope.scenarios);
+
     if run_tests {
-        for resolved in sorted_resolved_scenarios(&scope.scenarios) {
+        for (scenario_index, resolved) in sorted_scenarios.iter().enumerate() {
             let scenario = &resolved.scenario;
             if blocked.contains(&(scenario.spec_path.clone(), scenario.id.clone())) {
                 continue;
@@ -857,6 +864,19 @@ fn evaluate_scope(
                         continue;
                     }
 
+                    if test_type == "vitest" {
+                        if let Some(pattern) = batching::batchable_pattern(entry) {
+                            batchable.push((
+                                scenario_index,
+                                batching::BatchableBinding {
+                                    pattern,
+                                    entry: entry.clone(),
+                                },
+                            ));
+                            continue;
+                        }
+                    }
+
                     let result = match adapters::invoke(repo_root, cfg, &test_type, entry) {
                         Ok(result) => result,
                         Err(error) => {
@@ -869,14 +889,65 @@ fn evaluate_scope(
                             continue;
                         }
                     };
-                    if result.timed_out || result.exit_code != Some(0) {
+                    apply_execution_verdict(
+                        scenario,
+                        specs_root,
+                        result,
+                        &mut findings,
+                        &mut passed,
+                    );
+                }
+            }
+        }
+    }
+
+    // Batched runner execution (batch-runner-spawns): above the threshold,
+    // the collected eligible bindings run as ONE OR-joined invocation with
+    // per-binding attribution from structured output; at or below it they
+    // keep per-binding spawns. Any degenerate batched outcome falls back to
+    // per-binding execution with exit-code verdicts (C-batch-fallback).
+    if run_tests && !batchable.is_empty() {
+        if batchable.len() > batching::BATCH_THRESHOLD {
+            let bindings: Vec<batching::BatchableBinding> = batchable
+                .iter()
+                .map(|(_, binding)| binding.clone())
+                .collect();
+            let verdicts = batching::run_batch(repo_root, cfg, &bindings);
+            for ((scenario_index, binding), verdict) in batchable.iter().zip(verdicts) {
+                let scenario = &sorted_scenarios[*scenario_index].scenario;
+                match verdict {
+                    batching::BatchedVerdict::Passed => passed += 1,
+                    batching::BatchedVerdict::TestFailing(result) => {
                         findings.push(execution_report(scenario, specs_root, result));
-                    } else if runner::matched_zero_tests(&result) {
+                    }
+                    batching::BatchedVerdict::NoTestsRan(result) => {
                         findings.push(no_tests_ran_report(scenario, specs_root, result));
-                    } else {
-                        passed += 1;
+                    }
+                    batching::BatchedVerdict::Fallback => {
+                        run_binding_fallback(
+                            repo_root,
+                            cfg,
+                            specs_root,
+                            scenario,
+                            binding,
+                            &mut findings,
+                            &mut passed,
+                        );
                     }
                 }
+            }
+        } else {
+            for (scenario_index, binding) in &batchable {
+                let scenario = &sorted_scenarios[*scenario_index].scenario;
+                run_binding_fallback(
+                    repo_root,
+                    cfg,
+                    specs_root,
+                    scenario,
+                    binding,
+                    &mut findings,
+                    &mut passed,
+                );
             }
         }
     }
@@ -1372,6 +1443,51 @@ fn execution_report_message(
         None,
         Some(message.to_string()),
     )
+}
+
+/// Exit-code verdict path shared by per-binding execution in the run loop
+/// and per-binding fallback re-runs after a degenerate batched invocation
+/// (batch-runner-spawns C-batch-fallback).
+fn apply_execution_verdict(
+    scenario: &Scenario,
+    specs_root: &Path,
+    result: TestResult,
+    findings: &mut Vec<ReportFinding>,
+    passed: &mut usize,
+) {
+    if result.timed_out || result.exit_code != Some(0) {
+        findings.push(execution_report(scenario, specs_root, result));
+    } else if runner::matched_zero_tests(&result) {
+        findings.push(no_tests_ran_report(scenario, specs_root, result));
+    } else {
+        *passed += 1;
+    }
+}
+
+/// Re-run one binding per-contract after batched attribution was impossible
+/// (batch-runner-spawns C-batch-fallback): exit-code verdicts only.
+fn run_binding_fallback(
+    repo_root: &Path,
+    cfg: &config::Config,
+    specs_root: &Path,
+    scenario: &Scenario,
+    binding: &batching::BatchableBinding,
+    findings: &mut Vec<ReportFinding>,
+    passed: &mut usize,
+) {
+    let result = match adapters::invoke(repo_root, cfg, "vitest", &binding.entry) {
+        Ok(result) => result,
+        Err(error) => {
+            findings.push(structural_report(
+                scenario,
+                specs_root,
+                "missing-runner",
+                Some(error.to_string()),
+            ));
+            return;
+        }
+    };
+    apply_execution_verdict(scenario, specs_root, result, findings, passed);
 }
 
 fn execution_report(scenario: &Scenario, specs_root: &Path, test: TestResult) -> ReportFinding {

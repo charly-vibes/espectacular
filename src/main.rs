@@ -1,6 +1,7 @@
 mod adapters;
 mod archetypes;
 mod archive;
+mod batching;
 mod check;
 mod config;
 mod contracts;
