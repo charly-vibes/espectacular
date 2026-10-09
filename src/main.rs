@@ -27,6 +27,7 @@ use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::Guide;
 use std::fs;
 use std::io::Write;
+use std::path::Path;
 
 /// Wrap any serializable data in a shared genesis envelope.
 fn to_json_envelope<T: serde::Serialize>(kind: EnvelopeKind, data: T) -> String {
@@ -96,6 +97,14 @@ enum Command {
         /// (spec/contract correspondence).
         #[arg(long = "run-tests")]
         run_tests: bool,
+        /// Restrict contract-test execution to capabilities owning these
+        /// changed files (repo-relative, comma-separated). Defaults to the
+        /// worktree git diff when omitted; --all-tests overrides.
+        #[arg(long = "files", value_delimiter = ',')]
+        files: Vec<String>,
+        /// Run every declared contract test, bypassing selection.
+        #[arg(long = "all-tests")]
+        all_tests: bool,
     },
     /// Run diagnostic checks or enable a capability
     Doctor {
@@ -283,8 +292,27 @@ fn main() {
 
 fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
-        Command::Check { changes, run_tests } => {
-            let report = check::run_check(&std::env::current_dir()?, &changes, run_tests)?;
+        Command::Check {
+            changes,
+            run_tests,
+            files,
+            all_tests,
+        } => {
+            let repo_root = std::env::current_dir()?;
+            // Selection input (espectacular-0k8): explicit --files wins;
+            // otherwise the worktree git diff supplies the changed-file set.
+            let changed_files = if files.is_empty() && run_tests && !all_tests {
+                changed_files_from_git(&repo_root)
+            } else {
+                files.clone()
+            };
+            let report = check::run_check_with_selection(
+                &repo_root,
+                &changes,
+                run_tests,
+                &changed_files,
+                all_tests,
+            )?;
             if cli.json {
                 let has_blocking = report
                     .findings
@@ -671,6 +699,22 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                 Ok(())
             }
         },
+    }
+}
+
+/// Worktree changed files (unstaged + staged vs HEAD), repo-relative.
+fn changed_files_from_git(repo_root: &Path) -> Vec<String> {
+    let output = std::process::Command::new("git")
+        .args(["diff", "--name-only", "HEAD"])
+        .current_dir(repo_root)
+        .output();
+    match output {
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect(),
+        _ => Vec::new(),
     }
 }
 

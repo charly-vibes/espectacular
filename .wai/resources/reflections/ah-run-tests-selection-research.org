@@ -1,0 +1,52 @@
+#+TITLE: ah check --run-tests selection — pi-session evidence (espectacular-0k8)
+#+DATE: 2026-10-09
+#+SOURCE_TICKET: espectacular-0k8
+
+* Evidence scan (1076 pi session files, charly/* projects)
+
+- All-time: 1635 =ah check= calls; 478 with =--run-tests=; 676 min total.
+  Plain =ah check= p50≈0s p90=20s. =--run-tests= p50≈2s **p90=167s**.
+- October subset: 863 ah check calls, ~500 min; per-project time concentration:
+  - tambor (TS/npm): 79 calls → 176 min (avg 134s/call — worst offender)
+  - wanna (TS/npm): 148 calls → 160 min (avg 65s)
+  - testaruda (Rust): 107 min; espectacular (Rust): 69 min
+- Ticket's evidence validated (362 --run-tests / 673 min / median 111.5s for
+  October is consistent with this larger scan).
+- NOT validated: "agents run --json then a tail variant back-to-back" —
+  0 such pairs within 120s, only 1 duplicate call across all October sessions.
+  Deprioritize the single-pass-output secondary item.
+- testaruda real-world usage: =exec= 215×, =select= 179× (=--safe --base
+  origin/main --head HEAD= pattern), =init= 81×, =ingest= 60×. Exit 20 =
+  EMPTY selection (confirmed in testaruda src/ci_exit).
+- testaruda adapters are extension-mapped binaries: rust, python, julia,
+  typescript, clojure, C#/F#/VB → cross-language coverage exists.
+- BUT: the heaviest =ah check= users (espectacular 28 testaruda mentions,
+  specodelic 33, bajan 9, wanna 97) mostly have NO testaruda store.
+  Gating all benefit on "store initialized" forfeits most of the win.
+
+* Architecture facts (espectacular src)
+
+- =check.rs --run-tests= iterates ALL resolved scenarios × ALL contract
+  entries (shell/custom/property/snapshot). No selection today.
+- Contract TOMLs are 1:1 derived from spec files → free language-agnostic
+  selection edge: changed spec file → scenario → contract.
+- =TestEntry { flags, command, timeout_seconds }= + =compose_command= already
+  support filter injection per binding.
+
+* Design conclusion (best way across languages)
+
+Layered selection:
+1. *Layer 1 (always, no testaruda)*: capability-level selection inside ah.
+   Changed files (git) → affected spec files → scenarios → contracts. Skip
+   untouched capabilities. Fixes the dominant cost for every language.
+2. *Layer 2 (only if testaruda store exists)*: refine within selected
+   scenarios via =testaruda select --files=; drop contract bindings whose
+   underlying tests are provably unaffected; inject filters where the
+   archetype supports them.
+3. *Exit 20 semantics*: EMPTY means "no *code* affected" → do NOT benign
+   pass-through to running nothing; still run Layer 1's spec-side selection.
+   A spec change must always verify its own contracts (avoid false-green).
+
+TDD shape: red = (a) changed spec file → only that capability's contracts run,
+selection reported in JSON; (b) seeded testaruda store + changed code file →
+further pruning, =--all-tests= escape hatch.
