@@ -11,7 +11,7 @@
 - [x] 2.4 GREEN: cargo/shell/pytest and any ineligible binding — check output byte-identical to pre-change behavior (regression harness)
 
 ## 3. Gates & hygiene
-- [ ] 3.1 File-header criterion: reshaped src/runner.rs (+ any new module) carries Purpose/Responsibilities/Rationale header
-- [ ] 3.2 Full suite green (535 baseline) + ah check --run-tests on the espectacular corpus green; runner.rs no-tests-ran guard tests pass unmodified
-- [ ] 3.3 clippy --all-targets -D warnings, fmt, ah check clean
-- [ ] 3.4 bd export + ticket notes; GH#40 comment with measured spawn counts
+- [x] 3.1 File-header criterion: reshaped src/runner.rs (+ any new module) carries Purpose/Responsibilities/Rationale header
+- [x] 3.2 Full suite green (535 baseline) + ah check --run-tests on the espectacular corpus green; runner.rs no-tests-ran guard tests pass unmodified
+- [x] 3.3 clippy --all-targets -D warnings, fmt, ah check clean
+- [x] 3.4 bd export + ticket notes; GH#40 comment with measured spawn counts

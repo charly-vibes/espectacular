@@ -1,3 +1,20 @@
+//! Runner execution: planned commands, spawn + timeout supervision, and
+//! structured-output capture for batched attribution.
+//!
+//! Purpose: turn contract test bindings into executed, bounded, captured
+//! invocations whose results feed both exit-code verdicts (per-binding) and
+//! structured per-test attribution (batched, src/batching.rs).
+//!
+//! Responsibilities: compose `PlannedCommand`s per binding type (shell via
+//! `/bin/sh -c`, runners via configured argv + flags), execute with process-
+//! group isolation and deadline kill, drain stdout/stderr on reader threads
+//! while polling (oversized output must not deadlock), keep 8 KiB findings
+//! tails, and detect matched-zero runs (DDL 4.3 guard).
+//!
+//! Rationale: push-gate time is dominated by runner startup (GH#40); bounded,
+//! deadlock-free capture is the precondition for batching many contracts
+//! into one invocation without weakening per-contract falsification.
+
 use crate::config::Config;
 use crate::contracts::TestEntry;
 use serde::{Deserialize, Serialize};
