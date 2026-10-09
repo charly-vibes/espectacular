@@ -403,6 +403,12 @@ fn resolve_scope(
         .collect();
     let mut contract_overrides: HashMap<(String, String), PathBuf> = HashMap::new();
     let mut contract_files = collect_base_contract_files(contracts_dir);
+    // Scenario keys that existed BEFORE any change overlay ran: the
+    // byte-identical carry-along exemption (espectacular-4u6) applies only to
+    // deployed scenarios. Two changes both adding the same scenario stay a
+    // conflicting overlay (gate C-overlay-scope).
+    let deployed_keys: std::collections::HashSet<(String, String)> =
+        scenarios.keys().cloned().collect();
 
     let mut changes = selected_changes.to_vec();
     changes.sort();
@@ -465,6 +471,17 @@ fn resolve_scope(
                     if let Some(existing) = scenarios.get_mut(&key) {
                         existing.scenario = scenario;
                     }
+                    continue;
+                }
+                if deployed_keys.contains(&key)
+                    && scenarios[&key].scenario.body.trim() == scenario.body.trim()
+                {
+                    // Byte-identical carry-along (espectacular-4u6): openspec's
+                    // MODIFIED-wholesale rule forces unchanged scenarios to be
+                    // re-declared verbatim in every MODIFIED delta. The gate
+                    // spec pins overlay-conflict to redefinitions "with
+                    // different body text", so an identical body without a
+                    // staged contract is a no-op — deployed text stands.
                     continue;
                 }
                 findings.push(report_finding(
@@ -2368,6 +2385,33 @@ mod tests {
             "staged-contract modification must not conflict; got: {:?}",
             output.findings
         );
+    }
+
+    #[test]
+    fn run_check_identical_body_carry_along_does_not_conflict() {
+        // RED (espectacular-4u6): the gate spec pins overlay-conflict to
+        // redefinitions "with different body text". openspec's MODIFIED-
+        // wholesale rule forces verbatim carry-along of unchanged scenarios
+        // into every MODIFIED delta, so a byte-identical (spec, id) without a
+        // staged contract is a legitimate no-op — no overlay-conflict.
+        let dir = success_repo();
+        fs::create_dir_all(
+            dir.path()
+                .join("openspec/changes/carry-parser/specs/compiler"),
+        )
+        .unwrap();
+        fs::write(
+            dir.path().join("openspec/changes/carry-parser/specs/compiler/spec.md"),
+            "# Capability: compiler\n\n#### Scenario: Green path\n- **WHEN** it runs\n- **THEN** it passes\n",
+        ).unwrap();
+
+        let output = run_check(dir.path(), &["carry-parser".to_string()], true).unwrap();
+        assert!(
+            !output.findings.iter().any(|f| f.kind == "overlay-conflict"),
+            "byte-identical carry-along must not conflict; got: {:?}",
+            output.findings
+        );
+        assert_eq!(output.summary.passed, 1);
     }
 
     #[test]
