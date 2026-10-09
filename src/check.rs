@@ -39,6 +39,20 @@ pub struct CheckOutput {
     pub findings: Vec<ReportFinding>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub quality_findings: Vec<quality::QualityFinding>,
+    /// Test-selection report (espectacular-0k8 Layer 1): present only when
+    /// a changed-file set narrowed the executed contract tests.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selection: Option<Selection>,
+}
+
+/// Layer 1 selection (espectacular-0k8): capability-granular, spec-provenance
+/// selection. `selected` lists capability names whose contract tests ran;
+/// `skipped` counts scenarios skipped by selection.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct Selection {
+    pub selected: Vec<String>,
+    pub skipped: usize,
+    pub source: String,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -110,10 +124,29 @@ struct ResolvedScope {
     covered: BTreeMap<(String, String), Vec<String>>,
 }
 
+/// Back-compat entry point (structural callers and tests); CLI uses
+/// `run_check_with_selection` directly.
+#[allow(dead_code)]
 pub fn run_check(
     repo_root: &Path,
     selected_changes: &[String],
     run_tests: bool,
+) -> anyhow::Result<CheckOutput> {
+    run_check_with_selection(repo_root, selected_changes, run_tests, &[], false)
+}
+
+/// Like `run_check`, but with an explicit changed-file set (repo-relative).
+/// When `changed_files` is non-empty and `all_tests` is false, only the
+/// contract tests of capabilities whose spec or contract files changed run
+/// (Layer 1 selection, espectacular-0k8). A changed set that maps to no
+/// capability falls back conservatively to running everything.
+#[allow(clippy::too_many_arguments)]
+pub fn run_check_with_selection(
+    repo_root: &Path,
+    selected_changes: &[String],
+    run_tests: bool,
+    changed_files: &[String],
+    all_tests: bool,
 ) -> anyhow::Result<CheckOutput> {
     let cfg = config::load(repo_root)?;
     let specs_dir = repo_root.join(&cfg.paths.specs);
@@ -122,7 +155,47 @@ pub fn run_check(
     let ah_scope = std::env::var("AH_SCOPE").unwrap_or_default();
 
     let scope = resolve_scope(&specs_dir, &contracts_dir, &changes_dir, selected_changes)?;
-    evaluate_scope(repo_root, &cfg, &specs_dir, scope, &ah_scope, run_tests)
+    evaluate_scope(
+        repo_root,
+        &cfg,
+        &specs_dir,
+        scope,
+        &ah_scope,
+        run_tests,
+        changed_files,
+        all_tests,
+    )
+}
+
+/// Map a changed file (repo-relative) to the capability it belongs to,
+/// via either the deployed specs tree (`<specs>/<capability>/...`) or the
+/// contracts tree (`.espectacular/<capability>/...`, including change
+/// overlays `.espectacular/changes/<change>/<capability>/...`).
+fn affected_capability(file: &str, specs_dir: &str) -> Option<String> {
+    for prefix in [
+        format!("{}/", specs_dir.trim_end_matches('/')),
+        ".espectacular/".to_string(),
+    ] {
+        let rest = match file.strip_prefix(prefix.as_str()) {
+            Some(rest) => rest,
+            None => continue,
+        };
+        let mut segments = rest.split('/').filter(|s| !s.is_empty());
+        // change overlay: .espectacular/changes/<change>/<capability>/...
+        let cap = if rest.starts_with("changes/") {
+            segments.next(); // "changes"
+            segments.next(); // change name
+            segments.next()
+        } else {
+            segments.next()
+        };
+        if let Some(cap) = cap {
+            if !cap.is_empty() {
+                return Some(cap.to_string());
+            }
+        }
+    }
+    None
 }
 
 #[allow(dead_code)]
@@ -397,6 +470,8 @@ fn evaluate_scope(
     scope: ResolvedScope,
     ah_scope: &str,
     run_tests: bool,
+    changed_files: &[String],
+    all_tests: bool,
 ) -> anyhow::Result<CheckOutput> {
     let stale_findings = contract_stale_findings(specs_root, &scope, SPK_PROGRAM);
     let mut findings = scope.findings;
@@ -409,6 +484,26 @@ fn evaluate_scope(
     findings.extend(stale_findings);
 
     let blocked = blocked_scenarios(&findings);
+    // Layer 1 selection (espectacular-0k8): only when a changed-file set is
+    // supplied and --all-tests was not given. Capabilities with changed spec
+    // or contract files are selected; the rest are skipped. A changed set
+    // that maps to no capability selects nothing → conservative run-all.
+    let selected: Option<std::collections::HashSet<String>> =
+        if run_tests && !all_tests && !changed_files.is_empty() {
+            let caps: std::collections::HashSet<String> = changed_files
+                .iter()
+                .filter_map(|f| affected_capability(f, &cfg.paths.specs))
+                .collect();
+            if caps.is_empty() {
+                None
+            } else {
+                Some(caps)
+            }
+        } else {
+            None
+        };
+    let mut selected_report: Option<Vec<String>> = None;
+    let mut skipped = 0usize;
     let mut passed = 0usize;
     let mut extra_quality_findings: Vec<quality::QualityFinding> = Vec::new();
 
@@ -417,6 +512,13 @@ fn evaluate_scope(
             let scenario = &resolved.scenario;
             if blocked.contains(&(scenario.spec_path.clone(), scenario.id.clone())) {
                 continue;
+            }
+
+            if let Some(sel) = &selected {
+                if !sel.contains(&scenario.spec_path) {
+                    skipped += 1;
+                    continue;
+                }
             }
 
             let contract = match contracts::load_contract(resolved.contract_path.to_str().unwrap())
@@ -552,6 +654,12 @@ fn evaluate_scope(
         });
     }
 
+    if let Some(sel) = &selected {
+        let mut v: Vec<String> = sel.iter().cloned().collect();
+        v.sort();
+        selected_report = Some(v);
+    }
+
     Ok(CheckOutput {
         scope: Scope {
             deployed: true,
@@ -565,6 +673,11 @@ fn evaluate_scope(
         },
         findings,
         quality_findings,
+        selection: selected_report.map(|selected| Selection {
+            selected,
+            skipped,
+            source: "spec-provenance".to_string(),
+        }),
     })
 }
 
@@ -2501,6 +2614,99 @@ mod tests {
         run_check_unsignaled_scenario_redefinition_still_conflicts();
         run_check_conflicting_scenario_modifications_across_changes();
         staged_superseded_contract_requires_replacement_in_scope();
+    }
+
+    // ---- test selection (espectacular-0k8, Layer 1) ----
+
+    /// Layer 1 selection (espectacular-0k8): with an explicit changed-file
+    /// set, only the capability owning the changed spec file runs its
+    /// contract tests; the untouched capability's contract tests are
+    /// skipped, and the selection is reported in the JSON output.
+    #[test]
+    fn selection_changed_spec_file_runs_only_affected_capability() {
+        let dir = two_capability_repo();
+
+        // sanity: without a changed-file set, both run (current behavior)
+        let output = run_check_with_selection(dir.path(), &[], true, &[], false).unwrap();
+        assert_eq!(output.summary.passed, 2);
+
+        let output = run_check_with_selection(
+            dir.path(),
+            &[],
+            true,
+            &["openspec/specs/compiler/spec.md".to_string()],
+            false,
+        )
+        .unwrap();
+        let selection = output
+            .selection
+            .as_ref()
+            .expect("selection must be reported");
+        assert_eq!(selection.selected.len(), 1, "one capability selected");
+        assert!(selection.selected[0].contains("compiler"));
+        assert_eq!(selection.skipped, 1, "untouched capability skipped");
+        assert_eq!(output.summary.passed, 1, "only the affected contract ran");
+    }
+
+    /// No changed-file set (or empty diff) means no selection signal —
+    /// everything runs, selection reporting is omitted.
+    #[test]
+    fn selection_absent_changed_files_run_everything() {
+        let dir = two_capability_repo();
+        let output = run_check_with_selection(dir.path(), &[], true, &[], false).unwrap();
+        assert!(
+            output.selection.is_none(),
+            "no selection without changed files"
+        );
+        assert_eq!(output.summary.passed, 2);
+    }
+
+    /// Escape hatch (espectacular-0k8): --all-tests must bypass selection
+    /// and run every declared contract test even when a changed-file set
+    /// is supplied.
+    #[test]
+    fn all_tests_bypasses_selection() {
+        let dir = two_capability_repo();
+        let output = run_check_with_selection(
+            dir.path(),
+            &[],
+            true,
+            &["openspec/specs/compiler/spec.md".to_string()],
+            true,
+        )
+        .unwrap();
+        assert!(output.selection.is_none(), "--all-tests bypasses selection");
+        assert_eq!(output.summary.passed, 2);
+    }
+
+    /// A code file (neither spec nor contract) in the changed set with no
+    /// testaruda store must NOT deselect anything — conservative fallback
+    /// avoids false greens (espectacular-0k8 exit-20 correction).
+    #[test]
+    fn code_only_change_without_store_runs_everything() {
+        let dir = two_capability_repo();
+        let output =
+            run_check_with_selection(dir.path(), &[], true, &["src/parser.rs".to_string()], false)
+                .unwrap();
+        assert_eq!(output.summary.passed, 2, "conservative: all contracts run");
+    }
+
+    fn two_capability_repo() -> tempfile::TempDir {
+        let dir = success_repo();
+        let repo = dir.path();
+        fs::create_dir_all(repo.join("openspec/specs/parser")).unwrap();
+        fs::create_dir_all(repo.join(".espectacular/parser")).unwrap();
+        fs::write(
+            repo.join("openspec/specs/parser/spec.md"),
+            "# Capability: parser\n\n#### Scenario: Parse path\n- **WHEN** it parses\n- **THEN** it passes\n",
+        )
+        .unwrap();
+        fs::write(
+            repo.join(".espectacular/parser/parse-path.toml"),
+            "id = \"parse-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"ok\"\n",
+        )
+        .unwrap();
+        dir
     }
 
     #[test]
