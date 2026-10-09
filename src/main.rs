@@ -722,23 +722,13 @@ fn run(cli: Cli) -> anyhow::Result<()> {
     }
 }
 
-/// Worktree changed files (unstaged + staged vs HEAD), repo-relative.
-/// Git failure surfaces as an explicit error (espectacular-o77) — the
-/// previous silent empty `Vec` degraded hidden; transitional form below
-/// still swallows the error until the genesis::git migration lands.
+/// Worktree changed files (staged + unstaged vs HEAD), repo-relative.
+/// Delegates to `genesis::git::changed_files` (espectacular-o77): tracked
+/// changes against HEAD, untracked excluded while HEAD resolves, with the
+/// documented unborn-HEAD fallback. Git failure is an explicit error —
+/// the previous silent empty `Vec` degradation is gone by design.
 fn changed_files_from_git(repo_root: &Path) -> anyhow::Result<Vec<String>> {
-    let output = std::process::Command::new("git")
-        .args(["diff", "--name-only", "HEAD"])
-        .current_dir(repo_root)
-        .output();
-    match output {
-        Ok(out) if out.status.success() => Ok(String::from_utf8_lossy(&out.stdout)
-            .lines()
-            .map(|l| l.trim().to_string())
-            .filter(|l| !l.is_empty())
-            .collect()),
-        _ => Ok(Vec::new()),
-    }
+    genesis::git::changed_files(repo_root).map_err(anyhow::Error::from)
 }
 
 fn print_check_report(report: &check::CheckOutput, run_tests: bool) {
