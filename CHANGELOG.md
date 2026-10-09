@@ -7,6 +7,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **JSON envelopes: `ok` now agrees with the exit code for `report`,
+  `sync --check`, and `lint`** — all three emitted `ok:true` before exiting
+  nonzero (the same unclassifiable `(ok, exit_code)` drift class fixed for
+  `check` in 0.9.x). Warning-only lint findings exit 0 and stay `ok:true`;
+  error findings exit 1 with `ok:false`. (espectacular-yr9)
+
 ## [0.9.3] — 2026-10-08
 
 ### Fixed

@@ -50,6 +50,27 @@ fn ah_lint_without_root_lints_deployed_specs() {
     assert!(data["findings"].is_array());
 }
 #[test]
+fn ah_lint_json_error_finding_flips_ok_false_with_exit_one() {
+    // espectacular-yr9 (evallerina-54f drift class): error-severity findings
+    // (malformed spec) exit 1 while the envelope carried ok:true. ok must
+    // agree with the exit code; the warning-only defective fixture must keep
+    // ok:true (advisory findings exit 0 — yr9 anti-goal).
+    let out = ah_lint(&["tests/fixtures/lint/malformed", "--json"]);
+    assert!(
+        !out.status.success(),
+        "error-severity finding must exit 1, stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        v["ok"],
+        Value::Bool(false),
+        "ok must agree with exit 1: {}",
+        v
+    );
+}
+
+#[test]
 fn ah_lint_json_finding_shape_matches_shared_schema() {
     // The shape contract: any emitted finding carries the shared schema
     // fields. With an empty registry the array is empty, so assert the

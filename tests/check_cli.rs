@@ -826,6 +826,29 @@ fn ah_report_json_emits_matrix_with_coverage_counts() {
 }
 
 #[test]
+fn ah_report_json_failure_flips_ok_false_with_exit_one() {
+    // espectacular-yr9 (evallerina-54f drift class): a report with gaps
+    // exits 1 while the envelope carried ok:true — machine consumers
+    // classifying by (ok, exit_code) get an unclassifiable pair. ok must
+    // agree with the exit code; a fully-covered report stays ok:true.
+    let repo = report_missing_contract_repo();
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["report", "--json"])
+        .assert()
+        .failure();
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_eq!(
+        output["ok"], false,
+        "ok must agree with exit code 1: {}",
+        output
+    );
+    let data = data_from_envelope(&output);
+    assert!(data["summary"]["missing"].as_u64().unwrap() >= 1);
+}
+
+#[test]
 fn ah_report_exits_zero_when_coverage_complete() {
     let repo = report_full_coverage_repo();
     Command::cargo_bin("ah")

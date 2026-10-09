@@ -389,8 +389,13 @@ fn run(cli: Cli) -> anyhow::Result<()> {
         Command::Report {} => {
             let report = report::run_report(&std::env::current_dir()?)?;
             if cli.json {
+                // espectacular-yr9: ok must agree with the exit code (same
+                // drift class as the check fix) — gaps exit 1, so ok:false.
                 let has_gaps = report.summary.missing > 0 || report.summary.failing > 0;
-                println!("{}", to_json_envelope(EnvelopeKind::Ok, &report));
+                println!(
+                    "{}",
+                    to_json_envelope_with_ok(EnvelopeKind::Ok, &report, !has_gaps)
+                );
                 std::process::exit(if has_gaps { 1 } else { 0 });
             } else {
                 println!(
@@ -431,10 +436,18 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                 let overlay = lint::run_change_overlay(&repo_root, change, check.as_deref())?;
                 output = lint::merge_outputs(output, overlay);
             }
+            // espectacular-yr9: ok must agree with the exit code — warning-
+            // only findings exit 0 and stay ok:true; error findings exit 1
+            // with ok:false (same drift class as the check fix).
+            let lint_code = lint::exit_code(&output);
             if cli.json {
                 println!(
                     "{}",
-                    to_json_envelope(genesis::envelope::EnvelopeKind::Warning, &output)
+                    to_json_envelope_with_ok(
+                        genesis::envelope::EnvelopeKind::Warning,
+                        &output,
+                        lint_code == 0
+                    )
                 );
             } else {
                 lint::print_report(&output);
@@ -443,7 +456,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             // Record the completed run so `ah doctor` can suggest the first
             // lint (advisory-only; best-effort).
             doctor::record_lint_run(&repo_root);
-            std::process::exit(lint::exit_code(&output));
+            std::process::exit(lint_code);
         }
         Command::Init => {
             let result = init::run_init(&std::env::current_dir()?)?;
@@ -508,7 +521,13 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             let project_root = std::env::current_dir()?;
             let outcome = sync::run_sync("spk", &project_root, check)?;
             if cli.json {
-                println!("{}", to_json_envelope(EnvelopeKind::Ok, &outcome));
+                // espectacular-yr9: ok must agree with the exit code (same
+                // drift class as the check fix) — a failed --check exits 1,
+                // so ok:false; a clean sync stays ok:true.
+                println!(
+                    "{}",
+                    to_json_envelope_with_ok(EnvelopeKind::Ok, &outcome, outcome.is_ok())
+                );
             } else {
                 if let Some(msg) = &outcome.spk_unavailable {
                     eprintln!("spk-unavailable: {msg}");
