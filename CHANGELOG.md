@@ -9,6 +9,30 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-10-09
+
+### Added
+
+- **Batched contract test execution (GH#40)** — above a fixed threshold (8),
+  pattern-scoped vitest bindings of one runner type share ONE
+  `--reporter=json --testNamePattern=((?:p_a)|(?:p_b)|…)` invocation instead
+  of one process per contract; each contract's verdict is attributed from the
+  structured per-test output (every matched test passed → pass; any matched
+  failure → `test-failing`; matched-nothing or skipped/todo → `no-tests-ran`,
+  regardless of the batched exit code). Below the threshold, and for
+  cargo/shell/pytest, behavior is unchanged. Tambor measured 658 spawns per
+  push (~93% of the gate) — batching collapses the pattern-scoped mass to one
+  invocation per runner type.
+- **Named batch fallbacks** — an unparseable, oversized, errored, or
+  timed-out batched invocation emits a warning-severity `batch-fallback`
+  finding per affected scenario (non-gating) and re-runs every binding
+  per-contract with exit-code verdicts, so degradation is never silent.
+  New explain topic: `ah explain batch-fallback`.
+- **JS-only-regex eligibility guard** — bindings whose patterns use
+  lookaround or backreferences (non-compilable by the Rust attribution
+  engine) are excluded from batching at eligibility time and keep
+  per-binding spawns.
+
 ### Fixed
 
 - **JSON envelopes: `ok` now agrees with the exit code for `report`,
@@ -16,6 +40,18 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   nonzero (the same unclassifiable `(ok, exit_code)` drift class fixed for
   `check` in 0.9.x). Warning-only lint findings exit 0 and stay `ok:true`;
   error findings exit 1 with `ok:false`. (espectacular-yr9)
+- **Runner pipe deadlock** — `execute_command_full` polled the child before
+  draining the pipes, so any runner output beyond the ~64 KiB pipe buffer
+  deadlocked until the timeout killed it. Output now drains on reader
+  threads while the timeout loop polls; batched JSON (megabytes on large
+  corpora) made this the expected case, not the exception.
+- **`overlay-conflict` false positive** — the finding no longer fires when a
+  selected change carries a byte-identical scenario (carry-along); only
+  genuinely redefined bodies conflict. (espectacular-4u6)
+- **check-output schema drift** — the kind enum was missing `no-tests-ran`
+  (emitted since the zero-tests-ran guard) and `contract-stale` (since DDL
+  4.2); JSON consumers rejected valid envelopes. Both added along with the
+  new `batch-fallback` kind.
 
 ## [0.9.3] — 2026-10-08
 

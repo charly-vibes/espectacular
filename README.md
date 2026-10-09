@@ -228,6 +228,7 @@ Scope each entry to the single test that verifies the scenario, using the runner
 - **cargo**: substring filter — `flags = "scenario_id"` matches test names containing the scenario id (this is how the property-derived `p-*` contracts bind). A filter that matches nothing fails the gate via `no-tests-ran`, so a typo in the binding cannot silently pass
 - **pytest**: node id or keyword — `flags = "tests/unit/test_message.py::test_defaults"` or `flags = "-kmessage_defaults"`
 - **vitest**: `flags = "--testNamePattern=message_defaults"`
+- **vitest batching (GH#40)**: when more than 8 pattern-scoped vitest bindings exist for one runner type, they share ONE `--reporter=json` invocation with an OR-joined `--testNamePattern`; each contract's verdict is attributed from the structured per-test output. Bindings using JS-only regex constructs (lookaround, backreferences) keep per-binding spawns; any batched-invocation degeneration (unparseable/oversized output, error, timeout) emits a non-gating `batch-fallback` warning and re-runs the affected bindings per-contract
 - **Frameworks without test filtering** (e.g. Julia's `Test`): dispatch on the scenario id inside the test file — pass it as an argument or environment variable and select the matching `@testset` to run:
 
 ```toml
@@ -337,12 +338,13 @@ Each finding includes:
 | `missing-liveness-timeout` | warning | liveness-tagged contract has no `timeout_seconds` on any test entry — liveness claims are only falsifiable under bounded execution |
 | `no-tests-ran` | execution | a runner matched zero tests (cargo-style `0 passed; N filtered out`) — a binding that executes nothing is not a pass |
 | `contract-stale` | structural | a derived contract's `derived_from` hash no longer matches its specodelic source Properties row — run `ah sync` to refresh |
+| `batch-fallback` | warning | a batched runner invocation degenerated (unparseable/oversized output, error, or timeout); every affected binding re-ran per-contract with exit-code verdicts, so verdicts are already authoritative — the signal just names the degradation |
 
 `test-failing` findings include test execution details: `type`, `command`, `exit_code`, `timed_out`, `stdout_tail`, and `stderr_tail`.
 
 Quality findings (`quality-*`) are informational — they appear in `counts_by_kind` but do not cause `ah check` to exit non-zero.
 
-Warning findings (`missing-liveness-timeout`) are non-gating — they set the finding `severity` to `"warning"` and `ah check` still exits 0. All other findings carry `severity = "error"`.
+Warning findings (`missing-liveness-timeout`, `batch-fallback`) are non-gating — they set the finding `severity` to `"warning"` and `ah check` still exits 0. All other findings carry `severity = "error"`.
 
 ## Language adapter dispatch
 
