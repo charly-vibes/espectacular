@@ -1,5 +1,5 @@
 ---
-id: spec
+id: cli
 kind: intent
 statement: "WHEN espectacular adopts genesis THE cli surface SHALL wrap check JSON in the shared genesis envelope, source init managed-block injection from genesis, and provide a feedback subcommand that files issues via gh, with the report verb unchanged."
 ---
@@ -10,10 +10,10 @@ statement: "WHEN espectacular adopts genesis THE cli surface SHALL wrap check JS
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-envelope-shape | invariant | `ah check --json` emits top-level keys `ok`, `envelope_version`, `cli_version`, `envelope_kind`, `data`, `warnings`, `hints`, `meta`, with `findings` and `summary` nested under `data` | [[spec]] |
-| C-init-genesis-injector | invariant | `ah init` injects managed blocks via `genesis::managed_block` and no local injector code remains | [[spec]] |
-| C-feedback-subcommand | invariant | `ah feedback bug --from-last-error --yes` reads its own error scratch, assembles and redacts the body via `genesis::feedback`, and invokes `gh issue create` against the `Cargo.toml` `repository` with labels `agent-reported`, `bug`, `has-repro` | [[spec]] |
-| C-report-verb-stable | advisory | the `report` verb is not repurposed: it renders the coverage matrix as before | [[spec]] |
+| C-envelope-shape | invariant | `ah check --json` emits top-level keys `ok`, `envelope_version`, `cli_version`, `envelope_kind`, `data`, `warnings`, `hints`, `meta`, with `findings` and `summary` nested under `data` | [[cli]] |
+| C-init-genesis-injector | invariant | `ah init` injects managed blocks via `genesis::managed_block` and no local injector code remains | [[cli]] |
+| C-feedback-subcommand | invariant | `ah feedback bug --from-last-error --yes` reads its own error scratch, assembles and redacts the body via `genesis::feedback`, and invokes `gh issue create` against the `Cargo.toml` `repository` with labels `agent-reported`, `bug`, `has-repro` | [[cli]] |
+| C-report-verb-stable | advisory | the `report` verb is not repurposed: it renders the coverage matrix as before | [[cli]] |
 
 ## Model
 
@@ -27,18 +27,18 @@ statement: "WHEN espectacular adopts genesis THE cli surface SHALL wrap check JS
 
 | id | from | to | guard |
 |----|------|----|-------|
-| t-envelope | pre-genesis | genesis-wired | [[spec.C-envelope-shape]] |
-| t-init | genesis-wired | genesis-wired | [[spec.C-init-genesis-injector]] |
-| t-feedback | genesis-wired | reported | [[spec.C-feedback-subcommand]] |
+| t-envelope | pre-genesis | genesis-wired | [[cli.C-envelope-shape]] |
+| t-init | genesis-wired | genesis-wired | [[cli.C-init-genesis-injector]] |
+| t-feedback | genesis-wired | reported | [[cli.C-feedback-subcommand]] |
 
 ## Properties
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
-| P-envelope | unit | [[spec.C-envelope-shape]] | run `ah check --json` on any spec corpus | top-level keys are exactly the eight envelope keys and `findings`/`summary` appear only under `data` |
-| P-init | unit | [[spec.C-init-genesis-injector]] | run `ah init` in a fixture project | managed blocks injected via `genesis::managed_block`; no local injector code remains in the repo |
-| P-feedback | unit | [[spec.C-feedback-subcommand]] | run `ah feedback bug --from-last-error --yes` after a non-zero exit | `gh issue create` invoked against the `Cargo.toml` repository with labels `agent-reported`, `bug`, `has-repro` and a redacted body |
-| P-report | unit | [[spec.C-report-verb-stable]] | run `ah report` | the coverage matrix renders exactly as before the change |
+| P-envelope | unit | [[cli.C-envelope-shape]] | run `ah check --json` on any spec corpus | top-level keys are exactly the eight envelope keys and `findings`/`summary` appear only under `data` |
+| P-init | unit | [[cli.C-init-genesis-injector]] | run `ah init` in a fixture project | managed blocks injected via `genesis::managed_block`; no local injector code remains in the repo |
+| P-feedback | unit | [[cli.C-feedback-subcommand]] | run `ah feedback bug --from-last-error --yes` after a non-zero exit | `gh issue create` invoked against the `Cargo.toml` repository with labels `agent-reported`, `bug`, `has-repro` and a redacted body |
+| P-report | unit | [[cli.C-report-verb-stable]] | run `ah report` | the coverage matrix renders exactly as before the change |
 
 ## Purpose
 

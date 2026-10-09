@@ -1,5 +1,5 @@
 ---
-id: spec
+id: gate
 kind: intent
 statement: "WHEN a scenario contract declares an optional falsifiability_class field THE gate SHALL validate the contract schema before running tests, accepting safety and liveness, rejecting invalid values, and warning without failing when a liveness contract's tests all lack timeout_seconds."
 ---
@@ -10,10 +10,10 @@ statement: "WHEN a scenario contract declares an optional falsifiability_class f
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-schema-first | invariant | per-scenario TOML contracts are validated (`id`, `description`, `archetype`, `status`, `authored_with`) before any declared test executes | [[spec]] |
-| C-status-values | invariant | an unknown `status` value emits an `invalid-status` structural finding and exits non-zero; `status = "superseded"` requires a non-empty `superseded_by` and still runs the declared tests | [[spec]] |
-| C-falsifiability-class-values | invariant | `falsifiability_class` is absent (behaving exactly as before the field existed), `safety`, or `liveness`; any other value emits an `invalid-falsifiability-class` structural finding and exits non-zero without running tests | [[spec]] |
-| C-liveness-timeout-warning | invariant | a `liveness` contract whose test entries all omit `timeout_seconds` emits a `missing-liveness-timeout` finding with `severity = "warning"` suggesting bounded execution semantics; at least one declared timeout suppresses it; a contract with no test entries is governed by `no-tests-declared` and emits no liveness warning; warnings alone exit zero | [[spec]] |
+| C-schema-first | invariant | per-scenario TOML contracts are validated (`id`, `description`, `archetype`, `status`, `authored_with`) before any declared test executes | [[gate]] |
+| C-status-values | invariant | an unknown `status` value emits an `invalid-status` structural finding and exits non-zero; `status = "superseded"` requires a non-empty `superseded_by` and still runs the declared tests | [[gate]] |
+| C-falsifiability-class-values | invariant | `falsifiability_class` is absent (behaving exactly as before the field existed), `safety`, or `liveness`; any other value emits an `invalid-falsifiability-class` structural finding and exits non-zero without running tests | [[gate]] |
+| C-liveness-timeout-warning | invariant | a `liveness` contract whose test entries all omit `timeout_seconds` emits a `missing-liveness-timeout` finding with `severity = "warning"` suggesting bounded execution semantics; at least one declared timeout suppresses it; a contract with no test entries is governed by `no-tests-declared` and emits no liveness warning; warnings alone exit zero | [[gate]] |
 
 ## Model
 
@@ -27,20 +27,20 @@ statement: "WHEN a scenario contract declares an optional falsifiability_class f
 
 | id | from | to | guard |
 |----|------|----|-------|
-| t-schema | parsing | parsing | [[spec.C-schema-first]] |
-| t-reject | parsing | reported | [[spec.C-falsifiability-class-values]] OR [[spec.C-status-values]] |
+| t-schema | parsing | parsing | [[gate.C-schema-first]] |
+| t-reject | parsing | reported | [[gate.C-falsifiability-class-values]] OR [[gate.C-status-values]] |
 | t-execute | parsing | executing | contract schema valid, including superseded-with-non-empty-superseded_by |
-| t-warn | executing | reported | [[spec.C-liveness-timeout-warning]] |
+| t-warn | executing | reported | [[gate.C-liveness-timeout-warning]] |
 | t-clean | reported | reported | warnings alone never fail the gate |
 
 ## Properties
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
-| P-schema-first | unit | [[spec.C-schema-first]] | a contract with malformed metadata | no declared test runs before schema validation emits its findings |
-| P-status | unit | [[spec.C-status-values]] | contracts with `status = "paused"` and `status = "superseded"` | the first exits non-zero with `invalid-status`; the second runs its tests only with a non-empty `superseded_by` |
-| P-falsifiability-class | unit | [[spec.C-falsifiability-class-values]] | contracts with `falsifiability_class` absent, `"safety"`, `"liveness"`, and `"eventual"` | the first three validate and behave per their class; the last exits non-zero with `invalid-falsifiability-class` and runs no tests |
-| P-liveness-timeout | unit | [[spec.C-liveness-timeout-warning]] | liveness contracts with all tests lacking `timeout_seconds`, at least one timeout, and zero test entries | warning emitted exactly when ≥1 entry exists and all lack timeouts, with `severity = "warning"`; suppressed with a timeout; zero entries yield `no-tests-declared` and no warning; warnings alone exit zero |
+| P-schema-first | unit | [[gate.C-schema-first]] | a contract with malformed metadata | no declared test runs before schema validation emits its findings |
+| P-status | unit | [[gate.C-status-values]] | contracts with `status = "paused"` and `status = "superseded"` | the first exits non-zero with `invalid-status`; the second runs its tests only with a non-empty `superseded_by` |
+| P-falsifiability-class | unit | [[gate.C-falsifiability-class-values]] | contracts with `falsifiability_class` absent, `"safety"`, `"liveness"`, and `"eventual"` | the first three validate and behave per their class; the last exits non-zero with `invalid-falsifiability-class` and runs no tests |
+| P-liveness-timeout | unit | [[gate.C-liveness-timeout-warning]] | liveness contracts with all tests lacking `timeout_seconds`, at least one timeout, and zero test entries | warning emitted exactly when ≥1 entry exists and all lack timeouts, with `severity = "warning"`; suppressed with a timeout; zero entries yield `no-tests-declared` and no warning; warnings alone exit zero |
 
 ## Purpose
 

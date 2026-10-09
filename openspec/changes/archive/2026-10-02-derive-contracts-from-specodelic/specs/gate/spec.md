@@ -1,5 +1,5 @@
 ---
-id: spec
+id: gate
 kind: intent
 statement: "WHEN a dual-format spec whose specodelic half is lint-clean carries Properties rows THE gate SHALL derive one scenario contract per row, SHALL cover every scenario that carries a VERIFIES link to that property, and SHALL detect drift between a derived contract and its source row."
 ---
@@ -23,12 +23,12 @@ refresh derived fields while human-owned fields (`tests`, `status`,
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-property-contract | invariant | in a dual-format spec whose specodelic half is spk lint-clean, each Properties row derives exactly one scenario contract whose id is the slugified property id | [[spec]] |
-| C-verifies-covers | invariant | a scenario carrying a VERIFIES bullet linking to an existing property id is covered by that property's derived contract and emits no no-tests-declared finding | [[spec]] |
-| C-unlinked-unchanged | invariant | a scenario without a VERIFIES link keeps the per-scenario contract requirement and may still emit no-tests-declared | [[spec]] |
-| C-derived-stale | invariant | a derived contract whose derived_from hash does not match the canonical serialization of its source property row emits a contract-stale structural finding | [[spec]] |
-| C-sync-ownership | invariant | ah sync refreshes only derived fields (id, description, archetype, falsifiability_class, derived_from) and never overwrites human-owned fields (tests, status, superseded_by) | [[spec]] |
-| C-plain-unaffected | advisory | plain openspec specs and dual-format specs without Properties rows discover, gate, and check byte-identically to before this change | [[spec]] |
+| C-property-contract | invariant | in a dual-format spec whose specodelic half is spk lint-clean, each Properties row derives exactly one scenario contract whose id is the slugified property id | [[gate]] |
+| C-verifies-covers | invariant | a scenario carrying a VERIFIES bullet linking to an existing property id is covered by that property's derived contract and emits no no-tests-declared finding | [[gate]] |
+| C-unlinked-unchanged | invariant | a scenario without a VERIFIES link keeps the per-scenario contract requirement and may still emit no-tests-declared | [[gate]] |
+| C-derived-stale | invariant | a derived contract whose derived_from hash does not match the canonical serialization of its source property row emits a contract-stale structural finding | [[gate]] |
+| C-sync-ownership | invariant | ah sync refreshes only derived fields (id, description, archetype, falsifiability_class, derived_from) and never overwrites human-owned fields (tests, status, superseded_by) | [[gate]] |
+| C-plain-unaffected | advisory | plain openspec specs and dual-format specs without Properties rows discover, gate, and check byte-identically to before this change | [[gate]] |
 
 ## Model
 
@@ -43,22 +43,22 @@ refresh derived fields while human-owned fields (`tests`, `status`,
 
 | id | from | to | guard |
 |----|------|----|-------|
-| t-derive | idle | deriving | [[spec.C-property-contract]] |
-| t-match | deriving | matching | [[spec.C-verifies-covers]] |
-| t-stale | matching | reported | [[spec.C-derived-stale]] |
-| t-own | matching | reported | [[spec.C-sync-ownership]] |
-| t-unlinked | deriving | reported | [[spec.C-unlinked-unchanged]] |
+| t-derive | idle | deriving | [[gate.C-property-contract]] |
+| t-match | deriving | matching | [[gate.C-verifies-covers]] |
+| t-stale | matching | reported | [[gate.C-derived-stale]] |
+| t-own | matching | reported | [[gate.C-sync-ownership]] |
+| t-unlinked | deriving | reported | [[gate.C-unlinked-unchanged]] |
 
 ## Properties
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
-| P-derive | unit | [[spec.C-property-contract]] | a lint-clean dual-format file with N property rows | the contract set contains exactly N derived contracts with slugified ids |
-| P-covers | unit | [[spec.C-verifies-covers]] | a scenario carrying a VERIFIES link to an existing property id | no-tests-declared is suppressed for that scenario |
-| P-unlinked | unit | [[spec.C-unlinked-unchanged]] | a scenario without a VERIFIES link | the gate requires its own contract exactly as before this change |
-| P-stale | unit | [[spec.C-derived-stale]] | a derived contract whose source row predicate is edited after sync | contract-stale is emitted and ah sync --check exits non-zero without writing |
-| P-ownership | unit | [[spec.C-sync-ownership]] | a derived contract with hand-filled tests and status, re-synced after a predicate edit | derived fields change; tests, status, and superseded_by are byte-identical |
-| P-unaffected | unit | [[spec.C-plain-unaffected]] | a corpus of plain openspec specs and Properties-less dual-format specs | discovery and check output is byte-identical to pre-change behavior |
+| P-derive | unit | [[gate.C-property-contract]] | a lint-clean dual-format file with N property rows | the contract set contains exactly N derived contracts with slugified ids |
+| P-covers | unit | [[gate.C-verifies-covers]] | a scenario carrying a VERIFIES link to an existing property id | no-tests-declared is suppressed for that scenario |
+| P-unlinked | unit | [[gate.C-unlinked-unchanged]] | a scenario without a VERIFIES link | the gate requires its own contract exactly as before this change |
+| P-stale | unit | [[gate.C-derived-stale]] | a derived contract whose source row predicate is edited after sync | contract-stale is emitted and ah sync --check exits non-zero without writing |
+| P-ownership | unit | [[gate.C-sync-ownership]] | a derived contract with hand-filled tests and status, re-synced after a predicate edit | derived fields change; tests, status, and superseded_by are byte-identical |
+| P-unaffected | unit | [[gate.C-plain-unaffected]] | a corpus of plain openspec specs and Properties-less dual-format specs | discovery and check output is byte-identical to pre-change behavior |
 
 ## Purpose
 
@@ -69,7 +69,7 @@ rows, and refreshed by `ah sync` without ever clobbering human test bindings.
 ## ADDED Requirements
 
 ### Requirement: Property-Derived Contracts
-The system SHALL derive one scenario contract per Properties row in a dual-format spec whose specodelic half is lint-clean, using the slugified property id as the contract id, and SHALL treat a scenario carrying a `**VERIFIES** [[spec.P-...]]` link as covered by that property's contract.
+The system SHALL derive one scenario contract per Properties row in a dual-format spec whose specodelic half is lint-clean, using the slugified property id as the contract id, and SHALL treat a scenario carrying a `**VERIFIES** [[gate.P-...]]` link as covered by that property's contract.
 
 #### Scenario: Derive contracts from properties
 - **GIVEN** a dual-format spec is `spk lint`-clean and carries three Properties rows
@@ -78,7 +78,7 @@ The system SHALL derive one scenario contract per Properties row in a dual-forma
 - **AND** each records `derived_from = "<property-id>@<hash>"`
 
 #### Scenario: Cover linked scenario
-- **GIVEN** a scenario carries `- **VERIFIES** [[spec.P-not-shipped]]` and the property's derived contract exists
+- **GIVEN** a scenario carries `- **VERIFIES** [[gate.P-not-shipped]]` and the property's derived contract exists
 - **WHEN** `ah check` validates the spec
 - **THEN** the scenario emits no `no-tests-declared` finding
 
@@ -110,7 +110,7 @@ The system SHALL record `derived_from = "<property-id>@<hash>"` in each derived 
 ## Requirements
 
 ### Requirement: Property-Derived Contracts
-The system SHALL derive one scenario contract per Properties row in a dual-format spec whose specodelic half is lint-clean, using the slugified property id as the contract id, and SHALL treat a scenario carrying a `**VERIFIES** [[spec.P-...]]` link as covered by that property's contract.
+The system SHALL derive one scenario contract per Properties row in a dual-format spec whose specodelic half is lint-clean, using the slugified property id as the contract id, and SHALL treat a scenario carrying a `**VERIFIES** [[gate.P-...]]` link as covered by that property's contract.
 
 #### Scenario: Derive contracts from properties
 - **GIVEN** a dual-format spec is `spk lint`-clean and carries three Properties rows
@@ -119,7 +119,7 @@ The system SHALL derive one scenario contract per Properties row in a dual-forma
 - **AND** each records `derived_from = "<property-id>@<hash>"`
 
 #### Scenario: Cover linked scenario
-- **GIVEN** a scenario carries `- **VERIFIES** [[spec.P-not-shipped]]` and the property's derived contract exists
+- **GIVEN** a scenario carries `- **VERIFIES** [[gate.P-not-shipped]]` and the property's derived contract exists
 - **WHEN** `ah check` validates the spec
 - **THEN** the scenario emits no `no-tests-declared` finding
 
