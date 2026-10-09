@@ -1,0 +1,16 @@
+archetype = "PF"
+authored_with = "0.10.0"
+derived_from = "P-attribution@4b3c8d96ee32"
+description = "that contract emits test-failing while contracts whose matched tests all pass succeed"
+falsifiability_class = "safety"
+id = "p-attribution"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "fails_only_its_contract"
+timeout_seconds = 120
+
+[[tests.cargo]]
+flags = "attribution_"
+timeout_seconds = 120

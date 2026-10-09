@@ -8,5 +8,5 @@ status = "active"
 superseded_by = ""
 
 [[tests.cargo]]
-flags = "spk_frontmatter_mismatch"
+flags = "emits_mismatch_naming"
 timeout_seconds = 120

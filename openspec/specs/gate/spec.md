@@ -30,6 +30,12 @@ statement: "WHEN ah check validates a spec corpus THE gate SHALL discover scenar
 | C-derived-stale | invariant | a derived contract whose derived_from hash does not match the canonical serialization of its source property row emits a contract-stale structural finding | [[gate]] |
 | C-sync-ownership | invariant | ah sync refreshes only derived fields (id, description, archetype, falsifiability_class, derived_from) and never overwrites human-owned fields (tests, status, superseded_by) | [[gate]] |
 | C-plain-unaffected | advisory | plain openspec specs and dual-format specs without Properties rows discover, gate, and check byte-identically to before this change | [[gate]] |
+| C-batch-threshold | invariant | bindings of one runner type with structured-reporter support and pattern-only flags batch into a single OR-joined invocation when their count exceeds the fixed threshold (8), and never batch at or below it | [[gate]] |
+| C-batch-attribution | invariant | a batched contract passes only when every structured-output test matched by its pattern reports passed; any matched test failed or skipped/todo emits a test-failing or no-tests-ran verdict for that contract | [[gate]] |
+| C-batch-matched-zero | invariant | a batched contract whose pattern matches no test in the structured output emits no-tests-ran regardless of the batched invocation exit code | [[gate]] |
+| C-batch-fallback | invariant | an unparseable, errored, or timed-out batched invocation emits a named fallback signal and re-runs its bindings per-contract with exit-code verdicts | [[gate]] |
+| C-batch-timeout | invariant | the batched invocation runs under the maximum timeout_seconds across its batched entries and reports timed_out on expiry before falling back | [[gate]] |
+| C-unbatched-unchanged | invariant | runner types without structured-reporter support, bindings with JS-only regex constructs, and sets at or below the threshold keep per-binding exit-code execution byte-identical | [[gate]] |
 
 ## Model
 
@@ -38,6 +44,7 @@ statement: "WHEN ah check validates a spec corpus THE gate SHALL discover scenar
 - `discovering`
 - `validating`
 - `executing`
+- `attributed`
 - `reporting`
 - `deriving`
 
@@ -50,6 +57,8 @@ statement: "WHEN ah check validates a spec corpus THE gate SHALL discover scenar
 | t-schema | validating | validating | [[gate.C-contract-schema]] |
 | t-execute | validating | executing | [[gate.C-runner-execution]] ([[gate.C-nr-archetype]] and [[gate.C-quality-schema]] shape what runs) |
 | t-quality | executing | executing | [[gate.C-quality-measurement]] |
+| t-attribute | executing | attributed | [[gate.C-batch-attribution]] |
+| t-report-batched | attributed | reporting | [[gate.C-batch-matched-zero]] |
 | t-report | executing | reporting | [[gate.C-json-findings]] AND [[gate.C-agent-actions]] AND [[gate.C-coverage-matrix]] AND [[gate.C-apply-command]] |
 | t-bound | reporting | reporting | [[gate.C-scope-boundary]] |
 | t-derive | discovering | deriving | [[gate.C-property-contract]] |
@@ -81,6 +90,12 @@ statement: "WHEN ah check validates a spec corpus THE gate SHALL discover scenar
 | P-stale | unit | [[gate.C-derived-stale]] | a derived contract whose source row predicate is edited after sync | contract-stale is emitted and ah sync --check exits non-zero without writing |
 | P-ownership | unit | [[gate.C-sync-ownership]] | a derived contract with hand-filled tests and status, re-synced after a predicate edit | derived fields change; tests, status, and superseded_by are byte-identical |
 | P-unaffected | unit | [[gate.C-plain-unaffected]] | a corpus of plain openspec specs and Properties-less dual-format specs | discovery and check output is byte-identical to pre-change behavior |
+| P-batch-count | unit | [[gate.C-batch-threshold]] | a corpus with more than 8 vitest bindings sharing one runner | exactly one runner invocation executes for that runner type; a corpus with 8 or fewer keeps per-binding spawns |
+| P-attribution | unit | [[gate.C-batch-attribution]] | a batched contract whose pattern matches two tests where one fails | that contract emits test-failing while contracts whose matched tests all pass succeed |
+| P-zero | unit | [[gate.C-batch-matched-zero]] | a batched invocation whose JSON output contains no test matched by one contract's pattern | that contract emits no-tests-ran while the invocation's exit code does not cover it |
+| P-fallback | unit | [[gate.C-batch-fallback]] | a batched invocation whose structured output is truncated | a named fallback signal is emitted and every affected binding re-runs per-contract |
+| P-timeout | unit | [[gate.C-batch-timeout]] | batched entries declaring timeouts of 10 and 30 seconds | the invocation runs under a 30-second bound and a hang reports timed_out before fallback |
+| P-unchanged | unit | [[gate.C-unbatched-unchanged]] | a corpus of cargo and shell bindings | check output is byte-identical to pre-change behavior |
 
 ## Non-Goals
 
@@ -236,7 +251,7 @@ The system SHALL validate per-scenario TOML contracts before running tests. Cont
 - **VERIFIES** [[gate.P-schema]]
 
 ### Requirement: Test Runner Execution
-The system SHALL run each declared test command and use its exit code as the execution verdict.
+The system SHALL run every declared test binding and derive each binding's execution verdict from its command's exit code, or, when eligible bindings of one structured-output runner are batched into a single invocation, from that invocation's structured per-test output.
 
 #### Scenario: Run configured unit test
 - **GIVEN** `.espectacular/config.toml` maps `unit` to `["uv", "run", "pytest"]`
@@ -296,6 +311,47 @@ The system SHALL run each declared test command and use its exit code as the exe
 - **THEN** the command emits a `test-failing` execution finding
 - **AND** exits non-zero
 - **VERIFIES** [[gate.P-execution]]
+
+#### Scenario: Batch eligible bindings into one invocation
+- **GIVEN** more than 8 contracts declare bindings for one runner type with structured-reporter support and pattern-only flags
+- **WHEN** a user runs `ah check --run-tests`
+- **THEN** exactly one runner invocation executes for that runner type with an OR-joined pattern and the structured reporter
+- **VERIFIES** [[gate.P-batch-count]]
+
+#### Scenario: Attribute batched contract from structured output
+- **GIVEN** a batched contract whose pattern matches two tests where one fails
+- **WHEN** a user runs `ah check --run-tests`
+- **THEN** that contract emits a `test-failing` execution finding
+- **AND** contracts whose matched tests all passed succeed
+- **VERIFIES** [[gate.P-attribution]]
+
+#### Scenario: Matched-zero batched contract still fails
+- **GIVEN** a batched invocation whose structured output contains no test matched by one contract's pattern
+- **WHEN** a user runs `ah check --run-tests`
+- **THEN** that contract emits a `no-tests-ran` execution finding
+- **AND** the batched invocation's exit code does not cover it
+- **VERIFIES** [[gate.P-zero]]
+
+#### Scenario: Batch fallback re-runs per binding
+- **GIVEN** a batched invocation whose structured output is truncated and unparseable
+- **WHEN** a user runs `ah check --run-tests`
+- **THEN** a named fallback signal is emitted in JSON output
+- **AND** every affected binding re-runs per-contract with exit-code verdicts
+- **VERIFIES** [[gate.P-fallback]]
+
+#### Scenario: Batched timeout bound
+- **GIVEN** batched entries declare timeouts of 10 and 30 seconds
+- **WHEN** the batched invocation hangs beyond 30 seconds
+- **THEN** the invocation stops with `timed_out = true`
+- **AND** every affected binding re-runs per-contract with exit-code verdicts
+- **VERIFIES** [[gate.P-timeout]]
+
+#### Scenario: Unbatched runners unchanged
+- **GIVEN** a corpus of cargo and shell bindings
+- **WHEN** a user runs `ah check --run-tests`
+- **THEN** each binding spawns per-contract with exit-code verdicts
+- **AND** the check output is byte-identical to pre-change behavior
+- **VERIFIES** [[gate.P-unchanged]]
 
 ### Requirement: JSON Findings
 The system SHALL emit stable JSON output for `ah check` results.
@@ -648,6 +704,7 @@ The system SHALL derive one scenario contract per Properties row in a dual-forma
 - **THEN** the command refuses the file with a named refusal citing the specodelic rule
 - **AND** no contracts are derived or written for that spec
 - **VERIFIES** [[gate.P-derive]]
+
 ### Requirement: Derived Contract Drift
 The system SHALL record `derived_from = "<property-id>@<hash>"` in each derived contract, emit a `contract-stale` structural finding when the hash no longer matches the source row's canonical serialization, and refresh only derived fields during `ah sync` — never `tests`, `status`, or `superseded_by`.
 
@@ -663,3 +720,4 @@ The system SHALL record `derived_from = "<property-id>@<hash>"` in each derived 
 - **THEN** derived fields are updated to match the row
 - **AND** `tests`, `status`, and `superseded_by` are byte-identical to before
 - **VERIFIES** [[gate.P-ownership]]
+

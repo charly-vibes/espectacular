@@ -1,0 +1,16 @@
+archetype = "PF"
+authored_with = "0.10.0"
+derived_from = "P-unchanged@b28d837644fc"
+description = "check output is byte-identical to pre-change behavior"
+falsifiability_class = "safety"
+id = "p-unchanged"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "never_batch"
+timeout_seconds = 120
+
+[[tests.cargo]]
+flags = "keeps_dual_engine_constructs"
+timeout_seconds = 120

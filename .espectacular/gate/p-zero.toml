@@ -1,0 +1,12 @@
+archetype = "PF"
+authored_with = "0.10.0"
+derived_from = "P-zero@4c8dd4b8f4b9"
+description = "that contract emits no-tests-ran while the invocation's exit code does not cover it"
+falsifiability_class = "safety"
+id = "p-zero"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "no_tests_ran"
+timeout_seconds = 120

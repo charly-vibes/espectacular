@@ -1,0 +1,16 @@
+archetype = "PF"
+authored_with = "0.10.0"
+derived_from = "P-fallback@76d2b3de3e9a"
+description = "a named fallback signal is emitted and every affected binding re-runs per-contract"
+falsifiability_class = "safety"
+id = "p-fallback"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "falls_back"
+timeout_seconds = 120
+
+[[tests.cargo]]
+flags = "fallback_with_reason"
+timeout_seconds = 120

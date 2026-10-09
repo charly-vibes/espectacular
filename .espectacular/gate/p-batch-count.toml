@@ -1,0 +1,16 @@
+archetype = "PF"
+authored_with = "0.10.0"
+derived_from = "P-batch-count@7977d15a6f48"
+description = "exactly one runner invocation executes for that runner type; a corpus with 8 or fewer keeps per-binding spawns"
+falsifiability_class = "safety"
+id = "p-batch-count"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "spawn_one_invocation"
+timeout_seconds = 120
+
+[[tests.cargo]]
+flags = "keep_per_binding_spawns"
+timeout_seconds = 120

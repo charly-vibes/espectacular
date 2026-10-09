@@ -1,0 +1,16 @@
+archetype = "PF"
+authored_with = "0.10.0"
+derived_from = "P-timeout@59a3d3c89cd9"
+description = "the invocation runs under a 30-second bound and a hang reports timed_out before fallback"
+falsifiability_class = "safety"
+id = "p-timeout"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "max_timeout"
+timeout_seconds = 120
+
+[[tests.cargo]]
+flags = "timed_out_batch"
+timeout_seconds = 120
