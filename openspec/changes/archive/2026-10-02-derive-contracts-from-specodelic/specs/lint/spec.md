@@ -1,5 +1,5 @@
 ---
-id: spec
+id: lint
 kind: intent
 statement: "WHEN the lint bridge inspects kind-intent files THE linter SHALL never skip a specodelic file silently, SHALL relay spk graph findings, and SHALL report scenario-to-property trace gaps as advisory findings that never affect the exit code."
 ---
@@ -21,10 +21,10 @@ by property-derived contracts.
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-no-silent-skip | invariant | a kind-intent file whose frontmatter id does not match its filename stem emits an spk-frontmatter-mismatch finding instead of being skipped silently | [[spec]] |
-| C-graph-relay | invariant | spk graph typing violations and dangling references for dual-format files are relayed as spk.graph.* warning findings | [[spec]] |
-| C-trace-advisory | advisory | verifies-dangling, scenario-unlinked, and property-untraced are reported at advisory severity and never affect the lint exit code | [[spec]] |
-| C-plain-untouched | advisory | plain openspec files never trigger an spk invocation and produce no specodelic findings | [[spec]] |
+| C-no-silent-skip | invariant | a kind-intent file whose frontmatter id does not match its filename stem emits an spk-frontmatter-mismatch finding instead of being skipped silently | [[lint]] |
+| C-graph-relay | invariant | spk graph typing violations and dangling references for dual-format files are relayed as spk.graph.* warning findings | [[lint]] |
+| C-trace-advisory | advisory | verifies-dangling, scenario-unlinked, and property-untraced are reported at advisory severity and never affect the lint exit code | [[lint]] |
+| C-plain-untouched | advisory | plain openspec files never trigger an spk invocation and produce no specodelic findings | [[lint]] |
 
 ## Model
 
@@ -39,19 +39,19 @@ by property-derived contracts.
 
 | id | from | to | guard |
 |----|------|----|-------|
-| t-relay | collecting | relaying | [[spec.C-no-silent-skip]] |
-| t-graph | relaying | tracing | [[spec.C-graph-relay]] |
-| t-trace | tracing | reported | [[spec.C-graph-relay]] |
-| t-plain | relaying | reported | [[spec.C-no-silent-skip]] |
+| t-relay | collecting | relaying | [[lint.C-no-silent-skip]] |
+| t-graph | relaying | tracing | [[lint.C-graph-relay]] |
+| t-trace | tracing | reported | [[lint.C-graph-relay]] |
+| t-plain | relaying | reported | [[lint.C-no-silent-skip]] |
 
 ## Properties
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
-| P-mismatch | unit | [[spec.C-no-silent-skip]] | a kind-intent file whose frontmatter id differs from its filename stem | lint emits spk-frontmatter-mismatch naming the file and the expected id |
-| P-graph | unit | [[spec.C-graph-relay]] | a dual-format corpus containing a typing violation and a dangling reference | both are relayed as spk.graph.* warnings |
-| P-trace | unit | [[spec.C-trace-advisory]] | a dual-format corpus with a dangling VERIFIES link, an unlinked scenario, and an untraced property | all three appear as advisory findings; the exit code is zero |
-| P-plain | unit | [[spec.C-plain-untouched]] | a corpus of plain openspec spec files | lint output contains no specodelic findings and no spk invocation occurs |
+| P-mismatch | unit | [[lint.C-no-silent-skip]] | a kind-intent file whose frontmatter id differs from its filename stem | lint emits spk-frontmatter-mismatch naming the file and the expected id |
+| P-graph | unit | [[lint.C-graph-relay]] | a dual-format corpus containing a typing violation and a dangling reference | both are relayed as spk.graph.* warnings |
+| P-trace | unit | [[lint.C-trace-advisory]] | a dual-format corpus with a dangling VERIFIES link, an unlinked scenario, and an untraced property | all three appear as advisory findings; the exit code is zero |
+| P-plain | unit | [[lint.C-plain-untouched]] | a corpus of plain openspec spec files | lint output contains no specodelic findings and no spk invocation occurs |
 
 ## Purpose
 
@@ -83,7 +83,7 @@ The linter SHALL emit an `spk-frontmatter-mismatch` finding for every `kind: int
 The linter SHALL report advisory trace findings — `verifies-dangling`, `scenario-unlinked`, and `property-untraced` — for dual-format files with Properties rows, without affecting the exit code.
 
 #### Scenario: Dangling verifies link
-- **GIVEN** a scenario carries `**VERIFIES** [[spec.P-missing]]` and no such property exists
+- **GIVEN** a scenario carries `**VERIFIES** [[lint.P-missing]]` and no such property exists
 - **WHEN** `ah lint` runs over the file
 - **THEN** a `verifies-dangling` advisory finding is emitted
 
@@ -123,7 +123,7 @@ The linter SHALL emit an `spk-frontmatter-mismatch` finding for every `kind: int
 The linter SHALL report advisory trace findings — `verifies-dangling`, `scenario-unlinked`, and `property-untraced` — for dual-format files with Properties rows, without affecting the exit code.
 
 #### Scenario: Dangling verifies link
-- **GIVEN** a scenario carries `**VERIFIES** [[spec.P-missing]]` and no such property exists
+- **GIVEN** a scenario carries `**VERIFIES** [[lint.P-missing]]` and no such property exists
 - **WHEN** `ah lint` runs over the file
 - **THEN** a `verifies-dangling` advisory finding is emitted
 

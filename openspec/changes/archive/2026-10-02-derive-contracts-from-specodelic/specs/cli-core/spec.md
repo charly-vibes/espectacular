@@ -1,5 +1,5 @@
 ---
-id: spec
+id: cli.core
 kind: intent
 statement: "WHEN a user runs ah sync THE cli SHALL create or refresh property-derived contracts for the current scope, SHALL exit non-zero when spk lint fails or spk is unavailable, and SHALL support a check mode that writes nothing and fails on drift."
 ---
@@ -19,10 +19,10 @@ conventions (there is no `src/cli/` module — the CLI lives in `src/main.rs`).
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-sync-refusal | invariant | ah sync exits non-zero without writing when spk lint fails on any target file or when the spk binary is missing, reporting spk-unavailable for the latter | [[spec]] |
-| C-sync-check | invariant | ah sync --check writes nothing, exits zero when all derived contracts exist and are fresh, and exits non-zero on drift or missing contracts | [[spec]] |
-| C-sync-registration | invariant | ah sync is registered in the Command enum with help text and completions like every other subcommand | [[spec]] |
-| C-sync-scope | advisory | without an explicit scope, ah sync operates on the same default scope as ah check | [[spec]] |
+| C-sync-refusal | invariant | ah sync exits non-zero without writing when spk lint fails on any target file or when the spk binary is missing, reporting spk-unavailable for the latter | [[cli.core]] |
+| C-sync-check | invariant | ah sync --check writes nothing, exits zero when all derived contracts exist and are fresh, and exits non-zero on drift or missing contracts | [[cli.core]] |
+| C-sync-registration | invariant | ah sync is registered in the Command enum with help text and completions like every other subcommand | [[cli.core]] |
+| C-sync-scope | advisory | without an explicit scope, ah sync operates on the same default scope as ah check | [[cli.core]] |
 
 ## Model
 
@@ -37,19 +37,19 @@ conventions (there is no `src/cli/` module — the CLI lives in `src/main.rs`).
 
 | id | from | to | guard |
 |----|------|----|-------|
-| t-refuse | linting | linting | [[spec.C-sync-refusal]] |
-| t-parse | linting | parsing | [[spec.C-sync-refusal]] |
-| t-write | parsing | written | [[spec.C-sync-registration]] |
-| t-check | parsing | checked | [[spec.C-sync-check]] |
+| t-refuse | linting | linting | [[cli.core.C-sync-refusal]] |
+| t-parse | linting | parsing | [[cli.core.C-sync-refusal]] |
+| t-write | parsing | written | [[cli.core.C-sync-registration]] |
+| t-check | parsing | checked | [[cli.core.C-sync-check]] |
 
 ## Properties
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
-| P-refuse | unit | [[spec.C-sync-refusal]] | a scope containing a lint-dirty dual-format file, and a scope with no spk binary on PATH | sync exits non-zero with a reason in both cases and writes nothing |
-| P-check | unit | [[spec.C-sync-check]] | a scope with fresh contracts, drifted contracts, and missing contracts | check mode exits zero, non-zero, and non-zero respectively; no file is modified in any case |
-| P-register | unit | [[spec.C-sync-registration]] | ah --help and shell completion generation | sync appears with help text and completes like other subcommands |
-| P-scope | unit | [[spec.C-sync-scope]] | sync invoked with and without an explicit scope | the default scope matches ah check's default scope |
+| P-refuse | unit | [[cli.core.C-sync-refusal]] | a scope containing a lint-dirty dual-format file, and a scope with no spk binary on PATH | sync exits non-zero with a reason in both cases and writes nothing |
+| P-check | unit | [[cli.core.C-sync-check]] | a scope with fresh contracts, drifted contracts, and missing contracts | check mode exits zero, non-zero, and non-zero respectively; no file is modified in any case |
+| P-register | unit | [[cli.core.C-sync-registration]] | ah --help and shell completion generation | sync appears with help text and completes like other subcommands |
+| P-scope | unit | [[cli.core.C-sync-scope]] | sync invoked with and without an explicit scope | the default scope matches ah check's default scope |
 
 ## Purpose
 

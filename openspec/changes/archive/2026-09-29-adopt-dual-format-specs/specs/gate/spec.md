@@ -1,5 +1,5 @@
 ---
-id: spec
+id: gate
 kind: intent
 statement: "WHEN a spec file carries both the specodelic and openspec grammars THE gate SHALL discover each scenario exactly once, treating mirrored requirement sections and structured tables as never producing duplicate or extra scenarios."
 ---
@@ -23,11 +23,11 @@ The specodelic half of this file is linted by `spk lint`; the openspec half by
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-mirror-dedupe | invariant | two `#### Scenario:` headings in the same file with the same slugified id and identical bodies yield exactly one discovered scenario | [[spec]] |
-| C-distinct-bodies-collide | invariant | two `#### Scenario:` headings in the same file with the same slugified id but different bodies emit a slug-collision structural finding and fail the gate | [[spec]] |
-| C-tables-inert | invariant | YAML frontmatter, Constraints rows, Model states and transitions, and Properties rows contribute no discovered scenarios | [[spec]] |
-| C-opt-in | advisory | the gate never requires the specodelic half; a plain openspec spec file remains valid and discovers scenarios unchanged | [[spec]] |
-| C-prose-untouched | advisory | prose outside frontmatter and the fixed-schema tables is never parsed and never alters the discovered scenario set | [[spec]] |
+| C-mirror-dedupe | invariant | two `#### Scenario:` headings in the same file with the same slugified id and identical bodies yield exactly one discovered scenario | [[gate]] |
+| C-distinct-bodies-collide | invariant | two `#### Scenario:` headings in the same file with the same slugified id but different bodies emit a slug-collision structural finding and fail the gate | [[gate]] |
+| C-tables-inert | invariant | YAML frontmatter, Constraints rows, Model states and transitions, and Properties rows contribute no discovered scenarios | [[gate]] |
+| C-opt-in | advisory | the gate never requires the specodelic half; a plain openspec spec file remains valid and discovers scenarios unchanged | [[gate]] |
+| C-prose-untouched | advisory | prose outside frontmatter and the fixed-schema tables is never parsed and never alters the discovered scenario set | [[gate]] |
 
 ## Model
 
@@ -41,19 +41,19 @@ The specodelic half of this file is linted by `spk lint`; the openspec half by
 
 | id | from | to | guard |
 |----|------|----|-------|
-| t-scan | scanning | deduplicating | [[spec.C-tables-inert]] |
-| t-dedupe | deduplicating | reported | [[spec.C-mirror-dedupe]] |
-| t-collide | deduplicating | reported | [[spec.C-distinct-bodies-collide]] |
+| t-scan | scanning | deduplicating | [[gate.C-tables-inert]] |
+| t-dedupe | deduplicating | reported | [[gate.C-mirror-dedupe]] |
+| t-collide | deduplicating | reported | [[gate.C-distinct-bodies-collide]] |
 
 ## Properties
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
-| P-dedupe | unit | [[spec.C-mirror-dedupe]] | any markdown file whose mirrored requirement sections repeat a `#### Scenario:` heading verbatim | discovered scenario count for the mirrored id is exactly 1 |
-| P-collision | unit | [[spec.C-distinct-bodies-collide]] | two headings with equal slugified id and differing bodies in one file | gate emits a slug-collision finding and exits non-zero |
-| P-tables | unit | [[spec.C-tables-inert]] | a dual-format file with fully populated frontmatter, Constraints, Model, and Properties tables | no discovered scenario id originates from a table row or frontmatter field |
-| P-optin | unit | [[spec.C-opt-in]] | a plain openspec spec file with no frontmatter and no specodelic tables | discovery output is byte-identical to pre-change behavior |
-| P-prose | unit | [[spec.C-prose-untouched]] | arbitrary prose inserted between any sections of a dual-format file | the discovered scenario set is unchanged by the inserted prose |
+| P-dedupe | unit | [[gate.C-mirror-dedupe]] | any markdown file whose mirrored requirement sections repeat a `#### Scenario:` heading verbatim | discovered scenario count for the mirrored id is exactly 1 |
+| P-collision | unit | [[gate.C-distinct-bodies-collide]] | two headings with equal slugified id and differing bodies in one file | gate emits a slug-collision finding and exits non-zero |
+| P-tables | unit | [[gate.C-tables-inert]] | a dual-format file with fully populated frontmatter, Constraints, Model, and Properties tables | no discovered scenario id originates from a table row or frontmatter field |
+| P-optin | unit | [[gate.C-opt-in]] | a plain openspec spec file with no frontmatter and no specodelic tables | discovery output is byte-identical to pre-change behavior |
+| P-prose | unit | [[gate.C-prose-untouched]] | arbitrary prose inserted between any sections of a dual-format file | the discovered scenario set is unchanged by the inserted prose |
 
 ## Purpose
 
