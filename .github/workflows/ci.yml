@@ -37,8 +37,8 @@ jobs:
         uses: extractions/setup-just@v2
 
       # Run the exact same command as local development
-      - name: Install specodelic (corpus gate in `just ci`, pinned crates.io release 0.4.0)
-        run: cargo install specodelic --locked --version 0.4.0
+      - name: Install specodelic (corpus gate in `just ci`, pinned crates.io release 0.7.0)
+        run: cargo install specodelic --locked --version 0.7.0
 
       - name: Install ecosystem tools (§4 dogfood matrix, pinned)
         run: |
@@ -85,8 +85,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       # contract-stale unit tests shell out to spk parse --json (espectacular-pli)
-      - name: Install specodelic (pinned crates.io release 0.4.0)
-        run: cargo install specodelic --locked --version 0.4.0
+      - name: Install specodelic (pinned crates.io release 0.7.0)
+        run: cargo install specodelic --locked --version 0.7.0
 
       - name: Install cargo-tarpaulin
         uses: taiki-e/install-action@cargo-tarpaulin
@@ -116,8 +116,8 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v2
 
-      - name: Install specodelic (pinned crates.io release 0.4.0 — Rev 7 kinds, tiered single_root_reachable, graph dangling msgs)
-        run: cargo install specodelic --locked --version 0.4.0
+      - name: Install specodelic (pinned crates.io release 0.7.0 — Rev 8 semantics, rev-18 real ids)
+        run: cargo install specodelic --locked --version 0.7.0
 
       - name: Spec corpus mandate (spk lint + frontmatter over all non-archived spec.md)
         run: just spec-lint
