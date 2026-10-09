@@ -736,6 +736,50 @@ fn ah_check_batched_vitest_bindings_spawn_one_invocation_above_threshold() {
     );
 }
 
+// batch-runner-spawns task 1.4: a JS-only-regex binding (lookahead — Rust
+// regex cannot compile it) is excluded from batching at eligibility time and
+// keeps its own per-binding spawn: 10 bindings → 1 batched invocation (9
+// patterns, no lookahead) + 1 per-binding invocation carrying the lookahead.
+#[test]
+fn ah_check_js_only_pattern_binding_runs_per_binding_alongside_batch() {
+    let repo = vitest_pattern_repo(10);
+    fs::write(
+        repo.path().join(".espectacular/ui/spawn-1.toml"),
+        concat!(
+            "id = \"spawn-1\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\n",
+            "superseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.vitest]]\n",
+            "flags = \"--testNamePattern=p_spawn-(?=1)\"\n"
+        ),
+    )
+    .unwrap();
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["check", "--run-tests", "--json"])
+        .assert()
+        .success();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
+    assert_schema_valid(&output);
+    assert_eq!(data["findings"], Value::Array(vec![]));
+    assert_eq!(data["summary"]["passed"], 10);
+
+    let log = fs::read_to_string(repo.path().join("invocations.log")).unwrap();
+    let lines: Vec<&str> = log.lines().filter(|l| !l.trim().is_empty()).collect();
+    assert_eq!(
+        lines.len(),
+        2,
+        "1 batched + 1 per-binding spawn expected; log:\n{log}"
+    );
+    let per_binding = lines.iter().filter(|l| l.contains("(?=")).count();
+    assert_eq!(
+        per_binding, 1,
+        "exactly one per-binding invocation must carry the lookahead; log:\n{log}"
+    );
+}
+
 // batch-runner-spawns task 1.2: below the threshold (≤ 8 bindings) the
 // per-binding spawn behavior is unchanged — one invocation per contract.
 #[test]
