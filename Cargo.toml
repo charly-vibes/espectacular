@@ -1,6 +1,6 @@
 [package]
 name = "espectacular"
-version = "0.9.3"
+version = "0.10.0"
 edition = "2021"
 description = "Behavioral verification layer enforcing spec-test correspondence in AI-assisted development"
 license = "Apache-2.0"
