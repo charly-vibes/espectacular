@@ -34,6 +34,23 @@ fn to_json_envelope<T: serde::Serialize>(kind: EnvelopeKind, data: T) -> String 
     serde_json::to_string(&env).expect("envelope serialization")
 }
 
+/// Like [`to_json_envelope`], but with an explicit `ok` override.
+///
+/// Needed for commands whose *result data carries a verdict* rather than
+/// the command's own success: `ah check` with blocking findings exits 1
+/// even though the command itself ran fine, and `Envelope::success`
+/// hardcodes `ok: true`. Machine consumers classify an invocation by the
+/// `(ok, exit_code)` pair — emitting `ok: true` with exit 1 satisfies
+/// neither an ok-envelope nor an error-envelope contract (the
+/// ok:true+exit-1 drift, evallerina-54f; round2-audit: 8/12 native
+/// ah_check toolResults). `ok` must agree with the exit code.
+fn to_json_envelope_with_ok<T: serde::Serialize>(kind: EnvelopeKind, data: T, ok: bool) -> String {
+    let mut env: Envelope<T> =
+        Envelope::success(env!("CARGO_PKG_VERSION"), kind, data, vec![], vec![]);
+    env.ok = ok;
+    serde_json::to_string(&env).expect("envelope serialization")
+}
+
 /// Extract the `repository` field from a Cargo.toml manifest string.
 fn extract_repository(manifest: &str) -> Option<String> {
     for line in manifest.lines() {
@@ -273,7 +290,13 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                     .findings
                     .iter()
                     .any(|f| f.category == "structural" || f.category == "execution");
-                println!("{}", to_json_envelope(EnvelopeKind::Check, &report));
+                // ok must agree with the exit code: blocking findings fail
+                // the gate (exit 1), so the envelope reports ok:false —
+                // see to_json_envelope_with_ok (evallerina-54f).
+                println!(
+                    "{}",
+                    to_json_envelope_with_ok(EnvelopeKind::Check, &report, !has_blocking)
+                );
                 std::io::stdout().flush().unwrap_or_default();
                 std::process::exit(if has_blocking { 1 } else { 0 });
             } else {
