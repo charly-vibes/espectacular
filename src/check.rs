@@ -604,6 +604,9 @@ fn resolve_verifies_coverage(
     covered
 }
 
+// Layer 1 selection added changed_files/all_tests; the parameter count is
+// deliberate — each arg is a distinct axis of the run, not a hidden bundle.
+#[allow(clippy::too_many_arguments)]
 fn evaluate_scope(
     repo_root: &Path,
     cfg: &config::Config,
