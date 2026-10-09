@@ -560,6 +560,73 @@ mod tests {
         }
     }
 
+    // batch-runner-spawns task 2.3 (C-batch-attribution): attribution parses
+    // the FULL captured stdout — a passing assertion beyond the 8 KiB
+    // findings tail still reaches the parser; the TestResult tail that lands
+    // in findings stays 8 KiB findings-only.
+    #[test]
+    fn attribution_parses_stdout_beyond_the_findings_tail() {
+        let bindings = vec![entry_with_pattern("p_a")];
+        // 16 KiB of padding before the assertion — far beyond OUTPUT_TAIL_BYTES.
+        let padding = "x".repeat(16 * 1024);
+        let stdout = format!(
+            r#"{{"testResults": [{{"assertionResults": [{{"fullName": "{padding}", "status": "passed"}}, {{"fullName": "p_a", "status": "passed"}}]}}]}}"#
+        );
+        assert!(stdout.len() > 8 * 1024);
+
+        let verdicts = attribute(&bindings, &batch_result(Some(0)), &stdout).unwrap();
+
+        assert!(matches!(verdicts[0], BatchedVerdict::Passed));
+    }
+
+    // batch-runner-spawns task 2.3: a batched invocation whose structured
+    // output exceeds the parse cap degrades to per-binding fallback instead
+    // of ballooning memory or mis-attributing.
+    #[test]
+    fn oversized_structured_output_falls_back_per_binding() {
+        let dir = tempfile::tempdir().unwrap();
+        let helper = dir.path().join("bulky.sh");
+        // ~65 MiB of output, above the 64 MiB parse cap.
+        std::fs::write(&helper, "#!/bin/sh\nhead -c 68157440 /dev/zero\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&helper).unwrap().permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&helper, perms).unwrap();
+        }
+        let config = Config {
+            tool_version: "0.1.0".to_string(),
+            paths: Paths {
+                specs: "openspec/specs".to_string(),
+                changes: "openspec/changes".to_string(),
+            },
+            runners: HashMap::from([(
+                "vitest".to_string(),
+                vec!["/bin/sh".to_string(), helper.to_str().unwrap().to_string()],
+            )]),
+            quality: Default::default(),
+            capabilities: Default::default(),
+            lint: Default::default(),
+        };
+        let bindings = vec![entry_with_pattern("p_a"), entry_with_pattern("p_b")];
+
+        let verdicts = run_batch(dir.path(), &config, &bindings);
+
+        assert_eq!(verdicts.len(), 2);
+        for verdict in &verdicts {
+            match verdict {
+                BatchedVerdict::Fallback(reason) => {
+                    assert!(
+                        reason.contains("parse cap"),
+                        "oversized output must name the cap: {reason}"
+                    );
+                }
+                other => panic!("expected Fallback, got {other:?}"),
+            }
+        }
+    }
+
     // C-batch-timeout: the batched invocation runs under the maximum
     // timeout_seconds across its entries.
     #[test]

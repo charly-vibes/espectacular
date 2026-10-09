@@ -7,8 +7,8 @@
 ## 2. Attribution (RED→GREEN)
 - [x] 2.1 RED: batched JSON output — contract passes iff every test matched by its pattern reports passed; matched+failed → test-failing; matched-nothing → no-tests-ran even when invocation exits zero; skipped/todo matched → no-tests-ran
 - [x] 2.2 RED: unparseable/error/timed-out batched invocation → named fallback signal + per-binding re-runs with exit-code verdicts
-- [ ] 2.3 GREEN: attribution parses full captured stdout (sanity-capped); TestResult tails stay 8 KiB findings-only
-- [ ] 2.4 GREEN: cargo/shell/pytest and any ineligible binding — check output byte-identical to pre-change behavior (regression harness)
+- [x] 2.3 GREEN: attribution parses full captured stdout (sanity-capped); TestResult tails stay 8 KiB findings-only
+- [x] 2.4 GREEN: cargo/shell/pytest and any ineligible binding — check output byte-identical to pre-change behavior (regression harness)
 
 ## 3. Gates & hygiene
 - [ ] 3.1 File-header criterion: reshaped src/runner.rs (+ any new module) carries Purpose/Responsibilities/Rationale header

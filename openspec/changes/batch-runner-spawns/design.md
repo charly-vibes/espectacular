@@ -44,7 +44,8 @@ src/runner.rs.
 ## Risks / Trade-offs
 - Rust-regex vs JS-regex divergence → eligibility guard above.
 - Batched JSON can be megabytes → attribution parses the full captured stdout
-  (already in memory via wait_with_output); TestResult tails stay 8 KiB
+  (drained concurrently via reader threads — polling without draining
+  deadlocks any output beyond the ~64 KiB pipe buffer); TestResult tails stay 8 KiB
   findings-only; sanity cap on the parse buffer.
 - Silent regressions if fallbacks fire constantly → fallbacks are named
   signals surfaced in output (Layer 2 conservative-guard philosophy).

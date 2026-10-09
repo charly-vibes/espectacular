@@ -121,6 +121,25 @@ pub(crate) fn execute_command_full(
     }
 
     let mut child = command.spawn()?;
+    // Drain stdout/stderr on reader threads WHILE polling the child: a
+    // runner producing more output than the pipe buffer (~64 KiB) would
+    // otherwise block on write() forever — the polling loop does not read —
+    // and every oversized invocation would die on timeout instead of
+    // completing (batch-runner-spawns task 2.3: batched JSON is expected to
+    // reach megabytes).
+    use std::io::Read;
+    let stdout_pipe = child.stdout.take().expect("stdout was piped");
+    let stderr_pipe = child.stderr.take().expect("stderr was piped");
+    let stdout_reader = thread::spawn(move || {
+        let mut buf = Vec::new();
+        let mut pipe = stdout_pipe;
+        pipe.read_to_end(&mut buf).map(|_| buf)
+    });
+    let stderr_reader = thread::spawn(move || {
+        let mut buf = Vec::new();
+        let mut pipe = stderr_pipe;
+        pipe.read_to_end(&mut buf).map(|_| buf)
+    });
     let started = Instant::now();
     let timeout = Duration::from_secs(planned.timeout_seconds);
     let timed_out = loop {
@@ -141,17 +160,19 @@ pub(crate) fn execute_command_full(
         thread::sleep(Duration::from_millis(10));
     };
 
-    let output = child.wait_with_output()?;
+    let stdout = stdout_reader.join().expect("stdout reader thread")?;
+    let stderr = stderr_reader.join().expect("stderr reader thread")?;
+    let status = child.wait()?;
 
     let result = TestResult {
         test_type: planned.test_type.clone(),
         command: planned.display.clone(),
-        exit_code: output.status.code(),
+        exit_code: status.code(),
         timed_out,
-        stdout_tail: tail_string(&output.stdout),
-        stderr_tail: tail_string(&output.stderr),
+        stdout_tail: tail_string(&stdout),
+        stderr_tail: tail_string(&stderr),
     };
-    Ok((result, output.stdout))
+    Ok((result, stdout))
 }
 
 #[allow(dead_code)]

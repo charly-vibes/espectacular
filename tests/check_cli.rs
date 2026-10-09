@@ -974,6 +974,67 @@ fn ah_check_batched_unparseable_output_falls_back_per_binding_with_named_signal(
     assert_eq!(invocations, 11, "batch + 10 re-runs; log:\n{log}");
 }
 
+// batch-runner-spawns task 2.4 (C-unbatched-unchanged, e2e): cargo/shell and
+// any other runner without structured-reporter support keep per-binding
+// exit-code spawns — even with more bindings than the batching threshold,
+// no batched (structured-reporter) invocation is ever composed for them.
+#[test]
+fn ah_check_shell_bindings_above_threshold_never_batch() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = dir.path();
+    fs::create_dir_all(repo.join("openspec/specs/ui")).unwrap();
+    fs::create_dir_all(repo.join(".espectacular/ui")).unwrap();
+
+    let mut spec = String::from("# Capability: ui\n\n");
+    for i in 1..=10 {
+        spec.push_str(&format!(
+            "#### Scenario: Shell {i}\n- **WHEN** shell runs\n- **THEN** it exits zero\n\n"
+        ));
+        fs::write(
+            repo.join(format!(".espectacular/ui/shell-{i}.toml")),
+            format!(
+                "id = \"shell-{i}\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.shell]]\ncommand = \"printf 'shell-{i}\\n' >> invocations.log\"\n"
+            ),
+        )
+        .unwrap();
+    }
+    fs::write(repo.join("openspec/specs/ui/spec.md"), spec).unwrap();
+    fs::write(
+        repo.join(".espectacular/config.toml"),
+        concat!(
+            "tool_version = \"",
+            env!("CARGO_PKG_VERSION"),
+            "\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nvitest = [\"/bin/sh\", \"vitest.sh\"]\n"
+        ),
+    )
+    .unwrap();
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo)
+        .args(["check", "--run-tests", "--json"])
+        .assert()
+        .success();
+
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
+    assert_schema_valid(&output);
+    assert_eq!(data["findings"], Value::Array(vec![]));
+    assert_eq!(data["summary"]["passed"], 10);
+
+    let log = fs::read_to_string(repo.join("invocations.log")).unwrap();
+    let lines: Vec<&str> = log.lines().filter(|l| !l.trim().is_empty()).collect();
+    assert_eq!(
+        lines.len(),
+        10,
+        "10 shell bindings keep 10 per-binding spawns; log:\n{log}"
+    );
+    assert!(
+        lines.iter().all(|l| !l.contains("--reporter=json")),
+        "shell bindings must never join a batched invocation; log:\n{log}"
+    );
+}
+
 // batch-runner-spawns task 1.2: below the threshold (≤ 8 bindings) the
 // per-binding spawn behavior is unchanged — one invocation per contract.
 #[test]
