@@ -9,6 +9,26 @@ fn data_from_envelope(output: &Value) -> &Value {
     &output["data"]
 }
 
+/// Make `root` a git repository with a clean initial commit.
+///
+/// `ah check --run-tests` enumerates worktree changes against HEAD since
+/// espectacular-o77; a non-repo directory is now an explicit error, and a
+/// dirty tree activates test selection. A clean committed fixture keeps
+/// the changed set empty (conservative run-all, pre-migration behavior).
+fn git_commit_all(root: &std::path::Path) {
+    let run = |args: &[&str]| {
+        Command::new("git")
+            .args(["-c", "user.email=test@example.com", "-c", "user.name=test"])
+            .args(args)
+            .current_dir(root)
+            .assert()
+            .success();
+    };
+    run(&["init"]);
+    run(&["add", "."]);
+    run(&["commit", "--no-gpg-sign", "-m", "fixture"]);
+}
+
 fn make_healthy_doctor_repo() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
@@ -39,6 +59,7 @@ fn make_healthy_doctor_repo() -> tempfile::TempDir {
         "pre-commit:\n  commands:\n    ah-check:\n      run: ah check\npre-push:\n  commands:\n    ah-check:\n      run: ah check\n",
     )
     .unwrap();
+    git_commit_all(root);
     dir
 }
 
@@ -151,6 +172,7 @@ fn base_repo() -> tempfile::TempDir {
     )
     .unwrap();
     write_executable(&repo.join("runner.sh"), "printf '%s' \"$1\"");
+    git_commit_all(repo);
     dir
 }
 
@@ -316,6 +338,7 @@ fn ah_check_pytest_contract_uses_adapter_dispatch() {
     )
     .unwrap();
     write_executable(&repo.join("pytest.sh"), "printf '%s' \"$1\"");
+    git_commit_all(repo);
 
     let assert = Command::cargo_bin("ah")
         .unwrap()
@@ -353,6 +376,7 @@ fn ah_check_pytest_failure_emits_execution_details() {
     )
     .unwrap();
     write_executable(&repo.join("pytest.sh"), "printf 'import boom' >&2\nexit 9");
+    git_commit_all(repo);
 
     let assert = Command::cargo_bin("ah")
         .unwrap()
@@ -401,6 +425,7 @@ fn write_pytest_repo(
     )
     .unwrap();
     write_executable(&repo.join("pytest.sh"), script_body);
+    git_commit_all(repo);
 }
 
 #[test]
@@ -555,6 +580,7 @@ fn ah_check_python_pytest_e2e_zero_findings() {
         "id = \"pytest-green\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.pytest]]\nflags = \"tests/test_app.py::test_passes\"\n",
     ).unwrap();
     write_executable(&repo.join("pytest.sh"), "exit 0");
+    git_commit_all(repo);
 
     let assert = Command::cargo_bin("ah")
         .unwrap()
@@ -595,6 +621,7 @@ fn ah_check_rust_cargo_e2e_zero_findings() {
         "id = \"cargo-green\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.cargo]]\nflags = \"lib::tests::it_works\"\n",
     ).unwrap();
     write_executable(&repo.join("cargo.sh"), "exit 0");
+    git_commit_all(repo);
 
     let assert = Command::cargo_bin("ah")
         .unwrap()
@@ -635,6 +662,7 @@ fn ah_check_typescript_vitest_e2e_zero_findings() {
         "id = \"vitest-green\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.vitest]]\nflags = \"src/ui.test.ts\"\n",
     ).unwrap();
     write_executable(&repo.join("vitest.sh"), "exit 0");
+    git_commit_all(repo);
 
     let assert = Command::cargo_bin("ah")
         .unwrap()
@@ -705,6 +733,7 @@ fn vitest_pattern_repo_with(statuses: &[(&str, Option<&str>)]) -> tempfile::Temp
         &repo.join("vitest.sh"),
         &format!("printf '%s\\n' \"$*\" >> invocations.log\ncat <<'JSON'\n{json}\nJSON\n"),
     );
+    git_commit_all(repo);
 
     dir
 }
@@ -1008,6 +1037,7 @@ fn ah_check_shell_bindings_above_threshold_never_batch() {
         ),
     )
     .unwrap();
+    git_commit_all(repo);
 
     let assert = Command::cargo_bin("ah")
         .unwrap()
@@ -1093,6 +1123,7 @@ fn make_mutation_repo() -> (tempfile::TempDir, tempfile::TempDir) {
         ),
     )
     .unwrap();
+    git_commit_all(root);
     (dir, runner_dir)
 }
 
@@ -1190,6 +1221,7 @@ fn report_full_coverage_repo() -> tempfile::TempDir {
     )
     .unwrap();
     write_executable(&repo.join("runner.sh"), "printf '%s' \"$1\"");
+    git_commit_all(repo);
     dir
 }
 

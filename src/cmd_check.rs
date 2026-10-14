@@ -28,7 +28,7 @@ pub fn run_check_command(
         let head = head.as_deref().unwrap_or("HEAD");
         changed_files_from_range(&repo_root, base, head)
     } else {
-        changed_files_from_git(&repo_root)
+        changed_files_from_git(&repo_root)?
     };
     let report = check::run_check_with_selection(
         &repo_root,
@@ -87,20 +87,13 @@ fn changed_files_from_range(repo_root: &Path, base: &str, head: &str) -> Vec<Str
     }
 }
 
-/// Worktree changed files (unstaged + staged vs HEAD), repo-relative.
-fn changed_files_from_git(repo_root: &Path) -> Vec<String> {
-    let output = std::process::Command::new("git")
-        .args(["diff", "--name-only", "HEAD"])
-        .current_dir(repo_root)
-        .output();
-    match output {
-        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
-            .lines()
-            .map(|l| l.trim().to_string())
-            .filter(|l| !l.is_empty())
-            .collect(),
-        _ => Vec::new(),
-    }
+/// Worktree changed files (staged + unstaged vs HEAD), repo-relative.
+/// Delegates to `genesis::git::changed_files` (espectacular-o77): tracked
+/// changes against HEAD, untracked excluded while HEAD resolves, with the
+/// documented unborn-HEAD fallback. Git failure is an explicit error —
+/// the previous silent empty `Vec` degradation is gone by design.
+fn changed_files_from_git(repo_root: &Path) -> anyhow::Result<Vec<String>> {
+    genesis::git::changed_files(repo_root).map_err(anyhow::Error::from)
 }
 
 pub fn print_check_report(report: &check::CheckOutput, run_tests: bool) {
@@ -198,6 +191,22 @@ fn print_summary(report: &check::CheckOutput) {
             sel.selected.len(),
             sel.skipped,
             testaruda
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// espectacular-o77: a git failure must surface as an explicit error
+    /// (delegated to genesis::git::changed_files), not a silent empty set.
+    #[test]
+    fn changed_files_git_failure_is_explicit_error() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let result = super::changed_files_from_git(dir.path());
+        assert!(
+            result.is_err(),
+            "git failure must be an explicit error, got {:?}",
+            result
         );
     }
 }
