@@ -12,3 +12,7 @@
 - [Installation & Quick Start](installation.md) — get `ah` on your PATH and run your first check in minutes
 - [Command Reference](commands.md) — all `ah` subcommands with flags, exit codes, and example output
 - [Concepts](concepts.md) — understand specs, scenarios, contracts, archetypes, and the gate model
+
+## Ecosystem
+
+espectacular is part of the [charly-vibes Tool Ecosystem](https://charly-vibes.github.io/dulce-de-leche/ecosystem-map.html) — the map shows how it relates to its sibling tools.
