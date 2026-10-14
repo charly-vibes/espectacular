@@ -22,3 +22,13 @@ docs/_book/
 docs/src/https:/
 # turu private zone — machine-specific knowledge, never pushed (git history is forever)
 .whisper/private/
+
+# dulce-de-leche — data files (do not commit)
+.ddl/**/*.db
+.ddl/**/store/
+.ddl/install-log.json
+.ddl/doctor-cache.json
+.ddl/compatibility-cache.json
+
+# tool data dirs (managed by `ddl init --gates`)
+.pretender/

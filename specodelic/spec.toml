@@ -1,0 +1,79 @@
+source = "spec"
+
+[[constraints]]
+id = "C-cli-name"
+kind = "invariant"
+expr = "the standalone command-line interface is exposed as `ah`"
+traces_to = "[[spec]]"
+
+[[constraints]]
+id = "C-init-command"
+kind = "invariant"
+expr = "`ah init` is idempotent and prepares a repository for spec-test correspondence checks: it refuses without OpenSpec, stubs existing deployed scenarios, installs a supported pre-commit integration preferring lefthook before prek and falling back to prek, and reports when no hook framework is present"
+traces_to = "[[spec]]"
+
+[[constraints]]
+id = "C-check-command"
+kind = "invariant"
+expr = "`ah check` is the deterministic gate command, operating on deployed specs and accepting an OpenSpec change overlay"
+traces_to = "[[spec]]"
+
+[[constraints]]
+id = "C-doctor-command"
+kind = "invariant"
+expr = "`ah doctor` diagnoses project setup and correspondence wiring"
+traces_to = "[[spec]]"
+
+[[constraints]]
+id = "C-type-commands"
+kind = "invariant"
+expr = "`ah type` exposes built-in archetype guidance: listing archetypes and showing per-archetype details"
+traces_to = "[[spec]]"
+
+[[constraints]]
+id = "C-scenario-lifecycle"
+kind = "invariant"
+expr = "scenario lifecycle commands author append-only: creating a scenario in a change rejects without a target requirement; superseding rejects when the replacement is missing"
+traces_to = "[[spec]]"
+
+[[constraints]]
+id = "C-archive-companion"
+kind = "invariant"
+expr = "`ah archive <change>` moves staged scenario contracts after OpenSpec archive; it refuses to run before OpenSpec archive and refuses on collision"
+traces_to = "[[spec]]"
+
+[[constraints]]
+id = "C-upgrade-command"
+kind = "invariant"
+expr = "`ah upgrade` makes tool-version drift explicit by reporting compatibility changes"
+traces_to = "[[spec]]"
+
+[[constraints]]
+id = "C-doctor-enable"
+kind = "invariant"
+expr = "`ah doctor --enable <capability>` for a detected inactive capability writes exactly one config table for it and prints the path and table name written; enabling an unknown capability is an error; enabling an already-active capability is a no-op"
+traces_to = "[[spec]]"
+
+[[constraints]]
+id = "C-explain-subcommand"
+kind = "invariant"
+expr = "`ah explain <topic>` prints playbook guidance for finding kinds, suggested actions, and general topics, supports JSON output and listing, and errors on unknown topics"
+traces_to = "[[spec]]"
+
+[[constraints]]
+id = "C-report-command"
+kind = "invariant"
+expr = "`ah report` displays a conformance coverage matrix across deployed specs and archetype tiers (modeled on the OpenTelemetry per-language compliance matrix); it exits zero when coverage is complete, non-zero when scenarios lack contracts, and supports JSON output"
+traces_to = "[[spec]]"
+
+[[constraints]]
+id = "C-recommendation-findings"
+kind = "invariant"
+expr = "`ah doctor` emits `recommendation` findings for capabilities that are available but not yet configured; each carries its enable command and is a finding kind, not a log line"
+traces_to = "[[spec]]"
+
+[[constraints]]
+id = "C-lint-command"
+kind = "invariant"
+expr = "`ah lint` statically analyzes OpenSpec scenario files for quality findings without modifying files or running tests, operating on deployed specs and change overlays, scoping to a single check category, supporting JSON output, and exiting zero with empty findings on a clean spec"
+traces_to = "[[spec]]"

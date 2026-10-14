@@ -2,8 +2,8 @@ plugins = []
 
 [project]
 name = "espectacular"
-version = "2026.7.28"
+version = "2026.10.10"
 description = ""
-tool_commit = "9010a5a"
+tool_commit = "4f812dd"
 
 [llm]
