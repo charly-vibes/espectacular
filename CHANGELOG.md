@@ -9,6 +9,52 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-10-14
+
+### Added
+
+- **Range-based contract selection for pre-push gating** —
+  `ah check --run-tests --base <ref> [--head <ref>]` selects contract tests
+  from a commit range instead of the worktree diff. `@{push}` covers exactly
+  the commits being pushed; degenerate ranges never pass vacuously (empty
+  diff or unresolvable ref runs every declared contract); `--head` without
+  `--base` is a usage error. Layer-1 selection: capabilities with changed
+  spec or contract files are selected, the rest skipped, with an escape
+  hatch (`--all-tests`) reported in the JSON. Zero-overlap guards never
+  deselect anything (conservative run-all, bypass reported).
+
+### Fixed
+
+- **Batched runner follows vitest 5's json-report-to-file notice (GH#46)** —
+  vitest 5 routes `--reporter=json` to a file and only prints a
+  `JSON report written to <path>` notice on stdout, which made stdout-only
+  parsing return nothing and degraded every batch to per-binding fallback
+  (tambor: 329/658 fallbacks, no batching win from 0.11.0). Attribution now
+  follows the notice: relative paths resolve against the invocation cwd,
+  the named file is parsed under the same parse cap. No new CLI flags —
+  stdout-streaming runners (jest, vitest ≤4) are unaffected.
+- **`ah init` no longer duplicates a user-authored `ah check` gate (GH#47)** —
+  the managed-block injection now scans the target lefthook stage's section
+  for an existing `ah check` invocation (per-stage, mirroring the `prek`
+  guard) and skips wiring that stage. Stages without the user gate are
+  still wired; the scan is per-stage so a pre-push-only gate cannot
+  suppress the pre-commit wiring.
+- **`ah report` applies the VERIFIES redirect like `ah check` (GH#34)** —
+  scenarios reaching contracts through `VERIFIES` bullets were counted
+  missing by `ah report` while `ah check` reported 0 findings on the same
+  corpus. Report now attributes through the shared redirect (direct lookup
+  stays the fast path and fallback). On the espectacular corpus: covered
+  238 / missing 0.
+
+### Internal
+
+- `changed_files_from_git` migrated onto `genesis::git`
+  (genesis-tpf.3 / espectacular-o77); CLI command handlers extracted into
+  `cli/cmd_*` modules (m53 pretender hotspot cleanup); `src/init.rs` split
+  into `init_hooks` + `init_contracts` + slim `run_init`; `run_report`
+  split into named phases; `tests/check_cli.rs` split into focused modules
+  (m53); dependabot dep bumps fix-forwarded.
+
 ## [0.11.0] — 2026-10-09
 
 ### Added

@@ -51,7 +51,7 @@ Commands emit a genesis JSON envelope to stdout:
 {
   "ok": true,
   "envelope_version": "0.1",
-  "cli_version": "0.11.0",
+  "cli_version": "0.12.0",
   "envelope_kind": "check",
   "data": {
     "scope": { "deployed": true, "changes": [] },
