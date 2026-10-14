@@ -92,6 +92,32 @@ dont prime --plain
 
 ### Commands
 
+#### Pre-push wiring (`--base`/`--head`)
+
+At pre-push time the worktree is usually clean, so the default worktree-diff
+selection supplies no signal and **every** declared contract runs on every
+push. Give the hook a commit range instead:
+
+```yaml
+# lefthook.yml
+pre-push:
+  commands:
+    ah-check:
+      run: ah check --run-tests --base @{push} --head HEAD
+```
+
+- `@{push}` resolves to the remote-tracking ref a push would update, so the
+  range covers exactly the commits being pushed.
+- If `@{push}` is undefined (first push of a new branch), fall back to
+  `--base origin/main`, or run `--all-tests` when in doubt.
+- Degenerate ranges never pass vacuously: an empty diff or an unresolvable
+  ref runs every declared contract (never green with zero tests executed).
+- `--head` defaults to `HEAD`; supplying `--head` without `--base` is a
+  usage error.
+- Known residual: a range that touches only docs/prose maps to no
+  capability, so that push still runs everything — the conservative
+  fallback is deliberate (see the `gate` spec, C-range-safe).
+
 | Command | Purpose |
 | --- | --- |
 | `ah init` | Create or refresh `.espectacular/` files and hook integration |
@@ -99,6 +125,7 @@ dont prime --plain
 | `ah doctor --enable <capability>` | Write the config block for a detected-but-unconfigured capability (`pytest`, `cargo`, `vitest`, `mutation`, `property`, `snapshot`) |
 | `ah check` | Run fast structural analysis (spec/contract correspondence); use `--run-tests` to execute declared tests |
 | `ah check --run-tests` | Run structural analysis plus declared contract tests |
+| `ah check --run-tests --base <ref> [--head <ref>]` | Select contract tests from a commit range instead of the worktree diff (pre-push gating; see below) |
 | `ah check --changes <id>` | Validate deployed specs plus one or more staged change overlays |
 | `ah lint [root]` | Heuristic spec-quality checks (vague qualifiers, non-imperative steps, conjunctive bloat, missing negative scenarios/non-goals, unresolved ambiguity, entangled specs, scenario-to-property trace gaps) plus a specodelic (`spk`) bridge |
 | `ah sync` | Derive property contracts from lint-clean specodelic Properties rows (`--check` for CI drift mode) |
