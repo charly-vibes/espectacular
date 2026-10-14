@@ -106,6 +106,16 @@ enum Command {
         /// Run every declared contract test, bypassing selection.
         #[arg(long = "all-tests")]
         all_tests: bool,
+        /// Derive the changed-file set from the commit range
+        /// git diff --name-only <base> <head> instead of the worktree
+        /// diff (two-dot snapshot diff, testaruda-jdw5). Only applies
+        /// with --run-tests; a range that yields no files or a ref that
+        /// fails to resolve runs every declared contract.
+        #[arg(long = "base")]
+        base: Option<String>,
+        /// Head ref for the --base range (defaults to HEAD).
+        #[arg(long = "head", requires = "base")]
+        head: Option<String>,
     },
     /// Run diagnostic checks or enable a capability
     Doctor {
@@ -298,14 +308,21 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             run_tests,
             files,
             all_tests,
+            base,
+            head,
         } => {
             let repo_root = std::env::current_dir()?;
             // Selection input (espectacular-0k8): explicit --files wins;
-            // otherwise the worktree git diff supplies the changed-file set.
-            let changed_files = if files.is_empty() && run_tests && !all_tests {
-                changed_files_from_git(&repo_root)
-            } else {
+            // then the --base commit range (C-range-diff); otherwise the
+            // worktree git diff supplies the changed-file set. Degenerate
+            // ranges fall back to the empty set, which runs everything.
+            let changed_files = if !files.is_empty() || !run_tests || all_tests {
                 files.clone()
+            } else if let Some(base) = base.as_deref() {
+                let head = head.as_deref().unwrap_or("HEAD");
+                changed_files_from_range(&repo_root, base, head)
+            } else {
+                changed_files_from_git(&repo_root)
             };
             let report = check::run_check_with_selection(
                 &repo_root,
@@ -719,6 +736,27 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                 Ok(())
             }
         },
+    }
+}
+
+/// Changed files across the commit range <base>..<head> (two-dot snapshot
+/// diff, testaruda-jdw5 / C-range-diff), repo-relative. Degenerate ranges —
+/// an unresolvable ref or an empty diff — yield an empty set, which the
+/// Layer-1 fallback runs as a full run (C-range-safe / design D2): the gate
+/// must never pass with zero executed tests because of a range it cannot
+/// distinguish from "nothing changed".
+fn changed_files_from_range(repo_root: &Path, base: &str, head: &str) -> Vec<String> {
+    let output = std::process::Command::new("git")
+        .args(["diff", "--name-only", base, head])
+        .current_dir(repo_root)
+        .output();
+    match output {
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect(),
+        _ => Vec::new(),
     }
 }
 
