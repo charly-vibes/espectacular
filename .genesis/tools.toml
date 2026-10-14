@@ -1,0 +1,6 @@
+[tools.wai]
+description = "Workflow manager for AI-assisted development"
+
+[tools.wai.detector]
+type = "directory"
+path = ".wai"

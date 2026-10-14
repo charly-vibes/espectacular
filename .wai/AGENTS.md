@@ -148,6 +148,13 @@ openspec list              # Active changes
 openspec list --specs      # Capabilities
 ```
 
+## Available Pipelines
+
+| Pipeline | When to Use | Start |
+|----------|-------------|-------|
+
+> Pipeline steps may have gates that enforce artifact creation, review coverage, and oracle checks before advancement. Run `wai pipeline gates <name>` for details.
+
 ## Structure
 
 The `.wai/` directory organizes artifacts using the PARA method:
