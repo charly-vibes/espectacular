@@ -145,7 +145,12 @@ pub(crate) fn run_batch(
                 .to_string(),
         );
     }
-    match attribute(bindings, &result, &String::from_utf8_lossy(&stdout)) {
+    match attribute(
+        bindings,
+        &result,
+        &String::from_utf8_lossy(&stdout),
+        repo_root,
+    ) {
         Some(verdicts) => verdicts,
         None => fallback_all(
             "batched structured output unparseable; per-binding re-runs carry the verdicts"
@@ -191,6 +196,35 @@ fn plan(config: &Config, bindings: &[BatchableBinding]) -> anyhow::Result<Planne
     })
 }
 
+/// Vitest 5 routes the json reporter to a file instead of stdout and prints a
+/// `JSON report written to <path>` notice line (GH#46). When stdout is not the
+/// report itself, scan it for the notice and parse the file it names. Relative
+/// paths resolve against the repo root (the invocation cwd). Oversized files
+/// fall under the same parse cap as stdout. No file or unparseable content →
+/// None (caller falls back).
+fn report_from_notice(stdout: &str, repo_root: &Path) -> Option<VitestReport> {
+    const NOTICE: &str = "JSON report written to";
+    let path_text = stdout
+        .lines()
+        .find_map(|line| line.split_once(NOTICE).map(|(_, tail)| tail))?
+        .trim()
+        .trim_matches(|c| c == '\'' || c == '"' || c == '`')
+        .to_string();
+    if path_text.is_empty() {
+        return None;
+    }
+    let path = if Path::new(&path_text).is_absolute() {
+        std::path::PathBuf::from(&path_text)
+    } else {
+        repo_root.join(&path_text)
+    };
+    let bytes = std::fs::read(&path).ok()?;
+    if bytes.len() > MAX_PARSE_BYTES {
+        return None;
+    }
+    serde_json::from_slice(&bytes).ok()
+}
+
 /// Vitest JSON-reporter shape (jest-compatible). Only the fields attribution
 /// needs are declared; unknown fields are ignored.
 #[derive(Deserialize)]
@@ -225,8 +259,12 @@ fn attribute(
     bindings: &[BatchableBinding],
     result: &TestResult,
     stdout: &str,
+    repo_root: &Path,
 ) -> Option<Vec<BatchedVerdict>> {
-    let report: VitestReport = serde_json::from_str(stdout).ok()?;
+    let report: VitestReport = match serde_json::from_str(stdout) {
+        Ok(report) => report,
+        Err(_) => report_from_notice(stdout, repo_root)?,
+    };
     let assertions: Vec<&VitestAssertion> = report
         .test_results
         .iter()
@@ -331,7 +369,8 @@ mod tests {
         let bindings = vec![entry_with_pattern("p_a"), entry_with_pattern("p_b")];
         let stdout = report_json(&[("p_a", "passed"), ("p_b", "passed")]);
 
-        let verdicts = attribute(&bindings, &batch_result(Some(0)), &stdout).unwrap();
+        let verdicts =
+            attribute(&bindings, &batch_result(Some(0)), &stdout, Path::new(".")).unwrap();
 
         assert!(matches!(verdicts[0], BatchedVerdict::Passed));
         assert!(matches!(verdicts[1], BatchedVerdict::Passed));
@@ -343,7 +382,8 @@ mod tests {
         let bindings = vec![entry_with_pattern("p_a")];
         let stdout = report_json(&[("p_a one", "passed"), ("p_a two", "failed")]);
 
-        let verdicts = attribute(&bindings, &batch_result(Some(1)), &stdout).unwrap();
+        let verdicts =
+            attribute(&bindings, &batch_result(Some(1)), &stdout, Path::new(".")).unwrap();
 
         assert!(matches!(verdicts[0], BatchedVerdict::TestFailing(_)));
     }
@@ -355,7 +395,8 @@ mod tests {
         let bindings = vec![entry_with_pattern("p_missing")];
         let stdout = report_json(&[("p_a", "passed")]);
 
-        let verdicts = attribute(&bindings, &batch_result(Some(0)), &stdout).unwrap();
+        let verdicts =
+            attribute(&bindings, &batch_result(Some(0)), &stdout, Path::new(".")).unwrap();
 
         assert!(matches!(verdicts[0], BatchedVerdict::NoTestsRan(_)));
     }
@@ -367,7 +408,8 @@ mod tests {
         let bindings = vec![entry_with_pattern("p_a")];
         let stdout = report_json(&[("p_a", "skipped")]);
 
-        let verdicts = attribute(&bindings, &batch_result(Some(0)), &stdout).unwrap();
+        let verdicts =
+            attribute(&bindings, &batch_result(Some(0)), &stdout, Path::new(".")).unwrap();
 
         assert!(matches!(verdicts[0], BatchedVerdict::NoTestsRan(_)));
     }
@@ -378,7 +420,8 @@ mod tests {
         let bindings = vec![entry_with_pattern("p_a")];
         let stdout = report_json(&[("p_a one", "skipped"), ("p_a two", "failed")]);
 
-        let verdicts = attribute(&bindings, &batch_result(Some(1)), &stdout).unwrap();
+        let verdicts =
+            attribute(&bindings, &batch_result(Some(1)), &stdout, Path::new(".")).unwrap();
 
         assert!(matches!(verdicts[0], BatchedVerdict::TestFailing(_)));
     }
@@ -387,7 +430,79 @@ mod tests {
     #[test]
     fn unparseable_output_falls_back_per_binding() {
         let bindings = vec![entry_with_pattern("p_a")];
-        let verdicts = attribute(&bindings, &batch_result(Some(0)), "not json");
+        let verdicts = attribute(
+            &bindings,
+            &batch_result(Some(0)),
+            "not json",
+            Path::new("."),
+        );
+        assert!(verdicts.is_none());
+    }
+
+    // GH#46: vitest 5 routes the json reporter to a file and prints a
+    // `JSON report written to <path>` notice on stdout. Attribution must
+    // follow the notice and parse the file it names.
+    #[test]
+    fn notice_line_directs_attribution_to_report_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let report_path = dir.path().join("output.json");
+        std::fs::write(&report_path, report_json(&[("p_a", "passed")])).unwrap();
+        let stdout = format!(
+            "some runner noise\nJSON report written to {}\nmore noise\n",
+            report_path.display()
+        );
+        let bindings = vec![entry_with_pattern("p_a")];
+
+        let verdicts = attribute(&bindings, &batch_result(Some(0)), &stdout, dir.path()).unwrap();
+
+        assert!(matches!(verdicts[0], BatchedVerdict::Passed));
+    }
+
+    // GH#46: the notice's path can be repo-relative (config `outputFile:
+    // "target/report.json"`) — resolve it against the invocation cwd.
+    #[test]
+    fn notice_line_relative_path_resolves_against_repo_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let nested = dir.path().join("target");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(
+            nested.join("report.json"),
+            report_json(&[("p_a", "passed")]),
+        )
+        .unwrap();
+        let stdout = "JSON report written to target/report.json";
+        let bindings = vec![entry_with_pattern("p_a")];
+
+        let verdicts = attribute(&bindings, &batch_result(Some(0)), stdout, dir.path()).unwrap();
+
+        assert!(matches!(verdicts[0], BatchedVerdict::Passed));
+    }
+
+    // GH#46: notice names a file whose content is not the report → fallback
+    // (no silent mis-attribution from a stale or foreign file).
+    #[test]
+    fn notice_file_with_unparseable_content_falls_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let report_path = dir.path().join("output.json");
+        std::fs::write(&report_path, "not the report").unwrap();
+        let stdout = format!("JSON report written to {}", report_path.display());
+        let bindings = vec![entry_with_pattern("p_a")];
+
+        let verdicts = attribute(&bindings, &batch_result(Some(0)), &stdout, dir.path());
+
+        assert!(verdicts.is_none());
+    }
+
+    // GH#46: unparseable stdout with NO notice line → still falls back.
+    #[test]
+    fn unparseable_stdout_without_notice_still_falls_back() {
+        let bindings = vec![entry_with_pattern("p_a")];
+        let verdicts = attribute(
+            &bindings,
+            &batch_result(Some(0)),
+            "build failed\nexit 2",
+            Path::new("."),
+        );
         assert!(verdicts.is_none());
     }
 
@@ -397,7 +512,8 @@ mod tests {
         let bindings = vec![entry_with_pattern("p_a"), entry_with_pattern("p_(?=b)")];
         let stdout = report_json(&[("p_b", "passed")]);
 
-        let verdicts = attribute(&bindings, &batch_result(Some(0)), &stdout).unwrap();
+        let verdicts =
+            attribute(&bindings, &batch_result(Some(0)), &stdout, Path::new(".")).unwrap();
 
         assert!(matches!(verdicts[0], BatchedVerdict::NoTestsRan(_)));
         assert!(matches!(
@@ -574,7 +690,8 @@ mod tests {
         );
         assert!(stdout.len() > 8 * 1024);
 
-        let verdicts = attribute(&bindings, &batch_result(Some(0)), &stdout).unwrap();
+        let verdicts =
+            attribute(&bindings, &batch_result(Some(0)), &stdout, Path::new(".")).unwrap();
 
         assert!(matches!(verdicts[0], BatchedVerdict::Passed));
     }
