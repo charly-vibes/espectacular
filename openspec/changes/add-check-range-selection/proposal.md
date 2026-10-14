@@ -32,15 +32,21 @@ runs in 23s median because its test gate already uses range-based selection.
   contract — never a silent vacuous green, never exit-20.
 - no-tests-ran falsifiability is untouched: it applies per selected contract
   exactly as before.
-- Lefthook wiring (consumer-side, documented in README):
+- Lefthook wiring (consumer-side, documented in the espectacular README's
+  CLI docs):
   `ah check --run-tests --base @{push} --head HEAD`, with the documented
   fallback `--base origin/main` (or `--all-tests`) when `@{push}` is
   undefined (first push of a branch).
+- Residual (accepted, documented): commits whose range diff maps to no
+  capability (e.g. README/prose-only) still run every declared contract —
+  the existing conservative fallback (see design D5). Range selection
+  makes code-touching pushes proportional, not all pushes.
 
 ## Impact
 - Affected specs: gate (ADDED requirement "Range-Based Test Selection";
   selection was previously unspecified in the deployed corpus)
-- Affected code: `src/main.rs` (CLI flags + changed-file source),
+- Affected code: `src/main.rs` (`Command::Check` flags + a range variant of
+  `changed_files_from_git`),
   `src/check.rs` (unchanged — it already accepts an arbitrary changed-file
   set); `tests/check_cli.rs` RED→GREEN e2e coverage
 - Governance: contract TOML format and JSON Schema IR untouched; selection

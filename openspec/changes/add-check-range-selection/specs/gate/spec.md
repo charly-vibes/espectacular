@@ -109,6 +109,13 @@ The system SHALL derive the `ah check --run-tests` changed-file set from the com
 - **AND** the selection report, finding kinds, and exit codes are unchanged
 - **VERIFIES** [[gate.P-range-unchanged]]
 
+#### Scenario: Range flags are inert without run-tests
+- **GIVEN** `--base <ref>` is given without `--run-tests`
+- **WHEN** a user runs `ah check --base <ref>`
+- **THEN** the structural gate validates the full deployed scope exactly as without the flag
+- **AND** no contract tests run and no selection report is produced
+- **VERIFIES** [[gate.P-range-precedence]]
+
 ## Requirements
 
 ### Requirement: Range-Based Test Selection
@@ -160,3 +167,10 @@ The system SHALL derive the `ah check --run-tests` changed-file set from the com
 - **THEN** the changed-file set comes from the worktree diff exactly as before
 - **AND** the selection report, finding kinds, and exit codes are unchanged
 - **VERIFIES** [[gate.P-range-unchanged]]
+
+#### Scenario: Range flags are inert without run-tests
+- **GIVEN** `--base <ref>` is given without `--run-tests`
+- **WHEN** a user runs `ah check --base <ref>`
+- **THEN** the structural gate validates the full deployed scope exactly as without the flag
+- **AND** no contract tests run and no selection report is produced
+- **VERIFIES** [[gate.P-range-precedence]]

@@ -3,7 +3,7 @@
 ## Context
 `run_check_with_selection(repo_root, changes, run_tests, changed_files,
 all_tests)` already accepts any repo-relative changed-file set; selection
-(epectacular-0k8 Layer 1) maps files to capabilities via `affected_capability`
+(espectacular-0k8 Layer 1) maps files to capabilities via `affected_capability`
 (specs tree, changes tree, contracts tree). Only the *source* of the set is
 hard-wired to the worktree diff in `src/main.rs`. The change therefore stays
 almost entirely in CLI arg plumbing plus one new git invocation.
@@ -11,7 +11,11 @@ almost entirely in CLI arg plumbing plus one new git invocation.
 ## Decisions
 
 ### D1 — range semantics follow testaruda-jdw5
-`git diff --name-only <base> <head>`; in-range changes are changed by
+`git diff --name-only <base> <head>` — a two-dot snapshot diff, not
+`base...head`; chosen deliberately because over-selection (deletions and
+divergent bases still map to capabilities) is the safe direction and
+three-dot merge-base resolution adds failure modes. In-range changes are
+changed by
 definition (the store/HEAD already contains them — a worktree-fingerprint
 comparison cannot detect them). Precedent keeps the two tools' CLI contracts
 aligned so lefthook configs read the same way.
@@ -40,6 +44,20 @@ clap-level usage error (exit 2) — a head without a base is meaningless.
 Selection reporting (`report.selection`), finding kinds, exit codes, and the
 JSON envelope are untouched. Range mode only changes which contracts run.
 
+### D5 — residual: docs-only commits still run everything (review CORR-001,
+verified)
+The existing Layer-1 fallback runs every declared contract when the
+changed set maps to no capability (src/check.rs doc comment). A range
+touching only README/prose maps to no capability, so docs-only pushes keep
+today's full-run cost even with `--base`. Accepted: the conservative
+fallback is the single fallback story (D2), and exempting prose from the
+gate would weaken falsifiability. The README wiring note (task 3.2) and
+the GH#42 comment must set that expectation explicitly.
+
+### D6 — `--head` without `--base`
+Rejected at parse via clap `requires = "base"` on the `--head` arg —
+exit 2, matching the invalid-subcommand convention.
+
 ## Test shape (inputs/outputs before implementation)
 E2E via `tests/check_cli.rs` fixture repos (init → commit base → commit
 change per capability → run `target/debug/ah check --run-tests --base <sha>`):
@@ -53,6 +71,9 @@ change per capability → run `target/debug/ah check --run-tests --base <sha>`):
 6. base = `not-a-ref` → every declared contract runs (no crash, exit per
    findings).
 7. no `--base` → worktree behavior byte-identical (regression harness).
+8. `--base` without `--run-tests` → range ignored; structural gate
+   unchanged (tasks-only coverage; delta scenario 8 asserts it against
+   P-range-precedence).
 
 ## Anti-goals
 - No new finding kinds, no JSON schema edits.
