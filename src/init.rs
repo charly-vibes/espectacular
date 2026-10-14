@@ -252,7 +252,17 @@ fn install_lefthook(repo_root: &Path, result: &mut InitResult) -> anyhow::Result
         genesis::git_hooks::lefthook::Stage::PreCommit,
         genesis::git_hooks::lefthook::Stage::PrePush,
     ];
+    let existing = fs::read_to_string(repo_root.join("lefthook.yml")).unwrap_or_default();
     for stage in stages {
+        // GH#47 (espectacular-r2p): ensure_wired's idempotence matches only
+        // the exact managed block text — a user-authored `run: ah check`
+        // gate outside the block is invisible to it, so injection would
+        // double the gate. Scan the stage's section per stage (mirroring
+        // the install_prek guard) and skip wiring a stage that already
+        // runs ah check. A stage without the user gate is still wired.
+        if stage_section_has_ah_check(&existing, stage.key()) {
+            continue;
+        }
         match genesis::git_hooks::lefthook::ensure_wired(
             repo_root,
             stage,
@@ -267,6 +277,30 @@ fn install_lefthook(repo_root: &Path, result: &mut InitResult) -> anyhow::Result
         }
     }
     Ok(())
+}
+
+/// Whether the given lefthook stage's section already contains an `ah check`
+/// invocation (GH#47). The section spans from the stage's column-0 key to the
+/// next non-blank column-0 line. A missing stage returns false — its wiring
+/// proceeds.
+fn stage_section_has_ah_check(content: &str, stage_key: &str) -> bool {
+    let start = if content.starts_with(stage_key) {
+        0
+    } else {
+        match content.find(&format!("\n{stage_key}:")) {
+            Some(index) => index + 1,
+            None => return false,
+        }
+    };
+    for line in content[start..].lines().skip(1) {
+        if !line.is_empty() && !line.starts_with([' ', '\t']) {
+            break;
+        }
+        if line.contains("ah check") {
+            return true;
+        }
+    }
+    false
 }
 
 fn stub_contract_if_missing(
@@ -557,6 +591,64 @@ mod tests {
         assert!(
             content.contains("lint"),
             "existing commands must be preserved"
+        );
+    }
+
+    // GH#47 (espectacular-r2p): a stage that already runs ah check via a
+    // user-authored gate must not gain the managed duplicate — per-stage
+    // pre-insertion scan, mirroring the install_prek guard.
+    #[test]
+    fn init_skips_wiring_stage_with_existing_user_ah_check_gate() {
+        let repo = make_repo(true);
+        fs::write(
+            repo.path().join("lefthook.yml"),
+            "pre-commit:\n  commands:\n    ah-check-gate:\n      run: ah check\n",
+        )
+        .unwrap();
+        run_init(repo.path()).unwrap();
+        let content = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
+        let commit_end = content.find("\npre-push:").unwrap_or(content.len());
+        let commit_section = &content[..commit_end];
+        assert_eq!(
+            once_matches(commit_section, "run: ah check"),
+            1,
+            "user gate must be preserved and the managed block must not duplicate it; got:\n{commit_section}"
+        );
+        assert!(
+            !commit_section.contains("ah:managed:start"),
+            "pre-commit must not gain the managed block; got:\n{commit_section}"
+        );
+        // pre-push has no user gate — it must still be wired.
+        let push_section = &content[content.find("pre-push:").unwrap()..];
+        assert!(
+            push_section.contains("ah check"),
+            "pre-push without a user gate must still be wired; got:\n{push_section}"
+        );
+    }
+
+    // GH#47: the scan is per-stage — a user gate in pre-push must not
+    // suppress the pre-commit wiring, and vice versa.
+    #[test]
+    fn init_user_gate_in_prepush_does_not_suppress_precommit_wiring() {
+        let repo = make_repo(true);
+        fs::write(
+            repo.path().join("lefthook.yml"),
+            "pre-push:\n  commands:\n    ah-check-gate:\n      run: ah check\n",
+        )
+        .unwrap();
+        run_init(repo.path()).unwrap();
+        let content = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
+        assert_eq!(
+            once_matches(&content, "ah:managed:start"),
+            1,
+            "only the pre-push-less stage (pre-commit) gains a managed block; got:\n{content}"
+        );
+        let push_end = content.find("\npre-commit:").unwrap_or(content.len());
+        let push_section = &content[content.find("pre-push:").unwrap()..push_end];
+        assert_eq!(
+            once_matches(push_section, "run: ah check"),
+            1,
+            "pre-push user gate preserved without managed duplicate"
         );
     }
 
