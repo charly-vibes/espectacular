@@ -1,0 +1,8 @@
+- 2026-10-14T13:59:20Z [id:9e94410097926f5fdd61571b1dc59c25d3e2e73159be43ef8309a97a92bb664b] ### 2026-10-14 10:59 — snap
+  - Merged ddl/init-gates-sweep → main (b66ee89, ff, local only — origin/main 1 behind, push awaits authorization).
+  - /renew → board was empty; bm2/GH#40 already implemented+archived. GH#42 became the target.
+  - Scaffolded + committed openspec proposal add-check-range-selection (branch add-check-range-selection): --base/--head on ah check --run-tests, testaruda-jdw5 semantics, total precedence (--all-tests > --files > range > worktree), degenerate range/bad ref → FULL RUN (D2, not exit-20), 8 delta scenarios + 4 properties; openspec strict + spk lint + ah check overlay green (8 expected no-toml).
+  - Fixed DDL-d73 gate blocker: pre-commit pretender gate was repo-wide → blocks every commit on target/ artifacts; fixed to --diff-only per testaruda/DDL-3fd precedent (7388637) + gitignored .pretender/.
+  - Rule-of-5 review of the proposal: converged stage 5; CORR-001 verified via TypeSafe (0.99) — docs-only commits still full-run (no-capability fallback, check.rs:254); remediations committed (6d4e7b0): D5 residual doc, D6 clap requires, D1 two-dot rationale, 8th scenario.
+  - Filed espectacular-pta (P1, afk, complexity:m, gh:42; metadata.files src/main.rs/tests/check_cli.rs/README.md; base_commit 6d4e7b0) + bd export committed (98c9971). User approved filing.
+  - **Next:** claim espectacular-pta (bd update espectacular-pta --claim), TDD phase 1: RED e2e range-selection test in tests/check_cli.rs, then clap flags + range diff in src/main.rs; push branch needs authorization.
