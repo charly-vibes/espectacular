@@ -2,16 +2,14 @@
 # `pretender check --diff-only --mode gate`).
 #
 # NOTE: pretender 0.7.0 walks paths with a "./" prefix, so exclude globs must
-# carry it ("./tests/check_cli.rs" matches; "tests/check_cli.rs" silently
-# does not). See the upstream pretender feedback filed for this.
+# carry it ("./tests/**" matches; "tests/**" silently does not). See the
+# upstream pretender feedback filed for this (espectacular-dwc).
 #
-# tests/check_cli.rs is excluded from the gate as a PRE-EXISTING violation:
-# the file was ~1631 lines (4x the 400 app-role file_lines limit that falls
-# through to test files) before this config existed, and pretender 0.7.0's
-# Rust parser reports "Parse errors detected" on it, falling back to raw line
-# counts. Excluding it here cements a known blindness — see the split ticket
-# that carves this file into focused test files; remove the exclusion once
-# the split lands.
+# History: tests/check_cli.rs was excluded as a PRE-EXISTING violation
+# (~1631 lines, 4x the 400 app-role file_lines limit, plus parser false
+# errors). The split into tests/check_cli/* landed (espectacular-m53) and
+# the exclusion is gone — every test file is now under the limit and
+# gate-checked like everything else.
 [pretender]
 mode = "gate"
 languages = ["auto"]
@@ -21,7 +19,6 @@ exclude = [
   "./**/*_generated.*",
   "./target/**",
   "./.venv/**",
-  "./tests/check_cli.rs",
 ]
 
 [roles.test]
