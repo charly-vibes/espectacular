@@ -22,6 +22,8 @@ mod doctor;
 mod explain;
 mod fsutil;
 mod init;
+mod init_contracts;
+mod init_hooks;
 mod lint;
 mod openspec;
 mod quality;

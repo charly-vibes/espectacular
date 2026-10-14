@@ -1,14 +1,12 @@
 use crate::fsutil::write_text;
-use crate::openspec;
 use anyhow::Context;
 use genesis::discovery;
 use genesis::git_hooks;
 use genesis::managed_block::{BlockDef, BlockInjector, BlockRegistry};
 use genesis::scaffold::Scaffold;
-use std::fs;
 use std::path::Path;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct InitResult {
     pub created: Vec<String>,
     pub refreshed: Vec<String>,
@@ -113,18 +111,26 @@ fn find_section_start(text: &str, header: &str) -> Option<usize> {
 pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
     anyhow::ensure!(
         repo_root.join("openspec").exists(),
-        "Error: openspec/ directory not found at {}.\n\nah requires an OpenSpec project. Create the minimal layout:\n\n  openspec/\n  └── specs/\n      └── <spec>/\n          └── spec.md      ← \"#### Scenario: ...\" headings go here\n\nOr install the openspec CLI and run: openspec init",
+        "Error: openspec/ directory not found at {}.\n\nah requires an OpenSpec project. Create the minimal layout:\n\n  openspec/\n  └─── specs/\n          └─── spec.md      ← \"#### Scenario: ...\" headings go here\n\nOr install the openspec CLI and run: openspec init",
         repo_root.display()
     );
 
-    let mut result = InitResult {
-        created: Vec::new(),
-        refreshed: Vec::new(),
-        concerns: Vec::new(),
-        stubbed_contracts: Vec::new(),
-    };
+    let mut result = InitResult::default();
 
-    // Create .espectacular/ directory and default config.toml via genesis::scaffold
+    scaffold_espectacular(repo_root, &mut result)?;
+    write_espectacular_agents(repo_root, &mut result)?;
+    update_managed_file(&repo_root.join("AGENTS.md"), &mut result)?;
+    update_managed_file(&repo_root.join("CLAUDE.md"), &mut result)?;
+    inject_ah_block_into_espectacular_agents(repo_root, &mut result)?;
+    crate::init_contracts::stub_missing_contracts(repo_root, &mut result)?;
+    install_hook_integration(repo_root, &mut result)?;
+    register_discovery(repo_root, &mut result);
+
+    Ok(result)
+}
+
+/// Create `.espectacular/` and its default config.toml via genesis::scaffold.
+fn scaffold_espectacular(repo_root: &Path, result: &mut InitResult) -> anyhow::Result<()> {
     let scaffold_result = Scaffold::new(repo_root)
         .dir(".espectacular")
         .default_config(".espectacular/config.toml", default_config_toml())
@@ -138,55 +144,44 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
             .to_string();
         result.created.push(display);
     }
+    Ok(())
+}
 
-    // .espectacular/AGENTS.md — always refresh
-    let espectacular_dir = repo_root.join(".espectacular");
-    let espectacular_agents = espectacular_dir.join("AGENTS.md");
-    let agents_existed = espectacular_agents.exists();
-    write_text(&espectacular_agents, ESPECTACULAR_AGENTS_CONTENT)?;
+/// `.espectacular/AGENTS.md` — always refreshed with the current content.
+fn write_espectacular_agents(repo_root: &Path, result: &mut InitResult) -> anyhow::Result<()> {
+    let agents = repo_root.join(".espectacular/AGENTS.md");
+    let agents_existed = agents.exists();
+    write_text(&agents, ESPECTACULAR_AGENTS_CONTENT)?;
     if agents_existed {
         result.refreshed.push(".espectacular/AGENTS.md".into());
     } else {
         result.created.push(".espectacular/AGENTS.md".into());
     }
+    Ok(())
+}
 
-    // Top-level AGENTS.md — create if absent, inject managed block if present
-    let agents_md = repo_root.join("AGENTS.md");
-    update_managed_file(&agents_md, &mut result)?;
-
-    // Top-level CLAUDE.md — create if absent, inject managed block if present
-    let claude_md = repo_root.join("CLAUDE.md");
-    update_managed_file(&claude_md, &mut result)?;
-
-    // Also inject managed block into .espectacular/AGENTS.md
-    let ah_agents = espectacular_dir.join("AGENTS.md");
-    if ah_agents.exists() {
-        let injector = ah_block_injector();
-        if !injector.has_block(&ah_agents, "ah:managed") {
-            injector.inject(&ah_agents, "ah:managed", AH_BLOCK_CONTENT)?;
-            result.refreshed.push(".espectacular/AGENTS.md".into());
-        }
+/// Also inject the managed block into `.espectacular/AGENTS.md` when present.
+fn inject_ah_block_into_espectacular_agents(
+    repo_root: &Path,
+    result: &mut InitResult,
+) -> anyhow::Result<()> {
+    let ah_agents = repo_root.join(".espectacular/AGENTS.md");
+    if !ah_agents.exists() {
+        return Ok(());
     }
-
-    // Stub contracts for deployed scenarios without existing contracts
-    let specs_dir = repo_root.join("openspec/specs");
-    if specs_dir.exists() {
-        let specs_str = specs_dir.to_string_lossy().to_string();
-        if let Ok(scenarios) = openspec::discover_scenarios(&specs_str) {
-            for scenario in &scenarios {
-                stub_contract_if_missing(repo_root, scenario, &mut result)?;
-            }
-        }
+    let injector = ah_block_injector();
+    if !injector.has_block(&ah_agents, "ah:managed") {
+        injector.inject(&ah_agents, "ah:managed", AH_BLOCK_CONTENT)?;
+        result.refreshed.push(".espectacular/AGENTS.md".into());
     }
+    Ok(())
+}
 
-    // Hook integration (espectacular-6ye R2: genesis::git_hooks detection)
+/// Hook integration (espectacular-6ye R2: genesis::git_hooks detection).
+fn install_hook_integration(repo_root: &Path, result: &mut InitResult) -> anyhow::Result<()> {
     match git_hooks::framework(repo_root) {
-        git_hooks::Framework::Lefthook => {
-            install_lefthook(repo_root, &mut result)?;
-        }
-        git_hooks::Framework::Prek => {
-            install_prek(repo_root, &mut result)?;
-        }
+        git_hooks::Framework::Lefthook => crate::init_hooks::install_lefthook(repo_root, result),
+        git_hooks::Framework::Prek => crate::init_hooks::install_prek(repo_root, result),
         git_hooks::Framework::Husky => {
             result.concerns.push(
                 "Husky detected but not wirable by ah (lefthook only). \
@@ -194,6 +189,7 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
                  spec-test correspondence before commits."
                     .into(),
             );
+            Ok(())
         }
         git_hooks::Framework::None => {
             result.concerns.push(
@@ -201,22 +197,22 @@ pub fn run_init(repo_root: &Path) -> anyhow::Result<InitResult> {
                 Please set up pre-commit integration manually to run `ah check` before commits."
                     .into(),
             );
+            Ok(())
         }
     }
+}
 
-    // Register in .genesis/tools.toml for cross-tool discovery
-    match discovery::register(
+/// Register in .genesis/tools.toml for cross-tool discovery.
+fn register_discovery(repo_root: &Path, result: &mut InitResult) {
+    if let Err(e) = discovery::register(
         repo_root,
         "espectacular",
         "Spec-test correspondence enforcer",
         "directory",
         ".espectacular",
     ) {
-        Ok(()) => {}
-        Err(e) => result.concerns.push(format!(".genesis/tools.toml: {e}")),
+        result.concerns.push(format!(".genesis/tools.toml: {e}"));
     }
-
-    Ok(result)
 }
 
 fn update_managed_file(path: &Path, result: &mut InitResult) -> anyhow::Result<()> {
@@ -231,125 +227,6 @@ fn update_managed_file(path: &Path, result: &mut InitResult) -> anyhow::Result<(
     } else {
         result.created.push(name);
     }
-    Ok(())
-}
-
-// Content is the entries INSIDE the stage's `commands:` mapping
-// (genesis-r99 contract): ensure_wired inserts it verbatim after the
-// stage's `commands:` line, so it carries the commands:-child indent
-// (4 spaces). Leading \n keeps the start marker on its own line:
-// ensure_wired concatenates marker + content verbatim, and without it
-// the glued line begins with "#" — YAML comments swallow the ah-check
-// key (genesis-au8 glue pattern). Found while pinning espectacular-n4v.
-const LEFTHOOK_AH_COMMAND: &str = "\n    ah-check:\n      run: ah check\n";
-
-fn install_lefthook(repo_root: &Path, result: &mut InitResult) -> anyhow::Result<()> {
-    // Managed block wired through genesis::git_hooks::lefthook::ensure_wired
-    // (espectacular-6ye R2): column-0 anchor injection + file-level idempotence,
-    // replacing the hand-rolled find/split injection.
-    let block = BlockDef::with_markers("ah:managed", "# ah:managed:start", "# ah:managed:end");
-    let stages = [
-        genesis::git_hooks::lefthook::Stage::PreCommit,
-        genesis::git_hooks::lefthook::Stage::PrePush,
-    ];
-    let existing = fs::read_to_string(repo_root.join("lefthook.yml")).unwrap_or_default();
-    for stage in stages {
-        // GH#47 (espectacular-r2p): ensure_wired's idempotence matches only
-        // the exact managed block text — a user-authored `run: ah check`
-        // gate outside the block is invisible to it, so injection would
-        // double the gate. Scan the stage's section per stage (mirroring
-        // the install_prek guard) and skip wiring a stage that already
-        // runs ah check. A stage without the user gate is still wired.
-        if stage_section_has_ah_check(&existing, stage.key()) {
-            continue;
-        }
-        match genesis::git_hooks::lefthook::ensure_wired(
-            repo_root,
-            stage,
-            &block,
-            LEFTHOOK_AH_COMMAND,
-        ) {
-            Ok(git_hooks::lefthook::WiredOutcome::Injected) => {
-                result.refreshed.push("lefthook.yml".to_string());
-            }
-            Ok(git_hooks::lefthook::WiredOutcome::AlreadyWired) => {}
-            Err(e) => return Err(e).with_context(|| "failed to wire ah check into lefthook.yml"),
-        }
-    }
-    Ok(())
-}
-
-/// Whether the given lefthook stage's section already contains an `ah check`
-/// invocation (GH#47). The section spans from the stage's column-0 key to the
-/// next non-blank column-0 line. A missing stage returns false — its wiring
-/// proceeds.
-fn stage_section_has_ah_check(content: &str, stage_key: &str) -> bool {
-    let start = if content.starts_with(stage_key) {
-        0
-    } else {
-        match content.find(&format!("\n{stage_key}:")) {
-            Some(index) => index + 1,
-            None => return false,
-        }
-    };
-    for line in content[start..].lines().skip(1) {
-        if !line.is_empty() && !line.starts_with([' ', '\t']) {
-            break;
-        }
-        if line.contains("ah check") {
-            return true;
-        }
-    }
-    false
-}
-
-fn stub_contract_if_missing(
-    repo_root: &Path,
-    scenario: &openspec::Scenario,
-    result: &mut InitResult,
-) -> anyhow::Result<()> {
-    // spec_path is the spec name, e.g. "compiler"
-    let spec_name = &scenario.spec_path;
-    if spec_name.is_empty() {
-        return Ok(());
-    }
-
-    let contract_dir = repo_root.join(".espectacular").join(spec_name);
-    let contract_path = contract_dir.join(format!("{}.toml", scenario.id));
-
-    if contract_path.exists() {
-        return Ok(());
-    }
-
-    fs::create_dir_all(&contract_dir)
-        .with_context(|| format!("cannot create {}", contract_dir.display()))?;
-
-    let stub = format!(
-        "id = \"{id}\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"{version}\"\n",
-        id = scenario.id,
-        version = env!("CARGO_PKG_VERSION")
-    );
-    write_text(&contract_path, stub)?;
-
-    result
-        .stubbed_contracts
-        .push(format!("{}/{}.toml", spec_name, scenario.id));
-    Ok(())
-}
-
-fn install_prek(repo_root: &Path, result: &mut InitResult) -> anyhow::Result<()> {
-    let path = repo_root.join("prek.toml");
-    let existing =
-        fs::read_to_string(&path).with_context(|| format!("cannot read {}", path.display()))?;
-
-    if existing.contains("ah check") {
-        return Ok(());
-    }
-
-    let new_content = format!("{}ah check\n", existing);
-    write_text(&path, new_content)?;
-    let name = path.file_name().unwrap().to_string_lossy().to_string();
-    result.refreshed.push(name);
     Ok(())
 }
 
@@ -492,303 +369,8 @@ mod tests {
             "refreshed list should contain CLAUDE.md"
         );
     }
-
-    #[test]
-    fn init_reports_concern_when_no_hook_framework() {
-        let repo = make_repo(true);
-        let result = run_init(repo.path()).unwrap();
-        assert!(
-            !result.concerns.is_empty(),
-            "must report concern when no hook framework is present"
-        );
-        let concerns_text = result.concerns.join(" ");
-        assert!(
-            concerns_text.contains("pre-commit") || concerns_text.contains("hook"),
-            "concern must mention pre-commit or hook"
-        );
-    }
-
-    #[test]
-    fn init_does_not_write_raw_git_hook_when_no_framework() {
-        let repo = make_repo(true);
-        fs::create_dir_all(repo.path().join(".git/hooks")).unwrap();
-        run_init(repo.path()).unwrap();
-        assert!(
-            !repo.path().join(".git/hooks/pre-commit").exists(),
-            "must NOT write raw .git/hooks/pre-commit fallback"
-        );
-    }
-
-    #[test]
-    fn init_installs_lefthook_integration_when_lefthook_present() {
-        let repo = make_repo(true);
-        fs::write(
-            repo.path().join("lefthook.yml"),
-            "pre-commit:\n  commands:\n",
-        )
-        .unwrap();
-        let result = run_init(repo.path()).unwrap();
-        let lefthook_content = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
-        assert!(
-            lefthook_content.contains("ah check")
-                || result.refreshed.iter().any(|s| s.contains("lefthook")),
-            "lefthook.yml should include ah check integration"
-        );
-    }
-
-    fn once_matches(haystack: &str, needle: &str) -> usize {
-        haystack.matches(needle).count()
-    }
-
-    #[test]
-    fn init_wires_ah_check_into_prepush_stage() {
-        // RED (espectacular-6ye R4): init must wire ah check into the
-        // pre-push stage too — hooks that only gate pre-commit stay decorative
-        // for the push-time trust gate.
-        let repo = make_repo(true);
-        fs::write(
-            repo.path().join("lefthook.yml"),
-            "pre-commit:\n  commands:\n",
-        )
-        .unwrap();
-        run_init(repo.path()).unwrap();
-        let content = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
-        assert!(
-            content.contains("pre-push:"),
-            "init must create a pre-push stage"
-        );
-        let push_section = &content[content.find("pre-push:").unwrap()..];
-        assert!(
-            push_section.contains("ah check"),
-            "pre-push stage must run ah check"
-        );
-    }
-
-    #[test]
-    fn init_wires_lefthook_managed_block_via_genesis() {
-        // RED (espectacular-6ye R2): injection must go through
-        // genesis::git_hooks::lefthook::ensure_wired — managed markers +
-        // ah-check command nested inside the stage's `commands:` mapping
-        // (genesis-r99: a stage-level key is silently ignored by lefthook).
-        let repo = make_repo(true);
-        fs::write(
-            repo.path().join("lefthook.yml"),
-            "pre-commit:\n  commands:\n    lint:\n      run: echo lint\n",
-        )
-        .unwrap();
-        run_init(repo.path()).unwrap();
-        let content = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
-        assert!(
-            content.contains("ah:managed:start") && content.contains("ah:managed:end"),
-            "injected block must carry ah:managed markers; got:\n{content}"
-        );
-        assert!(content.contains("ah check"));
-        assert!(
-            content
-                .contains("  commands:\n# ah:managed:start\n    ah-check:\n      run: ah check\n"),
-            "ah-check must nest inside commands: (genesis-r99); got:\n{content}"
-        );
-        assert!(
-            content.contains("lint"),
-            "existing commands must be preserved"
-        );
-    }
-
-    // GH#47 (espectacular-r2p): a stage that already runs ah check via a
-    // user-authored gate must not gain the managed duplicate — per-stage
-    // pre-insertion scan, mirroring the install_prek guard.
-    #[test]
-    fn init_skips_wiring_stage_with_existing_user_ah_check_gate() {
-        let repo = make_repo(true);
-        fs::write(
-            repo.path().join("lefthook.yml"),
-            "pre-commit:\n  commands:\n    ah-check-gate:\n      run: ah check\n",
-        )
-        .unwrap();
-        run_init(repo.path()).unwrap();
-        let content = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
-        let commit_end = content.find("\npre-push:").unwrap_or(content.len());
-        let commit_section = &content[..commit_end];
-        assert_eq!(
-            once_matches(commit_section, "run: ah check"),
-            1,
-            "user gate must be preserved and the managed block must not duplicate it; got:\n{commit_section}"
-        );
-        assert!(
-            !commit_section.contains("ah:managed:start"),
-            "pre-commit must not gain the managed block; got:\n{commit_section}"
-        );
-        // pre-push has no user gate — it must still be wired.
-        let push_section = &content[content.find("pre-push:").unwrap()..];
-        assert!(
-            push_section.contains("ah check"),
-            "pre-push without a user gate must still be wired; got:\n{push_section}"
-        );
-    }
-
-    // GH#47: the scan is per-stage — a user gate in pre-push must not
-    // suppress the pre-commit wiring, and vice versa.
-    #[test]
-    fn init_user_gate_in_prepush_does_not_suppress_precommit_wiring() {
-        let repo = make_repo(true);
-        fs::write(
-            repo.path().join("lefthook.yml"),
-            "pre-push:\n  commands:\n    ah-check-gate:\n      run: ah check\n",
-        )
-        .unwrap();
-        run_init(repo.path()).unwrap();
-        let content = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
-        assert_eq!(
-            once_matches(&content, "ah:managed:start"),
-            1,
-            "only the pre-push-less stage (pre-commit) gains a managed block; got:\n{content}"
-        );
-        let push_end = content.find("\npre-commit:").unwrap_or(content.len());
-        let push_section = &content[content.find("pre-push:").unwrap()..push_end];
-        assert_eq!(
-            once_matches(push_section, "run: ah check"),
-            1,
-            "pre-push user gate preserved without managed duplicate"
-        );
-    }
-
-    #[test]
-    fn init_lefthook_wiring_is_idempotent() {
-        let repo = make_repo(true);
-        fs::write(
-            repo.path().join("lefthook.yml"),
-            "pre-commit:\n  commands:\n",
-        )
-        .unwrap();
-        run_init(repo.path()).unwrap();
-        let twice = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
-        run_init(repo.path()).unwrap();
-        let twice_after = fs::read_to_string(repo.path().join("lefthook.yml")).unwrap();
-        assert_eq!(
-            once_matches(&twice, "ah:managed:start"),
-            2,
-            "first init injects one managed block per stage (pre-commit + pre-push)"
-        );
-        assert_eq!(
-            once_matches(&twice_after, "ah:managed:start"),
-            2,
-            "second init must not duplicate the managed blocks"
-        );
-        assert!(twice_after.contains("ah check"));
-    }
-
-    #[test]
-    fn init_installs_prek_integration_when_prek_toml_present() {
-        // BEHAVIORAL DRIFT accepted (6ye): prek signal follows genesis's
-        // prek.toml; the legacy .prek/prek.yml signals are dropped.
-        let repo = make_repo(true);
-        fs::write(repo.path().join("prek.toml"), "[hooks]\n").unwrap();
-        let result = run_init(repo.path()).unwrap();
-        let prek_content = fs::read_to_string(repo.path().join("prek.toml")).unwrap();
-        assert!(
-            prek_content.contains("ah check")
-                || result.refreshed.iter().any(|s| s.contains("prek")),
-            "prek.toml should include ah check integration"
-        );
-    }
-
-    #[test]
-    fn init_reports_concern_for_legacy_prek_dotfile_only() {
-        // BEHAVIORAL DRIFT accepted (6ye): .prek is no longer a prek signal —
-        // genesis detects prek.toml. A repo with only .prek gets a concern,
-        // not a config write.
-        let repo = make_repo(true);
-        fs::write(repo.path().join(".prek"), "").unwrap();
-        let result = run_init(repo.path()).unwrap();
-        assert!(
-            !result.concerns.is_empty(),
-            ".prek alone must surface a concern now that prek.toml is the prek signal"
-        );
-        assert!(
-            !result.refreshed.iter().any(|s| s.contains("prek")),
-            "must not write to .prek"
-        );
-    }
-
-    // 4.3 RED: stub empty TOML contracts for existing deployed scenarios
-
-    fn make_repo_with_scenarios(scenarios: &[(&str, &str)]) -> TempDir {
-        let dir = TempDir::new().unwrap();
-        fs::create_dir_all(dir.path().join("openspec")).unwrap();
-        fs::create_dir_all(dir.path().join("openspec/specs")).unwrap();
-        for (spec, scenario_heading) in scenarios {
-            let spec_dir = dir.path().join("openspec/specs").join(spec);
-            fs::create_dir_all(&spec_dir).unwrap();
-            let content = format!(
-                "# Capability: {spec}\n\n## DEPLOYED Requirements\n\n### Requirement: Test\n\n#### Scenario: {scenario_heading}\n- **GIVEN** something\n- **WHEN** action\n- **THEN** result\n"
-            );
-            fs::write(spec_dir.join("spec.md"), content).unwrap();
-        }
-        dir
-    }
-
-    #[test]
-    fn init_stubs_contracts_for_scenarios_without_existing_contracts() {
-        let repo = make_repo_with_scenarios(&[("compiler", "Empty input rejected")]);
-        let result = run_init(repo.path()).unwrap();
-        let stub_path = repo
-            .path()
-            .join(".espectacular/compiler/empty-input-rejected.toml");
-        assert!(
-            stub_path.exists(),
-            "stub contract must be created at .espectacular/compiler/empty-input-rejected.toml"
-        );
-        assert!(
-            result
-                .stubbed_contracts
-                .iter()
-                .any(|s| s.contains("empty-input-rejected")),
-            "stubbed_contracts must include the scenario slug"
-        );
-    }
-
-    #[test]
-    fn init_stub_declares_no_tests() {
-        let repo = make_repo_with_scenarios(&[("compiler", "Empty input rejected")]);
-        run_init(repo.path()).unwrap();
-        let stub_path = repo
-            .path()
-            .join(".espectacular/compiler/empty-input-rejected.toml");
-        let content = fs::read_to_string(&stub_path).unwrap();
-        // Stub must have required fields but no [[tests.*]] table
-        assert!(content.contains("id ="), "stub must have id field");
-        assert!(content.contains("status ="), "stub must have status field");
-        assert!(
-            !content.contains("[[tests"),
-            "stub must NOT declare any tests"
-        );
-    }
-
-    #[test]
-    fn init_does_not_overwrite_existing_contracts() {
-        let repo = make_repo_with_scenarios(&[("compiler", "Empty input rejected")]);
-        // Pre-create the contract
-        fs::create_dir_all(repo.path().join(".espectacular/compiler")).unwrap();
-        let stub_path = repo
-            .path()
-            .join(".espectacular/compiler/empty-input-rejected.toml");
-        fs::write(&stub_path, "id = \"empty-input-rejected\"\ncustom = true\n").unwrap();
-        let result = run_init(repo.path()).unwrap();
-        let content = fs::read_to_string(&stub_path).unwrap();
-        assert!(
-            content.contains("custom = true"),
-            "must not overwrite existing contract"
-        );
-        assert!(
-            !result
-                .stubbed_contracts
-                .iter()
-                .any(|s| s.contains("empty-input-rejected")),
-            "must not report existing contract as stubbed"
-        );
-    }
-
     // 10.0 RED: espectacular AGENTS.md contains single meta-instruction only
+
     #[test]
     fn init_writes_single_meta_instruction_to_espectacular_agents_md() {
         let repo = make_repo(true);
@@ -810,27 +392,5 @@ mod tests {
             !content.contains("## Workflow"),
             ".espectacular/AGENTS.md must not contain workflow documentation"
         );
-    }
-
-    #[test]
-    fn init_stubs_contracts_for_multiple_specs() {
-        let repo = make_repo_with_scenarios(&[
-            ("compiler", "Empty input rejected"),
-            ("runtime", "Handle timeout"),
-        ]);
-        let result = run_init(repo.path()).unwrap();
-        assert_eq!(
-            result.stubbed_contracts.len(),
-            2,
-            "must stub one contract per scenario"
-        );
-        assert!(repo
-            .path()
-            .join(".espectacular/compiler/empty-input-rejected.toml")
-            .exists());
-        assert!(repo
-            .path()
-            .join(".espectacular/runtime/handle-timeout.toml")
-            .exists());
     }
 }
