@@ -1,6 +1,6 @@
 # Implementation Status
 
-This page maps the deployed behavioral specs to the commands and capabilities that implement them. Each row is a scenario in a spec; if `ah check` passes, that behavior is verified in CI.
+This page maps the deployed behavioral specs to the commands and capabilities that implement them. Each row is a requirement in a spec (its scenarios under it); if `ah check` passes, that behavior is verified in CI.
 
 Last refreshed from the deployed corpus at **v0.11.0** (spec scenario counts re-derive any time via `openspec/specs/*/spec.md`).
 
@@ -25,6 +25,7 @@ Covers what `ah check` does: scenario discovery, contract correspondence, test e
 | Quality contract schema | quality config is not a test entry; property/snapshot are runnable |
 | Conformance coverage matrix | per-spec/per-archetype coverage, machine-readable |
 | Property-Derived Contracts | lint-clean dual-format specs derive one contract per Properties row (`ah sync`, with stale-drift detection and human-owned field preservation) |
+| Dual-Format Spec Corpus | dual-format spec discovery and gating behave byte-identically for plain specs and for dual-format specs without Properties rows |
 | Range-Based Test Selection | `ah check --run-tests --base/--head` selects by commit range with total precedence and conservative fallback |
 
 (All gate scenarios are verified — run `ah check --run-tests` for the live count.)
