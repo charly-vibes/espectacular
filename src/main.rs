@@ -1,8 +1,18 @@
+//! `ah` binary entry point: thin process bootstrap and command dispatch.
+//!
+//! The CLI surface lives in `cli.rs`; command handlers in `cmd_check.rs`,
+//! `cmd_feedback.rs`, `cmd_misc.rs` (espectacular gate tidy — `run()` was
+//! a 437-line match with cyclomatic 41).
+
 mod adapters;
 mod archetypes;
 mod archive;
 mod batching;
 mod check;
+mod cli;
+mod cmd_check;
+mod cmd_feedback;
+mod cmd_misc;
 mod config;
 mod contracts;
 // Consumer (ah sync) lands with task group 3 of derive-contracts-from-specodelic.
@@ -22,237 +32,9 @@ mod signals;
 mod sync;
 mod upgrade;
 
-use clap::{CommandFactory, Parser, Subcommand};
-use genesis::cli::{generate_completions, maybe_print_version_json};
-use genesis::envelope::{Envelope, EnvelopeKind};
-use genesis::guide::Guide;
-use std::fs;
-use std::io::Write;
-use std::path::Path;
-
-/// Wrap any serializable data in a shared genesis envelope.
-fn to_json_envelope<T: serde::Serialize>(kind: EnvelopeKind, data: T) -> String {
-    let env: Envelope<T> = Envelope::success(env!("CARGO_PKG_VERSION"), kind, data, vec![], vec![]);
-    serde_json::to_string(&env).expect("envelope serialization")
-}
-
-/// Like [`to_json_envelope`], but with an explicit `ok` override.
-///
-/// Needed for commands whose *result data carries a verdict* rather than
-/// the command's own success: `ah check` with blocking findings exits 1
-/// even though the command itself ran fine, and `Envelope::success`
-/// hardcodes `ok: true`. Machine consumers classify an invocation by the
-/// `(ok, exit_code)` pair — emitting `ok: true` with exit 1 satisfies
-/// neither an ok-envelope nor an error-envelope contract (the
-/// ok:true+exit-1 drift, evallerina-54f; round2-audit: 8/12 native
-/// ah_check toolResults). `ok` must agree with the exit code.
-fn to_json_envelope_with_ok<T: serde::Serialize>(kind: EnvelopeKind, data: T, ok: bool) -> String {
-    let mut env: Envelope<T> =
-        Envelope::success(env!("CARGO_PKG_VERSION"), kind, data, vec![], vec![]);
-    env.ok = ok;
-    serde_json::to_string(&env).expect("envelope serialization")
-}
-
-/// Extract the `repository` field from a Cargo.toml manifest string.
-fn extract_repository(manifest: &str) -> Option<String> {
-    for line in manifest.lines() {
-        let trimmed = line.trim();
-        if let Some(val) = trimmed.strip_prefix("repository = ") {
-            // Strip quotes
-            let clean = val.trim_matches('"').trim_matches('\'');
-            // Reduce to owner/repo format
-            let clean = clean
-                .strip_prefix("https://github.com/")
-                .or_else(|| clean.strip_prefix("git@github.com:"))
-                .unwrap_or(clean);
-            // Strip trailing .git and slashes
-            let clean = clean
-                .trim_end_matches(".git")
-                .trim_end_matches('/')
-                .to_string();
-            return Some(clean);
-        }
-    }
-    None
-}
-
-#[derive(Parser)]
-#[command(name = "ah", version)]
-struct Cli {
-    /// Output machine-readable JSON
-    #[arg(short = 'j', long, global = true)]
-    json: bool,
-
-    #[command(subcommand)]
-    command: Command,
-}
-
-#[derive(Subcommand)]
-enum Command {
-    /// Validate spec-test correspondence (structural analysis by default, execution with --run-tests)
-    Check {
-        #[arg(long = "changes")]
-        changes: Vec<String>,
-        /// Run contract tests (shell, custom, property, snapshot entries).
-        /// By default, ah check only performs fast structural analysis
-        /// (spec/contract correspondence).
-        #[arg(long = "run-tests")]
-        run_tests: bool,
-        /// Restrict contract-test execution to capabilities owning these
-        /// changed files (repo-relative, comma-separated). Defaults to the
-        /// worktree git diff when omitted; --all-tests overrides.
-        #[arg(long = "files", value_delimiter = ',')]
-        files: Vec<String>,
-        /// Run every declared contract test, bypassing selection.
-        #[arg(long = "all-tests")]
-        all_tests: bool,
-        /// Derive the changed-file set from the commit range
-        /// git diff --name-only <base> <head> instead of the worktree
-        /// diff (two-dot snapshot diff, testaruda-jdw5). Only applies
-        /// with --run-tests; a range that yields no files or a ref that
-        /// fails to resolve runs every declared contract.
-        #[arg(long = "base")]
-        base: Option<String>,
-        /// Head ref for the --base range (defaults to HEAD).
-        #[arg(long = "head", requires = "base")]
-        head: Option<String>,
-    },
-    /// Run diagnostic checks or enable a capability
-    Doctor {
-        #[arg(long)]
-        enable: Option<String>,
-    },
-    /// Initialize espectacular in the project
-    Init,
-    /// Statically analyze spec files for authoring-quality findings
-    Lint {
-        /// Optional repo root to lint (defaults to the current directory)
-        root: Option<String>,
-        /// Lint a change's spec overlay in addition to deployed specs
-        #[arg(long)]
-        changes: Option<String>,
-        /// Run only a single check category (e.g. vague-qualifier)
-        #[arg(long)]
-        check: Option<String>,
-    },
-    /// Generate a coverage report (spec-to-contract matrix)
-    Report {},
-    /// Archive a deployed change into specs
-    Archive { change: String },
-    /// Look up archetype definitions
-    Type { name: Option<String> },
-    /// Explain capabilities, archetypes, or list available topics
-    Explain {
-        topic: Option<String>,
-        #[arg(long)]
-        list: bool,
-    },
-    /// Update tool_version in config to match binary
-    Upgrade,
-    /// Manage scenarios (new, supersede)
-    Scenario {
-        #[command(subcommand)]
-        command: ScenarioCommand,
-    },
-    /// Read dont rejection events and emit drift signals as JSON.
-    Signals,
-    /// Create or refresh property-derived contracts from lint-clean Properties rows
-    Sync {
-        /// CI mode: write nothing, exit non-zero on drift or missing contracts
-        #[arg(long)]
-        check: bool,
-    },
-    /// Generate shell completions
-    Completions {
-        /// Shell to generate completions for (bash, zsh, fish, powershell, elvish)
-        shell: clap_complete::Shell,
-    },
-    /// File an issue against the upstream repo via gh
-    Feedback {
-        kind: String,
-        #[arg(long)]
-        dry_run: bool,
-        #[arg(long)]
-        from_last_error: bool,
-    },
-}
-
-#[derive(Subcommand)]
-enum ScenarioCommand {
-    /// Create a new scenario under a change
-    New {
-        change: String,
-        spec: String,
-        #[arg(long)]
-        requirement: String,
-        heading: String,
-    },
-    /// Supersede an old scenario with a new one
-    Supersede {
-        spec: String,
-        old_id: String,
-        #[arg(long = "with")]
-        with: String,
-        #[arg(long = "in-change")]
-        in_change: String,
-    },
-}
-
-/// Commands the `ah` CLI accepts — sourced from `Guide::builder` so the
-/// guide owns command registration for typo detection.
-const AH_COMMANDS: &[&str] = &[
-    "check",
-    "doctor",
-    "init",
-    "lint",
-    "report",
-    "archive",
-    "type",
-    "explain",
-    "upgrade",
-    "scenario",
-    "signals",
-    "sync",
-    "completions",
-    "feedback",
-];
-
-/// Assemble the genesis `Guide` scaffold for `ah`.
-///
-/// The guide owns command registration (for typo detection), the
-/// `ErrorSink` used for self-healing error output, and marks adoption of
-/// `genesis::config` via `.config::<Config>()`.
-///
-/// Note: `.config::<Config>()` is a forward-compatible intent marker —
-/// in genesis v0.2.0 it only sets an (unused) `has_config` flag and has
-/// no runtime effect. It's kept so a future `Guide` that drives config
-/// wiring picks espectacular up automatically.
-fn build_guide() -> Guide {
-    Guide::builder("ah", env!("CARGO_PKG_VERSION"))
-        .about("Behavioral verification layer enforcing spec-test correspondence")
-        .commands(AH_COMMANDS)
-        .config::<config::Config>()
-        .build()
-}
-
-/// Wrapper that renders an anyhow error with its full context chain (`:#`)
-/// as its `Display` output, so `ErrorSink::handle` prints the rich message
-/// while genesis owns the scratch + footer mechanics.
-struct FormattedError(String);
-
-impl std::fmt::Display for FormattedError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::fmt::Debug for FormattedError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.0)
-    }
-}
-
-impl std::error::Error for FormattedError {}
+use crate::cli::{build_guide, handle_parse_error, handle_run_error, Cli, Command};
+use clap::Parser;
+use genesis::cli::maybe_print_version_json;
 
 fn main() {
     // Delegate --version --json handling to genesis::cli
@@ -261,46 +43,17 @@ fn main() {
     }
 
     let guide = build_guide();
-
     match Cli::try_parse() {
         Ok(cli) => {
             if let Err(error) = run(cli) {
-                // ErrorSink owns the error message, the self-healing footer,
-                // and the best-effort scratch write for `--from-last-error`.
-                // We suppress the generic "-> Run: ah doctor" footer
-                // (`with_suggest(false)`) because we provide the feedback
-                // footer instead (`with_feedback`); enabling suggestions
-                // would print a duplicate footer.
-                let sink = guide
-                    .error_sink()
-                    .with_suggest(false)
-                    .with_feedback(Some("feedback"));
-                let mut stderr = std::io::stderr();
-                sink.handle(&FormattedError(format!("{error:#}")), &mut stderr);
-                // Exit 1 matches the `exit` field ErrorSink writes into the
-                // scratch record, so `feedback --from-last-error` reports a
-                // truthful exit code. (The typo-subcommand path below keeps
-                // exit 2 to match clap's invalid-subcommand convention.)
-                std::process::exit(1);
+                handle_run_error(error, &guide);
             }
         }
-        Err(err) => {
-            if err.kind() == clap::error::ErrorKind::InvalidSubcommand {
-                if let Some(clap::error::ContextValue::String(bad_cmd)) =
-                    err.get(clap::error::ContextKind::InvalidSubcommand)
-                {
-                    let engine = genesis::suggestions::SuggestionEngine::new();
-                    if let Some(suggestion) = engine.suggest_typo(bad_cmd, guide.registry()) {
-                        eprintln!("{}", suggestion.message());
-                        std::process::exit(2);
-                    }
-                }
-            }
-            err.exit();
-        }
+        Err(err) => handle_parse_error(err, &guide),
     }
 }
 
+/// Primary commands: substantial handlers with their own modules.
 fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Command::Check {
@@ -311,562 +64,43 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             base,
             head,
         } => {
-            let repo_root = std::env::current_dir()?;
-            // Selection input (espectacular-0k8): explicit --files wins;
-            // then the --base commit range (C-range-diff); otherwise the
-            // worktree git diff supplies the changed-file set. Degenerate
-            // ranges fall back to the empty set, which runs everything.
-            let changed_files = if !files.is_empty() || !run_tests || all_tests {
-                files.clone()
-            } else if let Some(base) = base.as_deref() {
-                let head = head.as_deref().unwrap_or("HEAD");
-                changed_files_from_range(&repo_root, base, head)
-            } else {
-                changed_files_from_git(&repo_root)
-            };
-            let report = check::run_check_with_selection(
-                &repo_root,
-                &changes,
-                run_tests,
-                &changed_files,
-                all_tests,
-            )?;
-            if cli.json {
-                let has_blocking = report
-                    .findings
-                    .iter()
-                    .any(|f| f.category == "structural" || f.category == "execution");
-                // ok must agree with the exit code: blocking findings fail
-                // the gate (exit 1), so the envelope reports ok:false —
-                // see to_json_envelope_with_ok (evallerina-54f).
-                println!(
-                    "{}",
-                    to_json_envelope_with_ok(EnvelopeKind::Check, &report, !has_blocking)
-                );
-                std::io::stdout().flush().unwrap_or_default();
-                std::process::exit(if has_blocking { 1 } else { 0 });
-            } else {
-                print_check_report(&report, run_tests);
-            }
-            let has_blocking = report
-                .findings
-                .iter()
-                .any(|f| f.category == "structural" || f.category == "execution");
-            std::io::stdout().flush().unwrap_or_default();
-            std::process::exit(if has_blocking { 1 } else { 0 });
+            cmd_check::run_check_command(changes, run_tests, files, all_tests, base, head, cli.json)
         }
-        Command::Doctor { enable } => {
-            if cli.json {
-                let report = doctor::run_doctor(&std::env::current_dir()?)?;
-                println!("{}", doctor::doctor_to_envelope(&report));
-                return Ok(());
-            }
-            if let Some(capability) = enable {
-                match doctor::run_doctor_enable(&std::env::current_dir()?, &capability)? {
-                    doctor::DoctorEnableResult::Written { path, table_name } => {
-                        println!("enabled: {table_name} in {path}");
-                    }
-                    doctor::DoctorEnableResult::AlreadyEnabled => {
-                        println!("already-enabled: {capability}");
-                    }
-                }
-                return Ok(());
-            }
-            let report = doctor::run_doctor(&std::env::current_dir()?)?;
-            for det in &report.detections {
-                println!(
-                    "framework: {} ({})",
-                    det.name,
-                    crate::adapters::detection_source_label(det.detection_source)
-                );
-            }
-            for rec in &report.suggestions {
-                println!(
-                    "recommendation: {} — run: {}",
-                    rec.detail, rec.apply_command
-                );
-            }
-            for s in &report.session_suggestions {
-                println!("suggestion: {} — run: {}", s.detail, s.apply_command);
-            }
-            if report.genesis_report.is_healthy() {
-                println!("healthy: all checks passed");
-            } else {
-                for entry in report
-                    .genesis_report
-                    .checks
-                    .iter()
-                    .filter(|c| !c.status.is_pass())
-                {
-                    eprintln!("{}: {}", entry.name, entry.message);
-                }
-                std::process::exit(1);
-            }
-            Ok(())
-        }
-        Command::Report {} => {
-            let report = report::run_report(&std::env::current_dir()?)?;
-            if cli.json {
-                // espectacular-yr9: ok must agree with the exit code (same
-                // drift class as the check fix) — gaps exit 1, so ok:false.
-                let has_gaps = report.summary.missing > 0 || report.summary.failing > 0;
-                println!(
-                    "{}",
-                    to_json_envelope_with_ok(EnvelopeKind::Ok, &report, !has_gaps)
-                );
-                std::process::exit(if has_gaps { 1 } else { 0 });
-            } else {
-                println!(
-                    "{:<20} {:<10} {:>8} {:>8} {:>8} {:>8}",
-                    "spec", "archetype", "covered", "missing", "failing", "total"
-                );
-                for row in &report.matrix {
-                    println!(
-                        "{:<20} {:<10} {:>8} {:>8} {:>8} {:>8}",
-                        row.spec, row.archetype, row.covered, row.missing, row.failing, row.total
-                    );
-                }
-                println!();
-                println!(
-                    "covered: {} | missing: {} | failing: {} | total: {}",
-                    report.summary.covered,
-                    report.summary.missing,
-                    report.summary.failing,
-                    report.summary.total_scenarios
-                );
-            }
-            let has_gaps = report.summary.missing > 0 || report.summary.failing > 0;
-            std::process::exit(if has_gaps { 1 } else { 0 });
-        }
-        Command::Lint {
-            root,
-            changes,
-            check,
-        } => {
-            let cwd = std::env::current_dir()?;
-            let repo_root = match &root {
-                Some(path) => cwd.join(path),
-                None => cwd,
-            };
-            let specs_dir = lint::specs_dir_for(&repo_root)?;
-            let mut output = lint::run_lint_query(&specs_dir, check.as_deref())?;
-            if let Some(change) = &changes {
-                let overlay = lint::run_change_overlay(&repo_root, change, check.as_deref())?;
-                output = lint::merge_outputs(output, overlay);
-            }
-            // espectacular-yr9: ok must agree with the exit code — warning-
-            // only findings exit 0 and stay ok:true; error findings exit 1
-            // with ok:false (same drift class as the check fix).
-            let lint_code = lint::exit_code(&output);
-            if cli.json {
-                println!(
-                    "{}",
-                    to_json_envelope_with_ok(
-                        genesis::envelope::EnvelopeKind::Warning,
-                        &output,
-                        lint_code == 0
-                    )
-                );
-            } else {
-                lint::print_report(&output);
-            }
-            std::io::stdout().flush().unwrap_or_default();
-            // Record the completed run so `ah doctor` can suggest the first
-            // lint (advisory-only; best-effort).
-            doctor::record_lint_run(&repo_root);
-            std::process::exit(lint_code);
-        }
-        Command::Init => {
-            let result = init::run_init(&std::env::current_dir()?)?;
-            for path in &result.created {
-                println!("created: {path}");
-            }
-            for path in &result.refreshed {
-                println!("refreshed: {path}");
-            }
-            for contract in &result.stubbed_contracts {
-                println!("stubbed: {contract}");
-            }
-            for concern in &result.concerns {
-                eprintln!("concern: {concern}");
-            }
-            Ok(())
-        }
-        Command::Archive { change } => {
-            let result = archive::run_archive(&std::env::current_dir()?, &change)?;
-            for item in &result.moved {
-                println!("archived: {item}");
-            }
-            Ok(())
-        }
-        Command::Type { name } => {
-            match name.as_deref() {
-                None => {
-                    println!("{}", archetypes::list_archetypes());
-                }
-                Some(code) => {
-                    let upper = code.to_uppercase();
-                    match archetypes::lookup(&upper) {
-                        Some(a) => println!("{}", a.body),
-                        None => {
-                            let suggestions = archetypes::did_you_mean(code);
-                            if suggestions.is_empty() {
-                                eprintln!(
-                                    "unknown archetype: {code}. Known: {}",
-                                    archetypes::known_codes().join(", ")
-                                );
-                            } else {
-                                eprintln!(
-                                    "unknown archetype: {code}. Did you mean: {}?",
-                                    suggestions.join(", ")
-                                );
-                            }
-                            std::process::exit(1);
-                        }
-                    }
-                }
-            }
-            Ok(())
-        }
-        Command::Explain { topic, list } => explain::run_explain(topic.as_deref(), list, cli.json),
-        Command::Signals => {
-            let project_root = std::env::current_dir()?;
-            let drift = signals::collect_drift_signals(&project_root);
-            println!("{}", to_json_envelope(EnvelopeKind::Stats, &drift));
-            Ok(())
-        }
-        Command::Sync { check } => {
-            let project_root = std::env::current_dir()?;
-            let outcome = sync::run_sync("spk", &project_root, check)?;
-            if cli.json {
-                // espectacular-yr9: ok must agree with the exit code (same
-                // drift class as the check fix) — a failed --check exits 1,
-                // so ok:false; a clean sync stays ok:true.
-                println!(
-                    "{}",
-                    to_json_envelope_with_ok(EnvelopeKind::Ok, &outcome, outcome.is_ok())
-                );
-            } else {
-                if let Some(msg) = &outcome.spk_unavailable {
-                    eprintln!("spk-unavailable: {msg}");
-                }
-                for (file, reason) in &outcome.refusals {
-                    eprintln!("refused: {file}: {reason}");
-                }
-                for path in &outcome.missing {
-                    eprintln!("missing contract: {path}");
-                }
-                for path in &outcome.stale {
-                    eprintln!("contract stale: {path}");
-                }
-                for path in &outcome.fresh {
-                    println!("fresh: {path}");
-                }
-                for path in &outcome.wrote {
-                    println!("wrote: {path}");
-                }
-            }
-            // C-sync-refusal / C-sync-check: non-zero without further action.
-            std::process::exit(if outcome.is_ok() { 0 } else { 1 });
-        }
+        Command::Doctor { enable } => cmd_misc::run_doctor_command(enable, cli.json),
         Command::Feedback {
             kind,
             dry_run,
             from_last_error,
-        } => {
-            // Validate kind with suggestions
-            let valid_kinds = ["bug", "feature", "chore"];
-            if !valid_kinds.contains(&kind.as_str()) {
-                // Use genesis suggestions to find close matches
-                let mut reg = genesis::suggestions::CommandRegistry::new();
-                reg.register("kind", valid_kinds.iter().map(|k| k.to_string()).collect());
-                let engine = genesis::suggestions::SuggestionEngine::new();
-                if let Some(suggestion) = engine.suggest_typo(&kind, &reg) {
-                    eprintln!("{}", suggestion.message());
-                } else {
-                    eprintln!(
-                        "unknown kind: {kind}. Valid kinds: {}",
-                        valid_kinds.join(", ")
-                    );
-                }
-                std::process::exit(2);
-            }
-
-            if !dry_run {
-                eprintln!("Warning: this will file a real issue. Use --dry-run to preview first.");
-            }
-
-            // Missing Cargo.toml = not a Rust workspace (espectacular-qyu,
-            // GH#28 item 3): degrade to the default target repo instead of
-            // erroring, so non-Rust projects can still file feedback.
-            let repo = std::env::current_dir()?;
-            let target_repo = fs::read_to_string(repo.join("Cargo.toml"))
-                .ok()
-                .and_then(|manifest| extract_repository(&manifest))
-                .unwrap_or_else(|| "charly-vibes/espectacular".to_string());
-
-            // Build issue body
-            let mut body_parts: Vec<String> = Vec::new();
-
-            if from_last_error {
-                if let Some(record) = genesis::feedback::scratch::read_last_error("ah") {
-                    body_parts.push(format!(
-                        "## Error\n\n**Command:** `{}`\n**Exit code:** {}\n**Kind:** {}",
-                        record.argv.join(" "),
-                        record.exit,
-                        record.kind,
-                    ));
-                    if let Some(ref footer) = record.footer {
-                        body_parts.push(format!("**Suggestion:** {}", footer));
-                    }
-                } else {
-                    eprintln!("No recent error recorded. Run `ah check` or `ah doctor` first.");
-                    std::process::exit(1);
-                }
-            }
-
-            // Gather environment context
-            let cwd = std::env::current_dir().unwrap_or_default();
-            let bundle = genesis::feedback::context::gather_context(
-                "ah",
-                env!("CARGO_PKG_VERSION"),
-                None,
-                None,
-                None,
-                &cwd,
-            );
-            body_parts.push(genesis::feedback::context::format_context_bundle(&bundle));
-
-            // Redact sensitive info
-            let home = std::env::var("HOME").ok().map(std::path::PathBuf::from);
-            let git_remote = bundle.git_remote.clone();
-            let body = genesis::feedback::redactor::redact(
-                &body_parts.join("\n\n"),
-                home.as_deref(),
-                git_remote.as_deref(),
-            );
-
-            let labels = match kind.as_str() {
-                "bug" => vec!["agent-reported".into(), "bug".into(), "has-repro".into()],
-                "feature" => vec!["agent-reported".into(), "enhancement".into()],
-                "chore" => vec!["agent-reported".into(), "chore".into()],
-                _ => vec!["agent-reported".into()],
-            };
-
-            let opts = genesis::feedback::gh::CreateIssueOptions {
-                repo: target_repo,
-                title: format!("[ah] {}: auto-reported", kind),
-                body: body.clone(),
-                labels,
-                dry_run,
-            };
-
-            if dry_run {
-                eprintln!("{}", body);
-            }
-
-            match genesis::feedback::gh::create_issue(&opts) {
-                Ok(result) => match result {
-                    genesis::feedback::gh::GhResult::Created { url, number } => {
-                        println!("Created issue #{}: {}", number, url);
-                    }
-                    genesis::feedback::gh::GhResult::FallbackUrl(url) => {
-                        println!("Open this URL to file the issue: {}", url);
-                    }
-                    genesis::feedback::gh::GhResult::LocalFile(path) => {
-                        println!("Report written to: {}", path.display());
-                    }
-                },
-                Err(msg) => {
-                    eprintln!("{}", msg);
-                    std::process::exit(1);
-                }
-            }
-            Ok(())
-        }
-        Command::Completions { shell } => {
-            let mut cmd = Cli::command();
-            generate_completions(&mut cmd, shell).map_err(|e| anyhow::anyhow!("{}", e))
-        }
-        Command::Upgrade => {
-            let report = upgrade::run_upgrade(&std::env::current_dir()?)?;
-            if report.drift {
-                println!(
-                    "upgraded: tool_version {} → {}",
-                    report.config_version, report.binary_version
-                );
-                std::process::exit(1);
-            } else {
-                println!("up to date: tool_version {}", report.binary_version);
-            }
-            Ok(())
-        }
-        Command::Scenario { command } => match command {
-            ScenarioCommand::New {
-                change,
-                spec,
-                requirement,
-                heading,
-            } => {
-                let result = scenario::run_scenario_new(
-                    &std::env::current_dir()?,
-                    &change,
-                    &spec,
-                    &requirement,
-                    &heading,
-                )?;
-                println!("scenario: {}", result.scenario_path);
-                println!("contract: {}", result.contract_path);
-                Ok(())
-            }
-            ScenarioCommand::Supersede {
-                spec,
-                old_id,
-                with,
-                in_change,
-            } => {
-                let result = scenario::run_scenario_supersede(
-                    &std::env::current_dir()?,
-                    &spec,
-                    &old_id,
-                    &with,
-                    &in_change,
-                )?;
-                println!("superseded: {}", result.contract_path);
-                Ok(())
-            }
-        },
+        } => cmd_feedback::run_feedback_command(kind, dry_run, from_last_error),
+        Command::Report {} => cmd_misc::run_report_command(cli.json),
+        Command::Lint {
+            root,
+            changes,
+            check,
+        } => cmd_misc::run_lint_command(root, changes, check, cli.json),
+        Command::Sync { check } => cmd_misc::run_sync_command(check, cli.json),
+        other => run_small(other, cli.json),
     }
 }
 
-/// Changed files across the commit range <base>..<head> (two-dot snapshot
-/// diff, testaruda-jdw5 / C-range-diff), repo-relative. Degenerate ranges —
-/// an unresolvable ref or an empty diff — yield an empty set, which the
-/// Layer-1 fallback runs as a full run (C-range-safe / design D2): the gate
-/// must never pass with zero executed tests because of a range it cannot
-/// distinguish from "nothing changed".
-fn changed_files_from_range(repo_root: &Path, base: &str, head: &str) -> Vec<String> {
-    let output = std::process::Command::new("git")
-        .args(["diff", "--name-only", base, head])
-        .current_dir(repo_root)
-        .output();
-    match output {
-        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
-            .lines()
-            .map(|l| l.trim().to_string())
-            .filter(|l| !l.is_empty())
-            .collect(),
-        _ => Vec::new(),
-    }
-}
-
-/// Worktree changed files (unstaged + staged vs HEAD), repo-relative.
-fn changed_files_from_git(repo_root: &Path) -> Vec<String> {
-    let output = std::process::Command::new("git")
-        .args(["diff", "--name-only", "HEAD"])
-        .current_dir(repo_root)
-        .output();
-    match output {
-        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
-            .lines()
-            .map(|l| l.trim().to_string())
-            .filter(|l| !l.is_empty())
-            .collect(),
-        _ => Vec::new(),
-    }
-}
-
-fn print_check_report(report: &check::CheckOutput, run_tests: bool) {
-    let total = report.findings.len() + report.quality_findings.len();
-
-    if total == 0 {
-        if report.summary.passed == 0 && !run_tests {
-            println!("no issues — 0 structural, 0 execution (contract tests skipped; run `ah check --run-tests` to execute)");
-        } else if report.summary.passed == 0 {
-            println!("no scenarios to check — 0 passed, 0 findings");
-        } else {
-            println!("OK — {} passed, 0 findings", report.summary.passed);
-        }
-        return;
-    }
-
-    println!("found {total} issue(s):");
-
-    for finding in &report.findings {
-        let spec = &finding.spec;
-        let scenario_id = &finding.scenario.id;
-        let kind = &finding.kind;
-        let category = &finding.category;
-        let msg = finding.message.as_deref().unwrap_or("");
-        if msg.is_empty() {
-            println!("{category}: {spec}/{scenario_id} — {kind}");
-        } else {
-            println!("{category}: {spec}/{scenario_id} — {kind}: {msg}");
-        }
-        if let Some(test) = &finding.test {
-            let lines: Vec<&str> = test.stdout_tail.lines().collect();
-            for line in lines.iter().take(5) {
-                println!("  stdout: {line}");
-            }
-            if lines.len() > 5 {
-                println!("  stdout: ... ({} more lines)", lines.len() - 5);
-            }
-            let lines: Vec<&str> = test.stderr_tail.lines().collect();
-            for line in lines.iter().take(5) {
-                println!("  stderr: {line}");
-            }
-            if lines.len() > 5 {
-                println!("  stderr: ... ({} more lines)", lines.len() - 5);
-            }
-        }
-    }
-
-    if !report.quality_findings.is_empty() {
-        println!();
-        for qf in &report.quality_findings {
-            println!("quality: {} — {}", qf.kind, qf.message);
-            if let Some(kr) = qf.kill_rate {
-                println!("  kill_rate: {:.1}%", kr * 100.0);
-            }
-            if let Some(th) = qf.threshold {
-                println!("  threshold: {:.1}%", th * 100.0);
-            }
-        }
-    }
-
-    let summary = &report.summary;
-    println!();
-    println!(
-        "summary: {} passed, {} structural, {} execution, {} quality",
-        summary.passed,
-        summary.structural,
-        summary.execution,
-        report.quality_findings.len()
-    );
-    if !summary.counts_by_kind.is_empty() {
-        for (kind, count) in &summary.counts_by_kind {
-            println!("  {kind}: {count}");
-        }
-    }
-    if let Some(sel) = &report.selection {
-        let testaruda = sel
-            .testaruda
-            .as_ref()
-            .map(|t| format!(", {} pruned by testaruda", t.pruned))
-            .unwrap_or_default();
-        println!(
-            "selection: {} — {} selected, {} skipped{}",
-            sel.source,
-            sel.selected.len(),
-            sel.skipped,
-            testaruda
-        );
+/// Trivial delegates around their domain modules.
+fn run_small(cmd: Command, json: bool) -> anyhow::Result<()> {
+    match cmd {
+        Command::Init => cmd_misc::run_init_command(),
+        Command::Archive { change } => cmd_misc::run_archive_command(&change),
+        Command::Type { name } => cmd_misc::run_type_command(name),
+        Command::Explain { topic, list } => cmd_misc::run_explain_command(topic, list, json),
+        Command::Signals => cmd_misc::run_signals_command(),
+        Command::Completions { shell } => cmd_misc::run_completions_command(shell),
+        Command::Upgrade => cmd_misc::run_upgrade_command(),
+        Command::Scenario { command } => cmd_misc::run_scenario_command(command),
+        _ => unreachable!("handled by run()"),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::cli::{build_guide, AH_COMMANDS};
 
     #[test]
     fn guide_registers_all_commands_and_config() {
@@ -892,7 +126,8 @@ mod tests {
     /// subcommands, otherwise typo detection silently drops a command.
     #[test]
     fn ah_commands_match_clap_subcommands() {
-        let clap_names: std::collections::BTreeSet<String> = Cli::command()
+        use clap::CommandFactory;
+        let clap_names: std::collections::BTreeSet<String> = crate::cli::Cli::command()
             .get_subcommands()
             .map(|c| c.get_name().to_string())
             .collect();
