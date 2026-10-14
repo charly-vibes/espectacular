@@ -37,21 +37,23 @@ pub fn run_check_command(
         &changed_files,
         all_tests,
     )?;
+    emit_check_result(&report, run_tests, json)
+}
+
+/// Emit the verdict (JSON envelope or human report) and exit per the
+/// blocking-finding count. ok must agree with the exit code: blocking
+/// findings fail the gate (exit 1), so the envelope reports ok:false —
+/// see to_json_envelope_with_ok (evallerina-54f).
+fn emit_check_result(report: &check::CheckOutput, run_tests: bool, json: bool) -> ! {
+    let has_blocking = has_blocking_findings(report);
     if json {
-        let has_blocking = has_blocking_findings(&report);
-        // ok must agree with the exit code: blocking findings fail
-        // the gate (exit 1), so the envelope reports ok:false —
-        // see to_json_envelope_with_ok (evallerina-54f).
         println!(
             "{}",
-            to_json_envelope_with_ok(EnvelopeKind::Check, &report, !has_blocking)
+            to_json_envelope_with_ok(EnvelopeKind::Check, report, !has_blocking)
         );
-        std::io::stdout().flush().unwrap_or_default();
-        std::process::exit(if has_blocking { 1 } else { 0 });
     } else {
-        print_check_report(&report, run_tests);
+        print_check_report(report, run_tests);
     }
-    let has_blocking = has_blocking_findings(&report);
     std::io::stdout().flush().unwrap_or_default();
     std::process::exit(if has_blocking { 1 } else { 0 });
 }
