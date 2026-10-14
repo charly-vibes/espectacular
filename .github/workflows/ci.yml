@@ -65,6 +65,10 @@ jobs:
           # decision A), not the repo's own gate; the lease fails closed when
           # expired so the advisory stance stays a visible, renewable decision.
           pretender check --mode guidance --advisory-until 2027-01-01 >/dev/null
+      # DDL-43g: smoke our own live Pages URL — a 404'd book must fail this
+      # repo's CI immediately, not wait for the next hub conformance run.
+      - name: Smoke live Pages URL
+        run: curl -fsS --max-time 10 --retry 2 https://charly-vibes.github.io/espectacular/ >/dev/null
       - name: Run CI pipeline
         run: just ci
 
