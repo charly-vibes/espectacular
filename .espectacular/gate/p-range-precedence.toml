@@ -1,0 +1,13 @@
+archetype = "PF"
+authored_with = "0.11.0"
+derived_from = "P-range-precedence@c99233401dc4"
+description = "the explicit file list wins over the range; `--all-tests` runs everything; the no-flag run uses the worktree diff"
+falsifiability_class = "safety"
+id = "p-range-precedence"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "range_precedence_files_all_tests_inert"
+name = "ah_check_range_precedence_files_all_tests_inert"
+timeout_seconds = 300

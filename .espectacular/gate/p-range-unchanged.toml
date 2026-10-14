@@ -1,0 +1,23 @@
+archetype = "PF"
+authored_with = "0.11.0"
+derived_from = "P-range-unchanged@6e9b8bf3d837"
+description = "check output is byte-identical to pre-change behavior"
+falsifiability_class = "safety"
+id = "p-range-unchanged"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "selection_runs_only_affected_capability"
+name = "ah_check_range_selection_runs_only_affected_capability"
+timeout_seconds = 300
+
+[[tests.cargo]]
+flags = "precedence_files_all_tests_inert"
+name = "ah_check_range_precedence_files_all_tests_inert"
+timeout_seconds = 300
+
+[[tests.cargo]]
+flags = "degenerate_range_runs_everything"
+name = "ah_check_degenerate_range_runs_everything"
+timeout_seconds = 300

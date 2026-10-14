@@ -1,0 +1,13 @@
+archetype = "PF"
+authored_with = "0.11.0"
+derived_from = "P-range-files@7827e8f7a587"
+description = "`ah check --run-tests --base <base-sha>` runs only that capability's contract; the other capability's contract is absent from the selection report"
+falsifiability_class = "safety"
+id = "p-range-files"
+status = "active"
+superseded_by = ""
+
+[[tests.cargo]]
+flags = "range_selection_runs_only_affected_capability"
+name = "ah_check_range_selection_runs_only_affected_capability"
+timeout_seconds = 300
