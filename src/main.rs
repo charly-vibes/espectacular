@@ -15,8 +15,8 @@ mod cmd_feedback;
 mod cmd_misc;
 mod config;
 mod contracts;
-// Consumer (ah sync) lands with task group 3 of derive-contracts-from-specodelic.
-#[allow(dead_code)]
+// Consumed by check.rs (contract-stale hash compare) and sync.rs since
+// derive-contracts-from-specodelic task group 3.
 mod derive;
 mod doctor;
 mod explain;

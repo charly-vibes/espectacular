@@ -51,6 +51,8 @@ pub fn detect(repo_root: &Path, config: &Config, test_type: &str) -> Option<Dete
     }
 }
 
+/// Typed dispatch over the same set as `invoke`; used by unit tests
+/// to assert per-adapter command composition without executing.
 #[allow(dead_code)]
 pub fn compose_command(
     repo_root: &Path,

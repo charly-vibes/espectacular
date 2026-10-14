@@ -3,10 +3,12 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct Contract {
     pub id: String,
+    /// Human-facing schema field — parsed so the struct mirrors the TOML
+    /// shape, but never read by the gate itself.
+    #[allow(dead_code)]
     pub description: String,
     pub archetype: String,
     pub status: String,

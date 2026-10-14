@@ -5,7 +5,6 @@ use crate::openspec;
 use crate::{config, contracts};
 use genesis::doctor::DoctorCheck;
 use genesis::git_hooks;
-use genesis::status::StatusSection;
 use genesis::suite_linter::{LintResult, Severity};
 use std::collections::HashSet;
 use std::fs;
@@ -58,20 +57,6 @@ const TOOL_VERSION: &str = env!("CARGO_PKG_VERSION");
 const KNOWN_CAPABILITIES: &[&str] = &[
     "pytest", "cargo", "vitest", "mutation", "property", "snapshot",
 ];
-
-/// Map a `genesis::doctor::CheckEntry` to a `StatusSection` item.
-fn check_entry_to_status_item(entry: genesis::doctor::CheckEntry) -> genesis::status::StatusItem {
-    let level = match entry.status {
-        genesis::doctor::CheckStatus::Fail => genesis::status::StatusLevel::Error,
-        genesis::doctor::CheckStatus::Warn => genesis::status::StatusLevel::Warning,
-        genesis::doctor::CheckStatus::Pass => genesis::status::StatusLevel::Healthy,
-    };
-    genesis::status::StatusItem {
-        label: entry.message,
-        value: String::new(),
-        level,
-    }
-}
 
 // ── DoctorCheck implementations ───────────────────────────────────────
 
@@ -206,8 +191,6 @@ impl DoctorCheck for ChangesDirCheck {
 }
 
 struct CollisionCheck {
-    #[allow(dead_code)]
-    repo_root: std::path::PathBuf,
     specs_dir: std::path::PathBuf,
 }
 impl DoctorCheck for CollisionCheck {
@@ -575,7 +558,6 @@ fn build_checks(repo_root: &Path) -> Vec<Box<dyn DoctorCheck>> {
             changes_dir: repo_root.join(&cfg.paths.changes),
         }));
         checks.push(Box::new(CollisionCheck {
-            repo_root: repo_root.to_path_buf(),
             specs_dir: specs_dir.clone(),
         }));
         checks.push(Box::new(OrphanContractCheck {
@@ -772,38 +754,6 @@ pub fn doctor_to_envelope(outcome: &DoctorOutcome) -> serde_json::Value {
         vec![],
     );
     serde_json::to_value(&envelope).expect("envelope serialization")
-}
-
-// ── Status section ────────────────────────────────────────────────────
-
-#[allow(dead_code)]
-pub fn status_section(repo_root: &Path) -> Result<StatusSection, String> {
-    let outcome = run_doctor(repo_root).map_err(|e| e.to_string())?;
-    let genesis_report = &outcome.genesis_report;
-
-    let summary = if genesis_report.is_healthy() {
-        format!(
-            "all checks passed ({} detections)",
-            outcome.detections.len()
-        )
-    } else {
-        let issues: Vec<_> = genesis_report
-            .checks
-            .iter()
-            .filter(|c| c.status.is_issue())
-            .collect();
-        format!("{} issue(s) found", issues.len())
-    };
-
-    let items: Vec<genesis::status::StatusItem> = genesis_report
-        .checks
-        .iter()
-        .filter(|c| !c.status.is_pass())
-        .cloned()
-        .map(check_entry_to_status_item)
-        .collect();
-
-    Ok(StatusSection::with_items("espectacular", summary, items))
 }
 
 // ── Enable capability ─────────────────────────────────────────────────

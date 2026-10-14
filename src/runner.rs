@@ -192,6 +192,9 @@ pub(crate) fn execute_command_full(
     Ok((result, stdout))
 }
 
+/// Sequential declared-test loop; kept as contract-test surface
+/// (gate/p-execution.toml binds `p_execution`, whose helpers drive it).
+/// Production execution goes through `adapters::invoke` (incl. batching).
 #[allow(dead_code)]
 pub fn run_declared_tests(
     repo_root: &Path,

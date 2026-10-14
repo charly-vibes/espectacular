@@ -4,12 +4,14 @@ use std::path::Path;
 
 use anyhow::Context;
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Scenario {
     pub id: String,
     pub heading: String,
     pub spec_path: String,
+    /// One-based source line — set by discovery and asserted by parse tests
+    /// (ordering/dedupe diagnostics); no production read site yet.
+    #[allow(dead_code)]
     pub source_line: usize,
     pub body: String,
 }

@@ -10,7 +10,6 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Finding {
     pub spec_path: String,
@@ -340,6 +339,8 @@ fn affected_capability(file: &str, specs_dir: &str, changes_dir: &str) -> Option
     None
 }
 
+/// Library-shaped entry point over `collect_structural_findings`; used by
+/// contract tests (the binary goes through `run_check` → the same collector).
 #[allow(dead_code)]
 pub fn structural_findings(specs_dir: &str, contracts_dir: &str) -> anyhow::Result<Vec<Finding>> {
     let scenarios = openspec::discover_scenarios(specs_dir)?;
