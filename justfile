@@ -33,9 +33,10 @@ build-release:
 test:
     cargo test
 
-# Lint with clippy
+# Lint with clippy (--all-targets: test-code lints only fail here otherwise
+# they slip through to the pre-push hook)
 lint:
-    cargo clippy -- -D warnings
+    cargo clippy --all-targets -- -D warnings
 
 # Check formatting
 fmt-check:
