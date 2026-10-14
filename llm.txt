@@ -1,6 +1,6 @@
 # espectacular
 
-> Behavioral verification layer for Rust CLI projects.
+> Behavioral verification layer for the charly AI development ecosystem.
 
 ## What it is
 
@@ -22,8 +22,12 @@ The CLI binary is `ah`.
 | Command | Purpose |
 |---------|---------|
 | `ah init` | Set up `.espectacular/` and hook integration |
-| `ah check` | Validate deployed specs and run declared tests |
+| `ah check` | Validate deployed specs (structural analysis) |
+| `ah check --run-tests` | Also execute declared contract tests |
+| `ah check --base <ref> [--head <ref>]` | Restrict test execution to the commit range's files |
 | `ah check --changes <id>` | Include a staged change overlay |
+| `ah lint` | Static spec-authoring-quality findings (warning severity) |
+| `ah sync` | Derive contract TOMLs from specodelic Properties rows (`--check` for CI) |
 | `ah doctor` | Diagnose config, path, hook, and archetype issues |
 | `ah doctor --json` | Emit diagnostic output as JSON with recommendation findings |
 | `ah doctor --enable <cap>` | Write config for a detected-but-unconfigured capability |
@@ -41,22 +45,29 @@ The CLI binary is `ah`.
 
 ## Output format
 
-`ah check` always emits JSON to stdout:
+Commands emit a genesis JSON envelope to stdout:
 
 ```json
 {
-  "scope": { "deployed": true, "changes": [] },
-  "summary": { "structural": 0, "execution": 0, "passed": 3, "counts_by_kind": {} },
-  "findings": []
+  "ok": true,
+  "envelope_version": "0.1",
+  "cli_version": "0.11.0",
+  "envelope_kind": "check",
+  "data": {
+    "scope": { "deployed": true, "changes": [] },
+    "summary": { "structural": 0, "execution": 0, "passed": 3, "counts_by_kind": {} },
+    "findings": []
+  }
 }
 ```
 
-Each finding has `kind`, `category`, `spec`, `spec_path`, `scenario`, `suggested_action`, `playbook_command`. Run `ah explain <suggested_action>` for step-by-step guidance.
+`ok` agrees with the exit code (blocking findings exit 1 → `ok: false`). Each finding has `kind`, `category`, `spec`, `spec_path`, `scenario`, `suggested_action`, `playbook_command`. Run `ah explain <suggested_action>` for step-by-step guidance.
 
 ## Finding kinds
 
-structural: `no-toml`, `orphan-toml`, `slug-collision`, `id-mismatch`, `no-tests-declared`, `missing-runner`, `malformed-contract`, `missing-replacement`, `overlay-conflict`
-execution: `test-failing`
+structural (exit 1): `no-toml`, `orphan-toml`, `slug-collision`, `id-mismatch`, `no-tests-declared`, `no-tests-ran`, `missing-runner`, `malformed-contract`, `missing-replacement`, `overlay-conflict`, `contract-stale`
+execution (exit 1): `test-failing`
+warning-severity (exit 0): `batch-fallback`, plus `ah lint` kinds (`vague-qualifier`, `imperative-step`, `conjunctive-bloat`, `missing-negative-scenario`, `missing-non-goals`, `unresolved-ambiguity`, `entangled-spec`, `scenario-unlinked`, `property-untraced`, `verifies-dangling`, `spk-frontmatter-mismatch`)
 quality (informational, never exit-1): `quality-mutation`, `quality-property`, `quality-snapshot`
 
 ## Contract format
