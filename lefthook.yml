@@ -10,7 +10,10 @@ pre-commit:
     ddl-ah-check:
       run: ah check
     ddl-pretender-gate:
-      run: pretender check --mode gate
+      # Diff-scoped like testaruda's pre-commit hook (upstream DDL-3fd): a
+      # repo-wide gate fails on pre-existing violations in untouched files
+      # and blocks every commit.
+      run: pretender check --diff-only --mode gate
     ddl-spk-lint:
       run: spk lint openspec
     # ddl:managed:end (pre-commit)
