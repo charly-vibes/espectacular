@@ -29,8 +29,43 @@ plugins:
 build-release:
     cargo build --release
 
-# Run tests
+
+# TDD loop (most obvious entry, DDL test-runner standard — see DDL-85p in
+# the dulce-de-leche repo): testaruda exec — select the tests the working
+# diff affects, run only those, ingest, calibrate. Tolerance contract:
+# exit 0/10/20 green; NOT CALIBRATED with 0 actual failures is a vacuous
+# pass (tambor-cpd policy), with failures it blocks. Local store
+# (.testaruda/, gitignored) initializes on first use; a stale store
+# self-heals (wild-z56).
 test:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    if [ ! -d .testaruda ]; then
+      testaruda init || { echo "❌ testaruda init failed" >&2; exit 1; }
+    fi
+    code=0
+    testaruda exec || code=$?
+    case "$code" in
+      0|10|20) exit 0 ;;
+      4)
+        echo "⚠️ runner exit 4 — pruning stale local calibration store and retrying once (wild-z56)" >&2
+        rm -rf .testaruda
+        testaruda init || { echo "❌ testaruda re-init failed" >&2; exit 1; }
+        testaruda exec ;;
+      *) exit "$code" ;;
+    esac
+
+# Blast-radius preview: which tests a change WOULD affect — runs nothing.
+# Useful before a refactor; optionally name files: just test-blast src/foo.rs
+test-blast *files:
+    #!/usr/bin/env bash
+    if [ -z "{{files}}" ]; then
+      testaruda select --pre-edit --human
+    else
+      testaruda select --pre-edit --human --files "{{files}}"
+    fi
+
+test-full:
     cargo test
 
 # Lint with clippy (--all-targets: test-code lints only fail here otherwise
