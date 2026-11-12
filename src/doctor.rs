@@ -1198,6 +1198,62 @@ changes = "openspec/changes"
     }
 
     #[test]
+    fn deployed_only_corpus_orphan_matching_is_selective() {
+        // wanna-vk3 corpus shape: deployed-only layout (all specs live under
+        // openspec/specs, no top-level specs/) with rev-18 real-id VERIFIES
+        // links. One fixture pins all three matching classes together so the
+        // suppression cannot regress in either direction: the scenario-slug
+        // contract matches by heading slug, the VERIFIES-derived contract is
+        // suppressed, and the unlinked contract still fires — matching must
+        // stay selective, never vacuously allow-all.
+        let repo = make_healthy_repo();
+        let spec_dir = repo.path().join("openspec/specs/auth");
+        fs::create_dir_all(&spec_dir).unwrap();
+        fs::write(
+            spec_dir.join("spec.md"),
+            "---\nid: auth\nkind: intent\nstatement: \"WHEN checked THE system SHALL reject invalid tokens\"\n---\n\n# Capability: auth\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| P-token | unit | [[auth.C-a]] | input | output |\n\n## Requirements\n\n### Requirement: Token check\nThe system SHALL reject invalid tokens.\n\n#### Scenario: Token rejected\n- **WHEN** a token is checked\n- **THEN** invalid tokens are rejected\n- **VERIFIES** [[auth.P-token]]\n",
+        )
+        .unwrap();
+        let contract_dir = repo.path().join(".espectacular/auth");
+        fs::create_dir_all(&contract_dir).unwrap();
+        let contract = |id: &str| {
+            format!(
+                "id = \"{id}\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n[tests]\n"
+            )
+        };
+        fs::write(
+            contract_dir.join("token-rejected.toml"),
+            contract("token-rejected"),
+        )
+        .unwrap();
+        fs::write(contract_dir.join("p-token.toml"), contract("p-token")).unwrap();
+        fs::write(
+            contract_dir.join("ghost-contract.toml"),
+            contract("ghost-contract"),
+        )
+        .unwrap();
+        let report = run_doctor(repo.path()).unwrap();
+        let orphan_findings: Vec<_> = issues(&report)
+            .into_iter()
+            .filter(|c| c.name == "orphan-contracts")
+            .collect();
+        assert_eq!(
+            orphan_findings.len(),
+            1,
+            "deployed-only corpus must flag exactly the unlinked contract; got: {:?}",
+            orphan_findings
+                .iter()
+                .map(|c| c.message.clone())
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            orphan_findings[0].message.contains("ghost-contract.toml"),
+            "the single orphan finding must name the unlinked contract; got: {}",
+            orphan_findings[0].message
+        );
+    }
+
+    #[test]
     fn unknown_archetype_emits_diagnostic() {
         let repo = make_healthy_repo();
         let spec_dir = repo.path().join("openspec/specs/compiler");
