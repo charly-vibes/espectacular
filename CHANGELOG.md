@@ -9,6 +9,30 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.2] — 2026-11-15
+
+### Changed
+
+- **Module decomposition to meet the quality gate** — `src/check.rs` (3276
+  lines) is now 21 focused modules (scope resolution, VERIFIES coverage,
+  structural rules, stale-contract drift, selection, execution, batching,
+  orchestration, report schema, ordering, contract discovery); `doctor`,
+  `explain`, `batching`, `runner`, `quality`, `scenario`, `lint`, `bridge`,
+  `sync`, `config`, `derive`, `openspec` and `archive` were split the same
+  way. Hotspot functions delegate to named steps; no rule, guard, exit code
+  or JSON field changed. `pretender check --mode gate` now exits 0 with no
+  threshold or baseline changes.
+
+### Fixed
+
+- **openspec 1.x strict validation** — duplicate `TBD - created by
+  archiving change ...` Purpose sections in the adapters, cli and explain
+  specs were removed; `openspec validate --all --strict` passes 8/8.
+  `just validate` and CI now pass `--no-interactive`.
+- **CI installs testaruda** — `just ci`'s test step has required testaruda
+  since the DDL test-runner standard; the pinned 0.5.9 install unbreaks the
+  Test & Build job.
+
 ## [0.12.0] — 2026-10-14
 
 ### Added
