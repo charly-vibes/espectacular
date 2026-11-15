@@ -15,41 +15,61 @@ pub fn run_archive(repo_root: &Path, change: &str) -> anyhow::Result<ArchiveResu
     );
 
     // Collect all staged contracts: .espectacular/changes/<change>/<spec>/<slug>.toml
-    let mut staged: Vec<(String, String)> = Vec::new(); // (spec, slug)
-    for spec_entry in std::fs::read_dir(&staged_root)
-        .with_context(|| format!("cannot read {}", staged_root.display()))?
-    {
-        let spec_entry = spec_entry?;
-        if !spec_entry.file_type()?.is_dir() {
-            continue;
-        }
-        let spec_name = spec_entry.file_name().to_string_lossy().to_string();
-        for contract_entry in std::fs::read_dir(spec_entry.path())? {
-            let contract_entry = contract_entry?;
-            let fname = contract_entry.file_name().to_string_lossy().to_string();
-            if fname.ends_with(".toml") {
-                let slug = fname.trim_end_matches(".toml").to_string();
-                staged.push((spec_name.clone(), slug));
-            }
-        }
-    }
+    let staged = collect_staged(&staged_root)?;
 
     anyhow::ensure!(
         !staged.is_empty(),
         "no staged contracts found for change '{change}'"
     );
 
-    // Precondition 1: check OpenSpec-archive counterparts exist
+    check_orphans(repo_root, &staged, change)?;
+    check_collisions(repo_root, &staged)?;
+    let moved = move_staged(repo_root, &staged_root, &staged)?;
+    remove_staged_dirs(&staged_root, &staged);
+
+    Ok(ArchiveResult { moved })
+}
+
+/// Collect every staged contract as `(spec, slug)` pairs.
+fn collect_staged(staged_root: &Path) -> anyhow::Result<Vec<(String, String)>> {
+    let mut staged: Vec<(String, String)> = Vec::new();
+    for spec_entry in std::fs::read_dir(staged_root)
+        .with_context(|| format!("cannot read {}", staged_root.display()))?
+    {
+        let spec_entry = spec_entry?;
+        if spec_entry.file_type()?.is_dir() {
+            collect_spec_contracts(&spec_entry, &mut staged)?;
+        }
+    }
+    Ok(staged)
+}
+
+/// Collect the `.toml` slugs inside one staged spec directory.
+fn collect_spec_contracts(
+    spec_entry: &std::fs::DirEntry,
+    staged: &mut Vec<(String, String)>,
+) -> anyhow::Result<()> {
+    let spec_name = spec_entry.file_name().to_string_lossy().to_string();
+    for contract_entry in std::fs::read_dir(spec_entry.path())? {
+        let fname = contract_entry?.file_name().to_string_lossy().to_string();
+        if fname.ends_with(".toml") {
+            let slug = fname.trim_end_matches(".toml").to_string();
+            staged.push((spec_name.clone(), slug));
+        }
+    }
+    Ok(())
+}
+
+/// Precondition 1: every staged contract needs a deployed OpenSpec
+/// counterpart (`#### Scenario:` heading whose slug matches).
+fn check_orphans(
+    repo_root: &Path,
+    staged: &[(String, String)],
+    change: &str,
+) -> anyhow::Result<()> {
     let mut orphans: Vec<String> = Vec::new();
-    for (spec, slug) in &staged {
-        let deployed_spec = repo_root.join("openspec/specs").join(spec).join("spec.md");
-        let has_counterpart = if deployed_spec.exists() {
-            let content = std::fs::read_to_string(&deployed_spec)?;
-            content.contains("#### Scenario:") && scenario_slug_in_spec(&content, slug)
-        } else {
-            false
-        };
-        if !has_counterpart {
+    for (spec, slug) in staged {
+        if !has_deployed_counterpart(repo_root, spec, slug)? {
             orphans.push(format!("{spec}/{slug}"));
         }
     }
@@ -59,20 +79,26 @@ pub fn run_archive(repo_root: &Path, change: &str) -> anyhow::Result<ArchiveResu
             orphans.join(", ")
         );
     }
+    Ok(())
+}
 
-    // Precondition 2: check for collisions (base contract exists and is NOT superseded)
+/// Whether the deployed spec for `spec` carries a scenario matching `slug`.
+fn has_deployed_counterpart(repo_root: &Path, spec: &str, slug: &str) -> anyhow::Result<bool> {
+    let deployed_spec = repo_root.join("openspec/specs").join(spec).join("spec.md");
+    if !deployed_spec.exists() {
+        return Ok(false);
+    }
+    let content = std::fs::read_to_string(&deployed_spec)?;
+    Ok(content.contains("#### Scenario:") && scenario_slug_in_spec(&content, slug))
+}
+
+/// Precondition 2: a staged contract may only replace a base contract that
+/// is absent or explicitly superseded.
+fn check_collisions(repo_root: &Path, staged: &[(String, String)]) -> anyhow::Result<()> {
     let mut collisions: Vec<String> = Vec::new();
-    for (spec, slug) in &staged {
-        let base_path = repo_root
-            .join(".espectacular")
-            .join(spec)
-            .join(format!("{slug}.toml"));
-        if base_path.exists() {
-            let text = std::fs::read_to_string(&base_path)?;
-            let is_superseded = text.contains("status = \"superseded\"");
-            if !is_superseded {
-                collisions.push(format!("{spec}/{slug}"));
-            }
+    for (spec, slug) in staged {
+        if !base_is_superseded_or_absent(repo_root, spec, slug)? {
+            collisions.push(format!("{spec}/{slug}"));
         }
     }
     if !collisions.is_empty() {
@@ -81,10 +107,30 @@ pub fn run_archive(repo_root: &Path, change: &str) -> anyhow::Result<ArchiveResu
             collisions.join(", ")
         );
     }
+    Ok(())
+}
 
-    // All preconditions passed — move staged contracts to base
+/// Whether the base contract is missing or marked `status = "superseded"`.
+fn base_is_superseded_or_absent(repo_root: &Path, spec: &str, slug: &str) -> anyhow::Result<bool> {
+    let base_path = repo_root
+        .join(".espectacular")
+        .join(spec)
+        .join(format!("{slug}.toml"));
+    if !base_path.exists() {
+        return Ok(true);
+    }
+    let text = std::fs::read_to_string(&base_path)?;
+    Ok(text.contains("status = \"superseded\""))
+}
+
+/// Move every staged contract to its base location, returning its label.
+fn move_staged(
+    repo_root: &Path,
+    staged_root: &Path,
+    staged: &[(String, String)],
+) -> anyhow::Result<Vec<String>> {
     let mut moved = Vec::new();
-    for (spec, slug) in &staged {
+    for (spec, slug) in staged {
         let src = staged_root.join(spec).join(format!("{slug}.toml"));
         let dest_dir = repo_root.join(".espectacular").join(spec);
         std::fs::create_dir_all(&dest_dir)?;
@@ -93,15 +139,16 @@ pub fn run_archive(repo_root: &Path, change: &str) -> anyhow::Result<ArchiveResu
         std::fs::remove_file(&src).with_context(|| format!("cannot remove {}", src.display()))?;
         moved.push(format!("{spec}/{slug}"));
     }
+    Ok(moved)
+}
 
-    // Remove now-empty spec dirs under changes/<change>/
-    for (spec, _) in &staged {
+/// Remove now-empty spec dirs under `changes/<change>/`, then the change dir.
+fn remove_staged_dirs(staged_root: &Path, staged: &[(String, String)]) {
+    for (spec, _) in staged {
         let dir = staged_root.join(spec);
         let _ = std::fs::remove_dir(&dir); // ok if not empty (shouldn't happen)
     }
-    let _ = std::fs::remove_dir(&staged_root);
-
-    Ok(ArchiveResult { moved })
+    let _ = std::fs::remove_dir(staged_root);
 }
 
 fn scenario_slug_in_spec(content: &str, slug: &str) -> bool {

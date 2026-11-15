@@ -42,6 +42,23 @@ pub fn load_contract(toml_path: &str) -> anyhow::Result<Contract> {
 }
 
 fn validate_contract(contract: &Contract) -> anyhow::Result<()> {
+    validate_status(contract)?;
+    anyhow::ensure!(
+        !contract.authored_with.is_empty(),
+        "authored_with must be non-empty"
+    );
+    anyhow::ensure!(!contract.id.is_empty(), "id must be non-empty");
+
+    for (test_type, entries) in &contract.tests {
+        for entry in entries {
+            validate_entry(test_type, entry)?;
+        }
+    }
+    Ok(())
+}
+
+/// Validate the closed `status` set and the supersession invariant.
+fn validate_status(contract: &Contract) -> anyhow::Result<()> {
     match contract.status.as_str() {
         "active" | "superseded" => {}
         other => anyhow::bail!("unknown status: {other}"),
@@ -52,45 +69,39 @@ fn validate_contract(contract: &Contract) -> anyhow::Result<()> {
             "superseded contract must set superseded_by"
         );
     }
+    Ok(())
+}
 
+/// Validate one test binding: shell entries take `command`, others `flags`.
+fn validate_entry(test_type: &str, entry: &TestEntry) -> anyhow::Result<()> {
     anyhow::ensure!(
-        !contract.authored_with.is_empty(),
-        "authored_with must be non-empty"
+        entry.timeout_seconds.unwrap_or(1) > 0,
+        "test entry timeout_seconds must be positive"
     );
-    anyhow::ensure!(!contract.id.is_empty(), "id must be non-empty");
-
-    for (test_type, entries) in &contract.tests {
-        for entry in entries {
-            anyhow::ensure!(
-                entry.timeout_seconds.unwrap_or(1) > 0,
-                "test entry timeout_seconds must be positive"
-            );
-            if test_type == "shell" {
-                anyhow::ensure!(
-                    entry
-                        .command
-                        .as_deref()
-                        .is_some_and(|value| !value.is_empty()),
-                    "shell test entry must declare command"
-                );
-                anyhow::ensure!(
-                    entry.flags.is_none(),
-                    "shell test entry may not declare flags"
-                );
-            } else {
-                anyhow::ensure!(
-                    entry
-                        .flags
-                        .as_deref()
-                        .is_some_and(|value| !value.is_empty()),
-                    "non-shell test entry must declare flags"
-                );
-                anyhow::ensure!(
-                    entry.command.is_none(),
-                    "non-shell test entry may not declare command"
-                );
-            }
-        }
+    if test_type == "shell" {
+        anyhow::ensure!(
+            entry
+                .command
+                .as_deref()
+                .is_some_and(|value| !value.is_empty()),
+            "shell test entry must declare command"
+        );
+        anyhow::ensure!(
+            entry.flags.is_none(),
+            "shell test entry may not declare flags"
+        );
+    } else {
+        anyhow::ensure!(
+            entry
+                .flags
+                .as_deref()
+                .is_some_and(|value| !value.is_empty()),
+            "non-shell test entry must declare flags"
+        );
+        anyhow::ensure!(
+            entry.command.is_none(),
+            "non-shell test entry may not declare command"
+        );
     }
     Ok(())
 }
