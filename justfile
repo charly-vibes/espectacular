@@ -40,7 +40,9 @@ build-release:
 test:
     #!/usr/bin/env bash
     set -uo pipefail
-    if [ ! -d .testaruda ]; then
+    # Guard on the store database, not the directory: an empty/partial
+    # .testaruda (e.g. a restored cache dir) must not skip initialization.
+    if [ ! -f .testaruda/store.db ]; then
       testaruda init || { echo "❌ testaruda init failed" >&2; exit 1; }
     fi
     code=0
