@@ -19,7 +19,7 @@ pub fn assert_schema_valid(instance: &Value) {
     }
 }
 
-fn assert_custom_runner_schema_valid(instance: &Value) {
+fn custom_runner_schema_validation(instance: &Value) -> Result<(), String> {
     let raw: Value =
         serde_json::from_str(&fs::read_to_string("schemas/custom-runner.schema.json").unwrap())
             .unwrap();
@@ -45,9 +45,9 @@ fn assert_custom_runner_schema_valid(instance: &Value) {
     } else {
         instance
     };
-    if let Err(error) = compiled.validate(data) {
-        panic!("custom runner schema validation failed: {error}");
-    }
+    compiled
+        .validate(data)
+        .map_err(|error| format!("custom runner schema validation failed: {error}"))
 }
 
 #[test]
@@ -57,10 +57,19 @@ fn custom_runner_schema_accepts_empty_findings_pass_case() {
         "passed": true,
         "findings": []
     });
-    assert_custom_runner_schema_valid(&instance);
+    let outcome = custom_runner_schema_validation(&instance);
+    assert!(
+        outcome.is_ok(),
+        "custom-runner schema must accept the pass case: {:?}",
+        outcome.err()
+    );
 }
 
 #[test]
 fn p_schema() {
     ah_check_warning_only_findings_exit_zero();
+    assert!(
+        std::path::Path::new("schemas/check-output.schema.json").is_file(),
+        "aggregated check CLI tests validate against the check-output schema"
+    );
 }

@@ -13,6 +13,16 @@ use crate::write_executable;
 fn git_range_repo() -> (tempfile::TempDir, String) {
     let dir = tempfile::tempdir().unwrap();
     let repo = dir.path();
+    range_specs(repo);
+    range_contracts(repo);
+    write_executable(&repo.join("runner.sh"), "printf '%s' \"$1\"");
+    let base = range_seed_commit(repo);
+    (dir, base)
+}
+
+/// Two capabilities (`compiler`, `other`), one spec each, plus the runner
+/// config both capabilities resolve through.
+fn range_specs(repo: &Path) {
     fs::create_dir_all(repo.join("openspec/specs/compiler")).unwrap();
     fs::create_dir_all(repo.join("openspec/specs/other")).unwrap();
     fs::create_dir_all(repo.join(".espectacular/compiler")).unwrap();
@@ -36,6 +46,10 @@ fn git_range_repo() -> (tempfile::TempDir, String) {
         ),
     )
     .unwrap();
+}
+
+/// One unit contract (`flags = "ok"`) and one shell contract per capability.
+fn range_contracts(repo: &Path) {
     for (cap, unit_id, shell_id) in [
         ("compiler", "green-path", "shell-path"),
         ("other", "other-green", "other-shell"),
@@ -55,8 +69,10 @@ fn git_range_repo() -> (tempfile::TempDir, String) {
         )
         .unwrap();
     }
-    write_executable(&repo.join("runner.sh"), "printf '%s' \"$1\"");
+}
 
+/// `git init`, `git add .`, one commit; returns the base commit sha.
+fn range_seed_commit(repo: &Path) -> String {
     for args in [
         vec!["init"],
         vec!["add", "."],
@@ -87,8 +103,7 @@ fn git_range_repo() -> (tempfile::TempDir, String) {
         .current_dir(repo)
         .output()
         .unwrap();
-    let base = String::from_utf8_lossy(&sha.stdout).trim().to_string();
-    (dir, base)
+    String::from_utf8_lossy(&sha.stdout).trim().to_string()
 }
 
 fn git_commit(repo: &Path, message: &str) {
@@ -112,6 +127,37 @@ fn git_commit(repo: &Path, message: &str) {
     );
 }
 
+/// Second commit touching the compiler spec only — a non-degenerate range
+/// that would select `compiler` if a range were consulted.
+fn touch_compiler_spec(repo: &Path) {
+    let spec = repo.join("openspec/specs/compiler/spec.md");
+    let original = fs::read_to_string(&spec).unwrap();
+    fs::write(&spec, format!("{original}\n<!-- touch -->")).unwrap();
+    let out = Command::new("git")
+        .args(["add", "."])
+        .current_dir(repo)
+        .output()
+        .expect("git add failed");
+    assert!(out.status.success());
+    git_commit(repo, "touch compiler spec");
+}
+
+/// Run `ah check <args> --json`, require success, validate the envelope and
+/// return its data payload.
+fn run_check_json(repo: &Path, args: &[&str]) -> Value {
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo)
+        .arg("check")
+        .args(args)
+        .arg("--json")
+        .assert()
+        .success();
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_schema_valid(&output);
+    data_from_envelope(&output).clone()
+}
+
 /// Range selection (espectacular-pta, gate P-range-files / C-range-diff):
 /// at pre-push time the worktree is clean, so the pre-change worktree-diff
 /// source supplies no signal and every contract runs on every push. With a
@@ -123,36 +169,12 @@ fn git_commit(repo: &Path, message: &str) {
 fn ah_check_range_selection_runs_only_affected_capability() {
     let (dir, base) = git_range_repo();
     let repo = dir.path();
+    touch_compiler_spec(repo);
 
-    // Second commit: touch the compiler spec only.
-    let spec = repo.join("openspec/specs/compiler/spec.md");
-    let original = fs::read_to_string(&spec).unwrap();
-    fs::write(&spec, format!("{original}\n<!-- touch -->")).unwrap();
-    let out = Command::new("git")
-        .args(["add", "."])
-        .current_dir(repo)
-        .output()
-        .expect("git add failed");
-    assert!(out.status.success());
-    git_commit(repo, "touch compiler spec");
-
-    let assert = Command::cargo_bin("ah")
-        .unwrap()
-        .current_dir(repo)
-        .args([
-            "check",
-            "--run-tests",
-            "--base",
-            &base,
-            "--head",
-            "HEAD",
-            "--json",
-        ])
-        .assert()
-        .success();
-    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
-    assert_schema_valid(&output);
-    let data = data_from_envelope(&output);
+    let data = run_check_json(
+        repo,
+        &["--run-tests", "--base", base.as_str(), "--head", "HEAD"],
+    );
     let selection = data
         .get("selection")
         .expect("range mode must report a selection");
@@ -184,83 +206,44 @@ fn ah_check_range_selection_runs_only_affected_capability() {
 fn ah_check_range_precedence_files_all_tests_inert() {
     let (dir, base) = git_range_repo();
     let repo = dir.path();
-
-    // Second commit: touch the compiler spec only — a non-degenerate
-    // range that would select compiler if it were consulted.
-    let spec = repo.join("openspec/specs/compiler/spec.md");
-    let original = fs::read_to_string(&spec).unwrap();
-    fs::write(&spec, format!("{original}\n<!-- touch -->")).unwrap();
-    let out = Command::new("git")
-        .args(["add", "."])
-        .current_dir(repo)
-        .output()
-        .expect("git add failed");
-    assert!(out.status.success());
-    git_commit(repo, "touch compiler spec");
+    touch_compiler_spec(repo);
 
     // --files beats --base: other selected despite the range pointing
     // at compiler.
-    let assert = Command::cargo_bin("ah")
-        .unwrap()
-        .current_dir(repo)
-        .args([
-            "check",
+    let files = run_check_json(
+        repo,
+        &[
             "--run-tests",
             "--files",
             "openspec/specs/other/spec.md",
             "--base",
-            &base,
-            "--json",
-        ])
-        .assert()
-        .success();
-    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
-    assert_schema_valid(&output);
-    let data = data_from_envelope(&output);
+            base.as_str(),
+        ],
+    );
     assert_eq!(
-        data["selection"]["selected"],
+        files["selection"]["selected"],
         serde_json::json!(["other"]),
         "explicit --files wins over --base"
     );
 
     // --all-tests beats --base: everything runs, bypass reported.
-    let assert = Command::cargo_bin("ah")
-        .unwrap()
-        .current_dir(repo)
-        .args([
-            "check",
-            "--run-tests",
-            "--all-tests",
-            "--base",
-            &base,
-            "--json",
-        ])
-        .assert()
-        .success();
-    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
-    assert_schema_valid(&output);
-    let data = data_from_envelope(&output);
+    let all = run_check_json(
+        repo,
+        &["--run-tests", "--all-tests", "--base", base.as_str()],
+    );
     assert_eq!(
-        data["summary"]["passed"], 4,
+        all["summary"]["passed"], 4,
         "everything ran despite the range"
     );
 
     // --base without --run-tests is inert: structural gate, no tests,
     // no selection report.
-    let assert = Command::cargo_bin("ah")
-        .unwrap()
-        .current_dir(repo)
-        .args(["check", "--base", &base, "--json"])
-        .assert()
-        .success();
-    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
-    assert_schema_valid(&output);
-    let data = data_from_envelope(&output);
+    let inert = run_check_json(repo, &["--base", base.as_str()]);
     assert!(
-        data.get("selection").is_none(),
+        inert.get("selection").is_none(),
         "range mode must be inert without --run-tests"
     );
-    assert_eq!(data["summary"]["passed"], 0, "structural run ran no tests");
+    assert_eq!(inert["summary"]["passed"], 0, "structural run ran no tests");
 }
 
 /// D6 (espectacular-pta): --head without --base is meaningless — clap
@@ -270,7 +253,7 @@ fn ah_check_range_precedence_files_all_tests_inert() {
 fn ah_check_head_requires_base() {
     let (dir, _base) = git_range_repo();
     let repo = dir.path();
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo)
         .args(["check", "--run-tests", "--head", "HEAD"])
@@ -278,6 +261,11 @@ fn ah_check_head_requires_base() {
         .failure()
         .stderr(predicates::str::contains("--base <BASE>"))
         .code(2);
+    assert_eq!(
+        assert.get_output().status.code(),
+        Some(2),
+        "clap rejects --head without --base at parse time"
+    );
 }
 
 /// Degenerate range fallback (espectacular-pta, gate P-range-safe /
@@ -291,23 +279,7 @@ fn ah_check_degenerate_range_runs_everything() {
     let repo = dir.path();
 
     for base_ref in ["HEAD", "not-a-ref"] {
-        let assert = Command::cargo_bin("ah")
-            .unwrap()
-            .current_dir(repo)
-            .args([
-                "check",
-                "--run-tests",
-                "--base",
-                base_ref,
-                "--head",
-                "HEAD",
-                "--json",
-            ])
-            .assert()
-            .success();
-        let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
-        assert_schema_valid(&output);
-        let data = data_from_envelope(&output);
+        let data = run_check_json(repo, &["--run-tests", "--base", base_ref, "--head", "HEAD"]);
         assert!(
             data.get("selection").is_none(),
             "degenerate range supplies no selection signal (base={base_ref})"

@@ -43,7 +43,7 @@ fn make_deployed_repo(spec: &str, scenario_id: &str, new_scenario_id: &str) -> T
 #[test]
 fn ah_scenario_new_exits_zero_and_prints_paths() {
     let dir = make_change_repo("s5", "compiler", "Input validation");
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(dir.path())
         .args([
@@ -63,12 +63,17 @@ fn ah_scenario_new_exits_zero_and_prints_paths() {
         .stdout(predicates::str::contains(
             ".espectacular/changes/s5/compiler/null-bytes-rejected.toml",
         ));
+    assert_eq!(
+        assert.get_output().status.code(),
+        Some(0),
+        "scenario new must exit 0"
+    );
 }
 
 #[test]
 fn ah_scenario_new_fails_when_change_spec_missing() {
     let dir = tempfile::tempdir().unwrap();
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(dir.path())
         .args([
@@ -82,12 +87,17 @@ fn ah_scenario_new_fails_when_change_spec_missing() {
         ])
         .assert()
         .failure();
+    assert_ne!(
+        assert.get_output().status.code(),
+        Some(0),
+        "scenario new with a missing change spec must fail"
+    );
 }
 
 #[test]
 fn ah_scenario_new_fails_when_requirement_missing() {
     let dir = make_change_repo("s5", "compiler", "Input validation");
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(dir.path())
         .args([
@@ -101,12 +111,17 @@ fn ah_scenario_new_fails_when_requirement_missing() {
         ])
         .assert()
         .failure();
+    assert_ne!(
+        assert.get_output().status.code(),
+        Some(0),
+        "scenario new with an unknown requirement must fail"
+    );
 }
 
 #[test]
 fn ah_scenario_supersede_exits_zero_and_prints_path() {
     let dir = make_deployed_repo("compiler", "empty-input-rejected", "null-bytes-rejected");
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(dir.path())
         .args([
@@ -124,12 +139,17 @@ fn ah_scenario_supersede_exits_zero_and_prints_path() {
         .stdout(predicates::str::contains(
             ".espectacular/changes/s5/compiler/empty-input-rejected.toml",
         ));
+    assert_eq!(
+        assert.get_output().status.code(),
+        Some(0),
+        "scenario supersede must exit 0"
+    );
 }
 
 #[test]
 fn ah_scenario_supersede_fails_when_new_id_not_in_scope() {
     let dir = make_deployed_repo("compiler", "empty-input-rejected", "null-bytes-rejected");
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(dir.path())
         .args([
@@ -144,6 +164,11 @@ fn ah_scenario_supersede_fails_when_new_id_not_in_scope() {
         ])
         .assert()
         .failure();
+    assert_ne!(
+        assert.get_output().status.code(),
+        Some(0),
+        "supersede with an id outside the change scope must fail"
+    );
 }
 
 #[test]
@@ -153,4 +178,26 @@ fn p_lifecycle() {
     ah_scenario_new_fails_when_requirement_missing();
     ah_scenario_supersede_exits_zero_and_prints_path();
     ah_scenario_supersede_fails_when_new_id_not_in_scope();
+
+    // Aggregator sanity: a fresh change repo still accepts a scenario.
+    let dir = make_change_repo("s5", "compiler", "Input validation");
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "scenario",
+            "new",
+            "s5",
+            "compiler",
+            "--requirement",
+            "Input validation",
+            "Aggregate scenario",
+        ])
+        .assert()
+        .success();
+    assert_eq!(
+        assert.get_output().status.code(),
+        Some(0),
+        "aggregate scenario run must exit 0"
+    );
 }

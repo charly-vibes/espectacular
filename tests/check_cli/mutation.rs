@@ -46,12 +46,18 @@ fn make_mutation_repo() -> (tempfile::TempDir, tempfile::TempDir) {
 #[test]
 fn ah_check_quality_mutation_finding_exits_zero() {
     let (repo, _runner) = make_mutation_repo();
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
         .args(["check", "--run-tests", "--json"])
         .assert()
         .success();
+    let output: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let data = data_from_envelope(&output);
+    assert_eq!(
+        data["quality_findings"][0]["kind"], "quality-mutation",
+        "quality findings are reported without failing the run"
+    );
 }
 
 #[test]

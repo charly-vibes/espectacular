@@ -1,6 +1,7 @@
 use assert_cmd::Command;
 use serde_json::Value;
 use std::fs;
+use std::path::Path;
 
 use crate::data_from_envelope;
 use crate::git_commit_all;
@@ -8,44 +9,62 @@ use crate::write_executable;
 
 // ── ah report ──────────────────────────────────────────────────────────────────
 
-fn report_full_coverage_repo() -> tempfile::TempDir {
-    let dir = tempfile::tempdir().unwrap();
-    let repo = dir.path();
-    fs::create_dir_all(repo.join("openspec/specs/compiler")).unwrap();
-    fs::create_dir_all(repo.join(".espectacular/compiler")).unwrap();
+/// Create the spec and contract directories of one capability and write its
+/// spec.
+fn report_capability(repo: &Path, capability: &str, spec: &str) {
+    fs::create_dir_all(repo.join(format!("openspec/specs/{capability}"))).unwrap();
+    fs::create_dir_all(repo.join(format!(".espectacular/{capability}"))).unwrap();
     fs::write(
-        repo.join("openspec/specs/compiler/spec.md"),
-        "# Capability: compiler\n\n#### Scenario: Green path\n- **WHEN** it runs\n- **THEN** it passes\n\n#### Scenario: Shell path\n- **WHEN** shell command runs\n- **THEN** it passes\n",
+        repo.join(format!("openspec/specs/{capability}/spec.md")),
+        spec,
     )
     .unwrap();
-    fs::create_dir_all(repo.join("openspec/specs/adapters")).unwrap();
-    fs::create_dir_all(repo.join(".espectacular/adapters")).unwrap();
-    fs::write(
-        repo.join("openspec/specs/adapters/spec.md"),
-        "# Capability: adapters\n\n#### Scenario: Detects cargo\n- **WHEN** cargo exists\n- **THEN** it detects\n",
-    )
-    .unwrap();
+}
+
+/// Write the default report config (one `unit` runner through `runner.sh`).
+fn report_config(repo: &Path) {
     fs::write(
         repo.join(".espectacular/config.toml"),
         concat!("tool_version = \"", env!("CARGO_PKG_VERSION"), "\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n"),
     )
     .unwrap();
+}
+
+/// Write one PF contract whose trailing `[[tests.<kind>]]` body is `body`.
+fn report_contract(repo: &Path, capability: &str, id: &str, kind: &str, body: &str) {
+    fs::write(
+        repo.join(format!(".espectacular/{capability}/{id}.toml")),
+        format!(
+            "id = \"{id}\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.{kind}]]\n{body}\n"
+        ),
+    )
+    .unwrap();
+}
+
+fn report_full_coverage_repo() -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = dir.path();
+    report_capability(
+        repo,
+        "compiler",
+        "# Capability: compiler\n\n#### Scenario: Green path\n- **WHEN** it runs\n- **THEN** it passes\n\n#### Scenario: Shell path\n- **WHEN** shell command runs\n- **THEN** it passes\n",
+    );
+    report_capability(
+        repo,
+        "adapters",
+        "# Capability: adapters\n\n#### Scenario: Detects cargo\n- **WHEN** cargo exists\n- **THEN** it detects\n",
+    );
+    report_config(repo);
     // Two specs, both with PF archetype, both covered
-    fs::write(
-        repo.join(".espectacular/compiler/green-path.toml"),
-        "id = \"green-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"ok\"\n",
-    )
-    .unwrap();
-    fs::write(
-        repo.join(".espectacular/compiler/shell-path.toml"),
-        "id = \"shell-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.shell]]\ncommand = \"printf shell\"\n",
-    )
-    .unwrap();
-    fs::write(
-        repo.join(".espectacular/adapters/detects-cargo.toml"),
-        "id = \"detects-cargo\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"ok\"\n",
-    )
-    .unwrap();
+    report_contract(repo, "compiler", "green-path", "unit", "flags = \"ok\"");
+    report_contract(
+        repo,
+        "compiler",
+        "shell-path",
+        "shell",
+        "command = \"printf shell\"",
+    );
+    report_contract(repo, "adapters", "detects-cargo", "unit", "flags = \"ok\"");
     write_executable(&repo.join("runner.sh"), "printf '%s' \"$1\"");
     git_commit_all(repo);
     dir
@@ -120,23 +139,33 @@ fn ah_report_json_failure_flips_ok_false_with_exit_one() {
 #[test]
 fn ah_report_exits_zero_when_coverage_complete() {
     let repo = report_full_coverage_repo();
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
         .arg("report")
         .assert()
         .success();
+    assert_eq!(
+        assert.get_output().status.code(),
+        Some(0),
+        "a fully covered report exits zero"
+    );
 }
 
 #[test]
 fn ah_report_exits_nonzero_when_missing_contracts() {
     let repo = report_missing_contract_repo();
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
         .arg("report")
         .assert()
         .code(1);
+    assert_eq!(
+        assert.get_output().status.code(),
+        Some(1),
+        "a report with a gap exits one"
+    );
 }
 
 #[test]
@@ -158,23 +187,13 @@ fn ah_report_table_output_has_header() {
 fn report_archetype_repo() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
     let repo = dir.path();
-    fs::create_dir_all(repo.join("openspec/specs/compiler")).unwrap();
-    fs::create_dir_all(repo.join(".espectacular/compiler")).unwrap();
-    fs::write(
-        repo.join("openspec/specs/compiler/spec.md"),
+    report_capability(
+        repo,
+        "compiler",
         "# Capability: compiler\n\n#### Scenario: Green path\n- **WHEN** it runs\n- **THEN** it passes\n\n#### Scenario: Uncontracted path\n- **WHEN** it runs\n- **THEN** nothing declares it\n",
-    )
-    .unwrap();
-    fs::write(
-        repo.join(".espectacular/config.toml"),
-        concat!("tool_version = \"", env!("CARGO_PKG_VERSION"), "\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n"),
-    )
-    .unwrap();
-    fs::write(
-        repo.join(".espectacular/compiler/green-path.toml"),
-        "id = \"green-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"ok\"\n",
-    )
-    .unwrap();
+    );
+    report_config(repo);
+    report_contract(repo, "compiler", "green-path", "unit", "flags = \"ok\"");
     write_executable(&repo.join("runner.sh"), "exit 0");
     dir
 }
@@ -219,23 +238,13 @@ fn ah_report_json_attributes_scenarios_to_contract_archetype() {
 fn report_failing_repo() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
     let repo = dir.path();
-    fs::create_dir_all(repo.join("openspec/specs/compiler")).unwrap();
-    fs::create_dir_all(repo.join(".espectacular/compiler")).unwrap();
-    fs::write(
-        repo.join("openspec/specs/compiler/spec.md"),
+    report_capability(
+        repo,
+        "compiler",
         "# Capability: compiler\n\n#### Scenario: Failing path\n- **WHEN** it runs\n- **THEN** it fails\n",
-    )
-    .unwrap();
-    fs::write(
-        repo.join(".espectacular/config.toml"),
-        concat!("tool_version = \"", env!("CARGO_PKG_VERSION"), "\"\n\n[paths]\nspecs = \"openspec/specs\"\nchanges = \"openspec/changes\"\n\n[runners]\nunit = [\"/bin/sh\", \"runner.sh\"]\n"),
-    )
-    .unwrap();
-    fs::write(
-        repo.join(".espectacular/compiler/failing-path.toml"),
-        "id = \"failing-path\"\ndescription = \"\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n\n[[tests.unit]]\nflags = \"fail\"\n",
-    )
-    .unwrap();
+    );
+    report_config(repo);
+    report_contract(repo, "compiler", "failing-path", "unit", "flags = \"fail\"");
     write_executable(&repo.join("runner.sh"), "exit 1");
     dir
 }
@@ -269,10 +278,25 @@ fn p_report() {
     ah_report_exits_zero_when_coverage_complete();
     ah_report_exits_nonzero_when_missing_contracts();
     ah_report_table_output_has_header();
+    assert!(
+        report_full_coverage_repo()
+            .path()
+            .join(".espectacular/compiler/shell-path.toml")
+            .is_file(),
+        "full-coverage fixture keeps both compiler contracts"
+    );
 }
 
 #[test]
 fn p_matrix() {
     ah_report_json_emits_matrix_with_coverage_counts();
     ah_report_exits_nonzero_when_missing_contracts();
+    let missing = report_missing_contract_repo();
+    assert!(
+        !missing
+            .path()
+            .join(".espectacular/compiler/shell-path.toml")
+            .exists(),
+        "missing-contract fixture drops exactly the shell-path contract"
+    );
 }

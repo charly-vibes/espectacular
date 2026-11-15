@@ -15,13 +15,19 @@ fn ah_upgrade_exits_zero_when_config_matches_binary() {
     let dir = TempDir::new().unwrap();
     make_repo_with_config(&dir, env!("CARGO_PKG_VERSION"));
 
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(dir.path())
         .args(["upgrade"])
         .assert()
         .success()
         .stdout(predicates::str::contains("up to date"));
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    assert!(
+        stdout.contains("up to date"),
+        "upgrade with a matching config must report being up to date: {stdout}"
+    );
 }
 
 #[test]
@@ -29,12 +35,18 @@ fn ah_upgrade_exits_nonzero_on_version_drift() {
     let dir = TempDir::new().unwrap();
     make_repo_with_config(&dir, "0.0.9");
 
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(dir.path())
         .args(["upgrade"])
         .assert()
         .failure();
+
+    assert_ne!(
+        assert.get_output().status.code(),
+        Some(0),
+        "version drift must make upgrade exit nonzero"
+    );
 }
 
 #[test]
@@ -42,7 +54,7 @@ fn ah_upgrade_reports_old_and_new_version_on_drift() {
     let dir = TempDir::new().unwrap();
     make_repo_with_config(&dir, "0.0.9");
 
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(dir.path())
         .args(["upgrade"])
@@ -50,6 +62,16 @@ fn ah_upgrade_reports_old_and_new_version_on_drift() {
         .failure()
         .stdout(predicates::str::contains("0.0.9"))
         .stdout(predicates::str::contains(env!("CARGO_PKG_VERSION")));
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    assert!(
+        stdout.contains("0.0.9"),
+        "upgrade must report the configured version: {stdout}"
+    );
+    assert!(
+        stdout.contains(env!("CARGO_PKG_VERSION")),
+        "upgrade must report the binary version: {stdout}"
+    );
 }
 
 #[test]
@@ -104,4 +126,19 @@ fn p_upgrade() {
     ah_upgrade_exits_zero_when_config_matches_binary();
     ah_upgrade_reports_old_and_new_version_on_drift();
     ah_upgrade_updates_config_tool_version_on_drift();
+
+    let dir = TempDir::new().unwrap();
+    make_repo_with_config(&dir, env!("CARGO_PKG_VERSION"));
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["upgrade"])
+        .assert();
+
+    assert_eq!(
+        assert.get_output().status.code(),
+        Some(0),
+        "upgrade of an already current config must exit 0"
+    );
 }

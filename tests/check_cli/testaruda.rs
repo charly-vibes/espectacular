@@ -10,6 +10,14 @@ use crate::write_executable;
 fn p_testaruda_l2() {
     ah_check_testaruda_refinement_prunes_unaffected_bindings();
     ah_check_testaruda_empty_selection_runs_everything();
+    assert!(
+        Command::new("git")
+            .arg("--version")
+            .output()
+            .map(|out| out.status.success())
+            .unwrap_or(false),
+        "the layer-2 fixtures require git on PATH"
+    );
 }
 
 // ===== Layer 2: testaruda-store refinement (espectacular-0k8) =====

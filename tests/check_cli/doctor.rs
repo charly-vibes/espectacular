@@ -40,13 +40,18 @@ fn make_healthy_doctor_repo() -> tempfile::TempDir {
 #[test]
 fn ah_doctor_healthy_repo_exits_zero() {
     let repo = make_healthy_doctor_repo();
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
         .arg("doctor")
         .assert()
         .success()
         .stdout(predicates::str::contains("healthy"));
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    assert!(
+        stdout.contains("healthy"),
+        "doctor must report the repo as healthy: {stdout}"
+    );
 }
 
 #[test]
@@ -57,11 +62,16 @@ fn ah_doctor_bad_config_exits_nonzero() {
         "tool_version = \"\"\n[paths]\nspecs = \"\"\nchanges = \"\"\n[runners]\n",
     )
     .unwrap();
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
         .arg("doctor")
         .assert()
         .failure()
         .stderr(predicates::str::contains("config: bad config"));
+    let stderr = String::from_utf8_lossy(&assert.get_output().stderr);
+    assert!(
+        stderr.contains("config: bad config"),
+        "bad config must be named in the diagnostic: {stderr}"
+    );
 }

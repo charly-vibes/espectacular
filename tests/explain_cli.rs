@@ -22,7 +22,7 @@ fn ah_explain_list_is_sorted() {
 // 9.9 — --list includes all expected topic categories
 #[test]
 fn ah_explain_list_includes_all_categories() {
-    Command::cargo_bin("ah")
+    let output = Command::cargo_bin("ah")
         .unwrap()
         .args(["explain", "--list"])
         .assert()
@@ -30,43 +30,83 @@ fn ah_explain_list_includes_all_categories() {
         .stdout(contains("test-failing"))
         .stdout(contains("edit_code_not_scenario"))
         .stdout(contains("workflow"))
-        .stdout(contains("adapter-pytest"));
+        .stdout(contains("adapter-pytest"))
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8(output).unwrap();
+    for category in [
+        "test-failing",
+        "edit_code_not_scenario",
+        "workflow",
+        "adapter-pytest",
+    ] {
+        let hits = stdout.lines().filter(|line| *line == category).count();
+        assert_eq!(
+            hits, 1,
+            "--list must print {category} exactly once; got:\n{stdout}"
+        );
+    }
 }
 
 // 9.3 — explain a finding kind prints markdown body
 #[test]
 fn ah_explain_finding_kind_prints_body() {
-    Command::cargo_bin("ah")
+    let output = Command::cargo_bin("ah")
         .unwrap()
         .args(["explain", "test-failing"])
         .assert()
         .success()
         .stdout(contains("## test-failing"))
-        .stdout(contains("non-zero"));
+        .stdout(contains("non-zero"))
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8(output).unwrap();
+    assert!(
+        stdout.trim_start().starts_with("## test-failing"),
+        "the body must open with its own heading; got:\n{stdout}"
+    );
 }
 
 // 9.3 — explain a suggested action prints markdown body
 #[test]
 fn ah_explain_suggested_action_prints_body() {
-    Command::cargo_bin("ah")
+    let output = Command::cargo_bin("ah")
         .unwrap()
         .args(["explain", "edit_code_not_scenario"])
         .assert()
         .success()
         .stdout(contains("## edit_code_not_scenario"))
-        .stdout(contains("implementation"));
+        .stdout(contains("implementation"))
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8(output).unwrap();
+    assert!(
+        stdout.trim_start().starts_with("## edit_code_not_scenario"),
+        "the body must open with its own heading; got:\n{stdout}"
+    );
 }
 
 // 9.3 — quality finding kinds have bodies
 #[test]
 fn ah_explain_quality_finding_kinds() {
     for slug in &["quality-mutation", "quality-property", "quality-snapshot"] {
-        Command::cargo_bin("ah")
+        let output = Command::cargo_bin("ah")
             .unwrap()
             .args(["explain", slug])
             .assert()
             .success()
-            .stdout(contains("##"));
+            .stdout(contains("##"))
+            .get_output()
+            .stdout
+            .clone();
+        let stdout = String::from_utf8(output).unwrap();
+        assert!(
+            stdout.trim_start().starts_with(&format!("## {slug}")),
+            "{slug} body must open with its own heading; got:\n{stdout}"
+        );
     }
 }
 
@@ -80,12 +120,20 @@ fn ah_explain_general_topics() {
         "progressive-enablement",
         "scenario-scoped-tests",
     ] {
-        Command::cargo_bin("ah")
+        let output = Command::cargo_bin("ah")
             .unwrap()
             .args(["explain", slug])
             .assert()
             .success()
-            .stdout(contains("##"));
+            .stdout(contains("##"))
+            .get_output()
+            .stdout
+            .clone();
+        let stdout = String::from_utf8(output).unwrap();
+        assert!(
+            stdout.trim_start().starts_with(&format!("## {slug}")),
+            "{slug} body must open with its own heading; got:\n{stdout}"
+        );
     }
 }
 
@@ -134,36 +182,64 @@ fn ah_explain_json_hints_shape() {
 // 9.9 — unknown topic exits non-zero
 #[test]
 fn ah_explain_unknown_topic_exits_nonzero() {
-    Command::cargo_bin("ah")
+    let output = Command::cargo_bin("ah")
         .unwrap()
         .args(["explain", "totally-unknown-xyzzy"])
         .assert()
         .failure()
-        .stderr(contains("unknown topic"));
+        .stderr(contains("unknown topic"))
+        .get_output()
+        .stderr
+        .clone();
+    let stderr = String::from_utf8(output).unwrap();
+    assert!(
+        stderr.contains("unknown topic: totally-unknown-xyzzy"),
+        "the error must name the rejected topic; got:\n{stderr}"
+    );
 }
 
 // 9.9 — unknown topic with partial match shows did-you-mean
 #[test]
 fn ah_explain_unknown_topic_did_you_mean() {
-    Command::cargo_bin("ah")
+    let output = Command::cargo_bin("ah")
         .unwrap()
         .args(["explain", "test"])
         .assert()
         .failure()
         .stderr(contains("Did you mean"))
-        .stderr(contains("test-failing"));
+        .stderr(contains("test-failing"))
+        .get_output()
+        .stderr
+        .clone();
+    let stderr = String::from_utf8(output).unwrap();
+    let hint = stderr
+        .lines()
+        .find(|line| line.contains("Did you mean"))
+        .unwrap_or("");
+    assert!(
+        hint.starts_with("unknown topic: test."),
+        "the did-you-mean line must quote the rejected topic; got:\n{stderr}"
+    );
 }
 
 // 9.11 — adapter topics are present and have content
 #[test]
 fn ah_explain_adapter_topics() {
     for slug in &["adapter-pytest", "adapter-cargo", "adapter-vitest"] {
-        Command::cargo_bin("ah")
+        let output = Command::cargo_bin("ah")
             .unwrap()
             .args(["explain", slug])
             .assert()
             .success()
-            .stdout(contains("##"));
+            .stdout(contains("##"))
+            .get_output()
+            .stdout
+            .clone();
+        let stdout = String::from_utf8(output).unwrap();
+        assert!(
+            stdout.trim_start().starts_with(&format!("## {slug}")),
+            "{slug} body must open with its own heading; got:\n{stdout}"
+        );
     }
 }
 
@@ -227,4 +303,14 @@ fn p_explain() {
     ah_explain_json_has_required_fields();
     ah_explain_list_is_sorted();
     ah_explain_unknown_topic_exits_nonzero();
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .args(["explain", "--list"])
+        .assert();
+    assert_eq!(
+        assert.get_output().status.code(),
+        Some(0),
+        "ah explain --list must exit 0"
+    );
 }

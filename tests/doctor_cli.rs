@@ -148,7 +148,7 @@ fn doctor_mutation_non_pretender_command_warns_ownership() {
             + "\n[quality.mutation]\nenabled = true\nthreshold = 0.80\ncommand = [\"cargo-mutants\"]\n",
     )
     .unwrap();
-    Command::cargo_bin("ah")
+    let output = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
         .args(["doctor"])
@@ -156,6 +156,11 @@ fn doctor_mutation_non_pretender_command_warns_ownership() {
         .failure()
         .stderr(predicates::str::contains("mutation-ownership"))
         .stderr(predicates::str::contains("pretender"));
+    assert_eq!(
+        output.get_output().status.code(),
+        Some(1),
+        "an unowned mutation command must fail the doctor run"
+    );
 }
 
 #[test]
@@ -168,13 +173,18 @@ fn doctor_mutation_pretender_command_emits_no_ownership_warning() {
             + "\n[quality.mutation]\nenabled = true\nthreshold = 0.80\ncommand = [\"pretender\", \"mutation\", \"--format\", \"json\"]\n",
     )
     .unwrap();
-    Command::cargo_bin("ah")
+    let output = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
         .args(["doctor"])
         .assert()
         .success()
         .stdout(predicates::str::contains("mutation-ownership").not());
+    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    assert!(
+        stdout.contains("healthy: all checks passed"),
+        "a pretender-owned mutation command must stay healthy; got:\n{stdout}"
+    );
 }
 
 #[test]
@@ -187,13 +197,18 @@ fn doctor_mutation_default_runner_template_emits_no_ownership_warning() {
             + "\n[quality.mutation]\nenabled = true\nthreshold = 0.80\ncommand = [\"{}\"]\n",
     )
     .unwrap();
-    Command::cargo_bin("ah")
+    let output = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
         .args(["doctor"])
         .assert()
         .success()
         .stdout(predicates::str::contains("mutation-ownership").not());
+    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    assert!(
+        stdout.contains("healthy: all checks passed"),
+        "the generated-runner default must stay healthy; got:\n{stdout}"
+    );
 }
 
 #[test]
@@ -235,13 +250,18 @@ fn doctor_enable_snapshot_writes_capability_block() {
 #[test]
 fn doctor_enable_unknown_capability_exits_nonzero() {
     let repo = make_minimal_repo();
-    Command::cargo_bin("ah")
+    let output = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
         .args(["doctor", "--enable", "jest"])
         .assert()
         .failure()
         .stderr(predicates::str::contains("unknown capability"));
+    let stderr = String::from_utf8(output.get_output().stderr.clone()).unwrap();
+    assert!(
+        stderr.contains("known: pytest, cargo, vitest, mutation, property, snapshot"),
+        "the error must list the known capabilities; got:\n{stderr}"
+    );
 }
 
 #[test]
@@ -255,13 +275,19 @@ fn doctor_enable_already_enabled_exits_zero_with_already_enabled_message() {
         .assert()
         .success();
     // Enable again: should report already-enabled, not fail
-    Command::cargo_bin("ah")
+    let output = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
         .args(["doctor", "--enable", "pytest"])
         .assert()
         .success()
         .stdout(predicates::str::contains("already-enabled"));
+    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    assert_eq!(
+        stdout.trim(),
+        "already-enabled: pytest",
+        "re-enabling must report a no-op instead of rewriting the table"
+    );
 }
 
 // ── 7.1/7.2: detection and recommendation output in plain doctor ──────────────
@@ -276,20 +302,25 @@ fn doctor_reports_configured_framework_as_framework_line() {
         .args(["doctor", "--enable", "pytest"])
         .assert()
         .success();
-    Command::cargo_bin("ah")
+    let output = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
         .arg("doctor")
         .assert()
         .success()
         .stdout(predicates::str::contains("framework: pytest (configured)"));
+    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    assert!(
+        stdout.contains("healthy: all checks passed"),
+        "a configured framework must not leave findings behind; got:\n{stdout}"
+    );
 }
 
 #[test]
 fn doctor_reports_manifest_detected_framework_as_recommendation() {
     let repo = make_minimal_repo();
     fs::write(repo.path().join("Cargo.toml"), "[package]\nname = \"x\"\n").unwrap();
-    Command::cargo_bin("ah")
+    let output = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
         .arg("doctor")
@@ -297,12 +328,36 @@ fn doctor_reports_manifest_detected_framework_as_recommendation() {
         .success()
         .stdout(predicates::str::contains("recommendation:"))
         .stdout(predicates::str::contains("ah doctor --enable cargo"));
+    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let rec_line = stdout
+        .lines()
+        .find(|line| {
+            line.starts_with("recommendation:") && line.contains("cargo detected via manifest")
+        })
+        .unwrap_or("");
+    assert!(
+        rec_line.contains(" — run: ah doctor --enable cargo"),
+        "the recommendation must pair its detail with the apply command; got:\n{stdout}"
+    );
 }
 
 #[test]
 fn p_doctor() {
     doctor_reports_configured_framework_as_framework_line();
     doctor_reports_manifest_detected_framework_as_recommendation();
+
+    let repo = make_minimal_repo();
+    fs::write(repo.path().join("Cargo.toml"), "[package]\nname = \"x\"\n").unwrap();
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .arg("doctor")
+        .assert();
+    assert_eq!(
+        assert.get_output().status.code(),
+        Some(0),
+        "plain doctor must exit 0 when every check passes"
+    );
 }
 
 #[test]
@@ -315,9 +370,31 @@ fn p_enable() {
     doctor_enable_snapshot_writes_capability_block();
     doctor_enable_unknown_capability_exits_nonzero();
     doctor_enable_already_enabled_exits_zero_with_already_enabled_message();
-}
 
+    let repo = make_minimal_repo();
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["doctor", "--enable", "pytest"])
+        .assert();
+    assert_eq!(
+        assert.get_output().status.code(),
+        Some(0),
+        "enabling a known capability must exit 0"
+    );
+}
 #[test]
 fn p_recommendation() {
     doctor_json_emits_recommendation_findings();
+
+    let repo = make_minimal_repo();
+    fs::write(repo.path().join("pytest.ini"), "[pytest]\n").unwrap();
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(repo.path())
+        .args(["doctor", "--json"])
+        .assert();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let has_rec = stdout.contains("\"recommendation\"");
+    assert!(has_rec, "no recommendation: {stdout}");
 }

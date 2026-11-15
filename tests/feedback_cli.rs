@@ -9,22 +9,48 @@ fn ah() -> Command {
 
 #[test]
 fn ah_feedback_bug_dry_run_prints_body_and_gh_line() {
-    ah().args(["feedback", "bug", "--dry-run"])
+    let output = ah()
+        .args(["feedback", "bug", "--dry-run"])
         .assert()
         .failure()
         .stderr(contains("DRY RUN"))
         .stderr(contains("gh issue create"))
         .stderr(contains("espectacular"))
         .stderr(contains("tool:"))
-        .stderr(contains("ah"));
+        .stderr(contains("ah"))
+        .get_output()
+        .stderr
+        .clone();
+    let stderr = String::from_utf8(output).unwrap();
+    let gh_line = stderr
+        .lines()
+        .find(|line| line.contains("gh issue create"))
+        .unwrap_or("");
+    assert!(
+        gh_line.contains("DRY RUN: would run: gh issue create --repo "),
+        "the dry run must preview the exact gh command; got:\n{stderr}"
+    );
 }
 
 #[test]
 fn ah_feedback_dry_run_redacts_git_remote() {
-    ah().args(["feedback", "bug", "--dry-run"])
+    let output = ah()
+        .args(["feedback", "bug", "--dry-run"])
         .assert()
         .failure()
-        .stderr(contains("git_remote"));
+        .stderr(contains("git_remote"))
+        .get_output()
+        .stderr
+        .clone();
+    let stderr = String::from_utf8(output).unwrap();
+    let remote_line = stderr
+        .lines()
+        .find(|line| line.contains("git_remote"))
+        .unwrap_or("");
+    assert!(
+        !remote_line.is_empty() && !remote_line.contains("://") && !remote_line.contains('@'),
+        "git_remote must be reduced to host/path; got: {remote_line:?}"
+    );
 }
 
 // Regression for espectacular-qyu (GH#28 item 3): feedback must not
@@ -43,7 +69,8 @@ fn ah_feedback_bug_works_in_non_rust_git_repo() {
         .success();
     // deliberately NO Cargo.toml here
 
-    ah().current_dir(&repo)
+    let assert = ah()
+        .current_dir(&repo)
         .args(["feedback", "bug", "--dry-run"])
         .assert()
         .failure() // dry-run convention: prints body, exits non-zero
@@ -51,8 +78,13 @@ fn ah_feedback_bug_works_in_non_rust_git_repo() {
         .stderr(contains("gh issue create"))
         .stderr(contains("tool:"))
         .stderr(contains("ah"))
-        .stderr(contains("espectacular")) // falls back to default target repo
+        .stderr(contains("gh issue create --repo charly-vibes/espectacular"))
         .stderr(contains("cannot read Cargo.toml").not());
+    assert_eq!(
+        assert.get_output().status.code(),
+        Some(1),
+        "a non-Rust repo dry run must still exit non-zero"
+    );
 }
 
 #[test]
@@ -66,10 +98,19 @@ fn ah_feedback_from_last_error_prints_error_context() {
     )
     .unwrap();
 
-    ah().env("XDG_CACHE_HOME", dir.path())
+    let output = ah()
+        .env("XDG_CACHE_HOME", dir.path())
         .args(["feedback", "bug", "--from-last-error", "--dry-run"])
         .assert()
         .failure()
         .stderr(contains("ah check"))
-        .stderr(contains("Exit code"));
+        .stderr(contains("Exit code"))
+        .get_output()
+        .stderr
+        .clone();
+    let stderr = String::from_utf8(output).unwrap();
+    assert!(
+        stderr.contains("**Exit code:** 1"),
+        "the recorded exit code must be rendered; got:\n{stderr}"
+    );
 }

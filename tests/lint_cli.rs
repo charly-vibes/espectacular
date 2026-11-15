@@ -262,4 +262,12 @@ fn p_lint() {
     ah_lint_changes_overlay_lints_change_specs_in_addition_to_deployed();
     ah_lint_check_filter_runs_single_category();
     ah_lint_json_finding_shape_matches_shared_schema();
+
+    // Aggregator sanity: the clean fixture lints without failing.
+    let output = ah_lint(&["tests/fixtures/lint/clean", "--json"]);
+    assert!(
+        output.status.success(),
+        "clean fixture must exit 0, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }

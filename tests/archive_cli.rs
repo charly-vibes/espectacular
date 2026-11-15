@@ -36,7 +36,7 @@ fn ah_archive_exits_zero_and_prints_archived_path() {
     add_deployed_spec(&dir, "compiler", "Empty input rejected");
     add_staged_contract(&dir, "s5", "compiler", "empty-input-rejected");
 
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(dir.path())
         .args(["archive", "s5"])
@@ -45,6 +45,12 @@ fn ah_archive_exits_zero_and_prints_archived_path() {
         .stdout(predicates::str::contains(
             "archived: compiler/empty-input-rejected",
         ));
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    assert!(
+        stdout.contains("archived: compiler/empty-input-rejected"),
+        "archive stdout must report the archived path: {stdout}"
+    );
 }
 
 #[test]
@@ -61,13 +67,19 @@ fn ah_archive_exits_nonzero_on_collision() {
         "id = \"empty-input-rejected\"\ndescription = \"x\"\narchetype = \"PF\"\nstatus = \"active\"\nsuperseded_by = \"\"\nauthored_with = \"0.1.0\"\n",
     ).unwrap();
 
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(dir.path())
         .args(["archive", "s5"])
         .assert()
         .failure()
         .stderr(predicates::str::contains("collision"));
+
+    let stderr = String::from_utf8_lossy(&assert.get_output().stderr);
+    assert!(
+        stderr.contains("collision"),
+        "archive must explain the collision: {stderr}"
+    );
 }
 
 #[test]
@@ -75,13 +87,19 @@ fn ah_archive_exits_nonzero_when_no_staged_change() {
     let dir = TempDir::new().unwrap();
     make_repo(&dir);
 
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(dir.path())
         .args(["archive", "s5"])
         .assert()
         .failure()
         .stderr(predicates::str::contains("no staged contracts"));
+
+    let stderr = String::from_utf8_lossy(&assert.get_output().stderr);
+    assert!(
+        stderr.contains("no staged contracts"),
+        "archive must report the missing staged change: {stderr}"
+    );
 }
 
 #[test]
@@ -89,4 +107,21 @@ fn p_archive() {
     ah_archive_exits_zero_and_prints_archived_path();
     ah_archive_exits_nonzero_on_collision();
     ah_archive_exits_nonzero_when_no_staged_change();
+
+    let dir = TempDir::new().unwrap();
+    make_repo(&dir);
+    add_deployed_spec(&dir, "compiler", "Empty input rejected");
+    add_staged_contract(&dir, "s5", "compiler", "empty-input-rejected");
+
+    let assert = Command::cargo_bin("ah")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["archive", "s5"])
+        .assert();
+
+    assert_eq!(
+        assert.get_output().status.code(),
+        Some(0),
+        "archiving a staged contract must exit 0"
+    );
 }

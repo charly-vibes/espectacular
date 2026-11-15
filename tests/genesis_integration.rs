@@ -36,7 +36,15 @@ fn genesis_modules_are_resolvable() {
     let _err_env = Envelope::error(env!("CARGO_PKG_VERSION"), err, vec![]);
     assert!(!_err_env.ok);
 
-    // ── Suggestions ───────────────────────────────────────────────────
+    suggestions_resolve_typo();
+    managed_blocks_resolve_registered_defs();
+    feedback_dry_run_reports_invocation();
+    scratch_records_expose_fields();
+    fixtures_materialize_files();
+}
+
+// ── Suggestions ──────────────────────────────────────────────────────
+fn suggestions_resolve_typo() {
     let mut registry = CommandRegistry::new();
     registry.register(
         "ah",
@@ -63,14 +71,18 @@ fn genesis_modules_are_resolvable() {
             suggestion: "doctor".to_string(),
         }
     );
+}
 
-    // ── Managed block ─────────────────────────────────────────────────
+// ── Managed block ────────────────────────────────────────────────────
+fn managed_blocks_resolve_registered_defs() {
     let mut block_registry = BlockRegistry::new();
     block_registry.register(BlockDef::new("ah"));
     let injector = BlockInjector::new(block_registry);
     assert!(injector.registry().has("ah"));
+}
 
-    // ── Feedback ──────────────────────────────────────────────────────
+// ── Feedback ─────────────────────────────────────────────────────────
+fn feedback_dry_run_reports_invocation() {
     let opts = CreateIssueOptions::new("owner/repo", "test bug", "body text");
     assert_eq!(opts.repo, "owner/repo");
     let dry_run_result = feedback::gh::create_issue(&CreateIssueOptions {
@@ -79,8 +91,10 @@ fn genesis_modules_are_resolvable() {
     });
     assert!(dry_run_result.is_err());
     assert!(dry_run_result.unwrap_err().contains("DRY RUN"));
+}
 
-    // ── Feedback: scratch ─────────────────────────────────────────────
+// ── Feedback: scratch ────────────────────────────────────────────────
+fn scratch_records_expose_fields() {
     let record = ErrorRecord {
         ts: "2026-07-28T00:00:00Z".to_string(),
         argv: vec!["ah".to_string(), "check".to_string()],
@@ -90,8 +104,10 @@ fn genesis_modules_are_resolvable() {
     };
     assert_eq!(record.exit, 1);
     assert_eq!(record.argv, vec!["ah", "check"]);
+}
 
-    // ── Fixture ───────────────────────────────────────────────────────
+// ── Fixture ──────────────────────────────────────────────────────────
+fn fixtures_materialize_files() {
     let f = Fixture::new()
         .with_marker(".espectacular")
         .with_file("hello.txt", "world")

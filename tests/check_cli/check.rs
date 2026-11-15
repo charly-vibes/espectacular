@@ -139,7 +139,7 @@ fn ah_check_with_changes_includes_overlay_scope() {
 #[test]
 fn ah_check_missing_change_has_clear_diagnostic() {
     let repo = base_repo();
-    Command::cargo_bin("ah")
+    let assert = Command::cargo_bin("ah")
         .unwrap()
         .current_dir(repo.path())
         .args(["check", "--changes", "missing-change"])
@@ -148,6 +148,11 @@ fn ah_check_missing_change_has_clear_diagnostic() {
         .stderr(predicates::str::contains(
             "change 'missing-change' does not exist",
         ));
+    let stderr = String::from_utf8_lossy(&assert.get_output().stderr);
+    assert!(
+        stderr.contains("change 'missing-change' does not exist"),
+        "missing change must be named in the diagnostic: {stderr}"
+    );
 }
 
 #[test]
@@ -192,4 +197,16 @@ fn p_check() {
     ah_check_warning_only_findings_exit_zero();
     ah_check_with_changes_includes_overlay_scope();
     ah_check_missing_change_has_clear_diagnostic();
+    // Aggregator sanity: the gate command surface the cases above exercise
+    // must exist on the built binary.
+    let help = Command::cargo_bin("ah")
+        .unwrap()
+        .args(["check", "--help"])
+        .output()
+        .unwrap();
+    assert!(
+        help.status.success(),
+        "ah check --help must exit 0, stderr: {}",
+        String::from_utf8_lossy(&help.stderr)
+    );
 }
