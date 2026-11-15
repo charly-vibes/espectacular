@@ -142,8 +142,23 @@ mod tests {
         fs::set_permissions(path, perms).unwrap();
     }
 
-    #[test]
-    fn detect_dispatch_reports_pytest_precedence() {
+    fn empty_config() -> Config {
+        Config {
+            tool_version: "0.1.0".to_string(),
+            paths: Paths {
+                specs: "openspec/specs".to_string(),
+                changes: "openspec/changes".to_string(),
+            },
+            runners: HashMap::new(),
+            quality: Default::default(),
+            capabilities: Default::default(),
+            lint: Default::default(),
+        }
+    }
+
+    /// Repo carrying a pytest manifest and a pytest-importing test, plus a
+    /// PATH value whose `pytest` executable exists.
+    fn pytest_precedence_fixture() -> (tempfile::TempDir, std::ffi::OsString) {
         let dir = tempfile::tempdir().unwrap();
         let repo = dir.path();
         fs::create_dir_all(repo.join("tests")).unwrap();
@@ -157,22 +172,19 @@ mod tests {
         let env_dir = repo.join("bin");
         fs::create_dir_all(&env_dir).unwrap();
         write_executable(&env_dir.join("pytest"), "exit 0");
+        // Build a PATH value for the detect_with_path seam instead of mutating
+        // the process-wide PATH: p_precedence re-runs this test in a parallel
+        // thread, and global env mutation races its own env::var_os reads
+        // (espectacular-pli).
         let path = std::env::join_paths([env_dir]).unwrap();
-        // Drive the detect_with_path seam instead of mutating the process-wide
-        // PATH: p_precedence re-runs this test in a parallel thread, and global
-        // env mutation races its own env::var_os reads (espectacular-pli).
+        (dir, path)
+    }
 
-        let empty = Config {
-            tool_version: "0.1.0".to_string(),
-            paths: Paths {
-                specs: "openspec/specs".to_string(),
-                changes: "openspec/changes".to_string(),
-            },
-            runners: HashMap::new(),
-            quality: Default::default(),
-            capabilities: Default::default(),
-            lint: Default::default(),
-        };
+    #[test]
+    fn detect_dispatch_reports_pytest_precedence() {
+        let (dir, path) = pytest_precedence_fixture();
+        let repo = dir.path();
+        let empty = empty_config();
         let configured = config_with_runner("pytest", vec!["pytest"]);
 
         assert_eq!(

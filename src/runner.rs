@@ -14,19 +14,24 @@
 //! Rationale: push-gate time is dominated by runner startup (GH#40); bounded,
 //! deadlock-free capture is the precondition for batching many contracts
 //! into one invocation without weakening per-contract falsification.
+//!
+//! Module map: `command` composes argv, `execute` spawns and supervises,
+//! `guards` holds the matched-zero guard, `declared` keeps the declared-test
+//! contract surface. This root owns the shared types and constants.
 
-use crate::config::Config;
-use crate::contracts::TestEntry;
+mod command;
+mod declared;
+mod execute;
+mod guards;
+
+pub use command::compose_command;
+pub use execute::execute_command;
+pub(crate) use execute::{execute_command_full, spawn_with_text_busy_retry};
+pub(crate) use guards::matched_zero_tests;
+
 use serde::{Deserialize, Serialize};
-#[cfg(unix)]
-use std::os::unix::process::CommandExt;
-use std::path::Path;
-use std::process::{Command, Stdio};
-use std::thread;
-use std::time::{Duration, Instant};
 
 pub(crate) const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
-const OUTPUT_TAIL_BYTES: usize = 8 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlannedCommand {
@@ -47,226 +52,16 @@ pub struct TestResult {
     pub stderr_tail: String,
 }
 
-/// Spawn helper with a bounded retry on `ETXTBSY` (Text file busy). Executing
-/// a file that was just written (test shims in tempdirs) can transiently race
-/// the kernel's write-fd accounting when the suite's many process-spawning
-/// tests run in parallel (observed as os error 26); a short retry resolves it
-/// without masking real failures (NotFound still surfaces to callers).
-pub(crate) fn spawn_with_text_busy_retry(
-    program: &str,
-    args: &[&str],
-) -> std::io::Result<std::process::Output> {
-    const ATTEMPTS: usize = 4;
-    let mut last_err = None;
-    for attempt in 0..ATTEMPTS {
-        if attempt > 0 {
-            std::thread::sleep(Duration::from_millis(25 * attempt as u64));
-        }
-        match Command::new(program).args(args).output() {
-            Ok(output) => return Ok(output),
-            Err(e) if e.raw_os_error() == Some(26) => last_err = Some(e),
-            Err(e) => return Err(e),
-        }
-    }
-    Err(last_err.expect("retry loop exhausted with no error"))
-}
-
-pub fn compose_command(
-    config: &Config,
-    test_type: &str,
-    entry: &TestEntry,
-) -> anyhow::Result<PlannedCommand> {
-    let timeout_seconds = entry.timeout_seconds.unwrap_or(DEFAULT_TIMEOUT_SECONDS);
-    anyhow::ensure!(timeout_seconds > 0, "timeout_seconds must be positive");
-
-    if test_type == "shell" {
-        let command = entry
-            .command
-            .as_ref()
-            .filter(|value| !value.is_empty())
-            .ok_or_else(|| anyhow::anyhow!("shell test entry must declare command"))?;
-        return Ok(PlannedCommand {
-            test_type: test_type.to_string(),
-            argv: vec!["/bin/sh".to_string(), "-c".to_string(), command.clone()],
-            display: format!("/bin/sh -c {}", shell_escape(command)),
-            timeout_seconds,
-        });
-    }
-
-    let flags = entry
-        .flags
-        .as_ref()
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| anyhow::anyhow!("non-shell test entry must declare flags"))?;
-    let runner = config
-        .runners
-        .get(test_type)
-        .ok_or_else(|| anyhow::anyhow!("missing runner for {test_type}"))?;
-
-    let mut argv = runner.clone();
-    argv.push(flags.clone());
-
-    Ok(PlannedCommand {
-        test_type: test_type.to_string(),
-        display: argv.join(" "),
-        argv,
-        timeout_seconds,
-    })
-}
-
-pub fn execute_command(repo_root: &Path, planned: &PlannedCommand) -> anyhow::Result<TestResult> {
-    execute_command_full(repo_root, planned).map(|(result, _)| result)
-}
-
-/// Like [`execute_command`] but also returns the full stdout bytes.
-/// Batching (batch-runner-spawns) parses structured per-test output from the
-/// complete captured stdout; tails stay 8 KiB findings-only.
-pub(crate) fn execute_command_full(
-    repo_root: &Path,
-    planned: &PlannedCommand,
-) -> anyhow::Result<(TestResult, Vec<u8>)> {
-    let mut command = Command::new(&planned.argv[0]);
-    command
-        .args(&planned.argv[1..])
-        .current_dir(repo_root)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    #[cfg(unix)]
-    {
-        command.process_group(0); // isolate in its own process group
-    }
-
-    let mut child = command.spawn()?;
-    // Drain stdout/stderr on reader threads WHILE polling the child: a
-    // runner producing more output than the pipe buffer (~64 KiB) would
-    // otherwise block on write() forever — the polling loop does not read —
-    // and every oversized invocation would die on timeout instead of
-    // completing (batch-runner-spawns task 2.3: batched JSON is expected to
-    // reach megabytes).
-    use std::io::Read;
-    let stdout_pipe = child.stdout.take().expect("stdout was piped");
-    let stderr_pipe = child.stderr.take().expect("stderr was piped");
-    let stdout_reader = thread::spawn(move || {
-        let mut buf = Vec::new();
-        let mut pipe = stdout_pipe;
-        pipe.read_to_end(&mut buf).map(|_| buf)
-    });
-    let stderr_reader = thread::spawn(move || {
-        let mut buf = Vec::new();
-        let mut pipe = stderr_pipe;
-        pipe.read_to_end(&mut buf).map(|_| buf)
-    });
-    let started = Instant::now();
-    let timeout = Duration::from_secs(planned.timeout_seconds);
-    let timed_out = loop {
-        if child.try_wait()?.is_some() {
-            break false;
-        }
-        if started.elapsed() >= timeout {
-            // Kill the entire process group so grandchild processes
-            // holding inherited pipes also die.
-            #[cfg(unix)]
-            {
-                let pgid = child.id() as i32;
-                unsafe { libc::killpg(pgid, libc::SIGTERM) };
-            }
-            child.kill()?;
-            break true;
-        }
-        thread::sleep(Duration::from_millis(10));
-    };
-
-    let stdout = stdout_reader.join().expect("stdout reader thread")?;
-    let stderr = stderr_reader.join().expect("stderr reader thread")?;
-    let status = child.wait()?;
-
-    let result = TestResult {
-        test_type: planned.test_type.clone(),
-        command: planned.display.clone(),
-        exit_code: status.code(),
-        timed_out,
-        stdout_tail: tail_string(&stdout),
-        stderr_tail: tail_string(&stderr),
-    };
-    Ok((result, stdout))
-}
-
-/// Sequential declared-test loop; kept as contract-test surface
-/// (gate/p-execution.toml binds `p_execution`, whose helpers drive it).
-/// Production execution goes through `adapters::invoke` (incl. batching).
-#[allow(dead_code)]
-pub fn run_declared_tests(
-    repo_root: &Path,
-    config: &Config,
-    tests: &std::collections::HashMap<String, Vec<TestEntry>>,
-) -> anyhow::Result<Vec<TestResult>> {
-    let mut test_types: Vec<_> = tests.keys().cloned().collect();
-    test_types.sort();
-
-    let mut results = Vec::new();
-    for test_type in test_types {
-        let entries = &tests[&test_type];
-        for entry in entries {
-            let planned = compose_command(config, &test_type, entry)?;
-            results.push(execute_command(repo_root, &planned)?);
-        }
-    }
-    Ok(results)
-}
-
-fn tail_string(bytes: &[u8]) -> String {
-    let start = bytes.len().saturating_sub(OUTPUT_TAIL_BYTES);
-    String::from_utf8_lossy(&bytes[start..]).into_owned()
-}
-
-/// Zero-tests-ran guard (derive-contracts-from-specodelic task 4.3):
-/// detect a runner invocation whose output reports zero passing tests.
-/// `cargo test -- <filter>` with a filter matching nothing exits 0 while
-/// printing `test result: ok. 0 passed; N filtered out`, so an exit-code-only
-/// check would count a matched-nothing binding as passed. Applies to every
-/// runner type (previously shell-only); shells that emit cargo-style result
-/// lines are covered by the same detection.
-pub(crate) fn matched_zero_tests(result: &TestResult) -> bool {
-    let has_zero_line = result.stdout_tail.contains("test result: ok. 0 passed")
-        || result.stderr_tail.contains("test result: ok. 0 passed");
-    if !has_zero_line {
-        return false;
-    }
-    // Check that no "N passed" (N > 0) line appears anywhere in the output.
-    // This handles `cargo test` running multiple binaries — the last binary
-    // may print "0 passed" even though earlier binaries ran tests successfully.
-    !has_positive_passed(&result.stdout_tail) && !has_positive_passed(&result.stderr_tail)
-}
-
-fn has_positive_passed(output: &str) -> bool {
-    output.lines().any(|line| {
-        if let Some(rest) = line.strip_prefix("test result: ok. ") {
-            if let Some(num_str) = rest.split(' ').next() {
-                if let Ok(n) = num_str.parse::<u64>() {
-                    return n > 0;
-                }
-            }
-        }
-        false
-    })
-}
-
-fn shell_escape(command: &str) -> String {
-    format!("'{}'", command.replace('\'', "'\\''"))
-}
-
+/// Fixtures shared by the module tests: configs, entries, helper scripts.
 #[cfg(test)]
-mod tests {
-    use super::*;
+pub(crate) mod test_support {
     use crate::config::{Config, Paths};
     use crate::contracts::TestEntry;
     use std::collections::HashMap;
     use std::fs;
-    #[cfg(unix)]
-    use std::os::unix::fs::PermissionsExt;
+    use std::path::{Path, PathBuf};
 
-    fn config_with_runner(test_type: &str, runner: Vec<&str>) -> Config {
+    pub(crate) fn config_with_runner(test_type: &str, runner: Vec<&str>) -> Config {
         let mut runners = HashMap::new();
         runners.insert(
             test_type.to_string(),
@@ -285,266 +80,24 @@ mod tests {
         }
     }
 
-    fn write_helper(repo_root: &Path, body: &str) -> std::path::PathBuf {
+    pub(crate) fn flags_entry(flags: &str) -> TestEntry {
+        TestEntry {
+            flags: Some(flags.to_string()),
+            command: None,
+            timeout_seconds: None,
+        }
+    }
+
+    pub(crate) fn write_helper(repo_root: &Path, body: &str) -> PathBuf {
         let path = repo_root.join("helper.sh");
         fs::write(&path, format!("#!/bin/sh\nset -eu\n{body}\n")).unwrap();
         #[cfg(unix)]
         {
+            use std::os::unix::fs::PermissionsExt;
             let mut perms = fs::metadata(&path).unwrap().permissions();
             perms.set_mode(0o755);
             fs::set_permissions(&path, perms).unwrap();
         }
         path
-    }
-
-    #[test]
-    fn composes_non_shell_runner_with_flags_as_one_token() {
-        let config = config_with_runner("unit", vec!["/bin/sh", "runner.sh", "out.txt"]);
-        let entry = TestEntry {
-            flags: Some("tests/foo::bar baz".to_string()),
-            command: None,
-            timeout_seconds: Some(7),
-        };
-
-        let planned = compose_command(&config, "unit", &entry).unwrap();
-        assert_eq!(planned.argv[3], "tests/foo::bar baz");
-        assert_eq!(planned.timeout_seconds, 7);
-    }
-
-    #[test]
-    fn executes_shell_tests_via_bin_sh_c() {
-        let dir = tempfile::tempdir().unwrap();
-        let output = dir.path().join("shell.txt");
-        let config = config_with_runner("unit", vec!["ignored"]);
-        let entry = TestEntry {
-            flags: None,
-            command: Some(format!("printf shell > {}", output.display())),
-            timeout_seconds: None,
-        };
-
-        let planned = compose_command(&config, "shell", &entry).unwrap();
-        let result = execute_command(dir.path(), &planned).unwrap();
-
-        assert_eq!(result.exit_code, Some(0));
-        assert_eq!(fs::read_to_string(output).unwrap(), "shell");
-        assert_eq!(planned.argv[..2], ["/bin/sh", "-c"]);
-    }
-
-    #[test]
-    fn captures_non_zero_exit_and_output_tails() {
-        let dir = tempfile::tempdir().unwrap();
-        let helper = write_helper(dir.path(), "printf 'ok'\nprintf 'bad' >&2\nexit 9");
-        let config = config_with_runner("unit", vec!["/bin/sh", helper.to_str().unwrap()]);
-        let entry = TestEntry {
-            flags: Some("flag".to_string()),
-            command: None,
-            timeout_seconds: None,
-        };
-
-        let planned = compose_command(&config, "unit", &entry).unwrap();
-        let result = execute_command(dir.path(), &planned).unwrap();
-
-        assert_eq!(result.exit_code, Some(9));
-        assert!(!result.timed_out);
-        assert_eq!(result.stdout_tail, "ok");
-        assert_eq!(result.stderr_tail, "bad");
-    }
-
-    #[test]
-    fn timeouts_kill_long_running_commands() {
-        let dir = tempfile::tempdir().unwrap();
-        let helper = write_helper(dir.path(), "sleep 2");
-        let config = config_with_runner("unit", vec!["/bin/sh", helper.to_str().unwrap()]);
-        let entry = TestEntry {
-            flags: Some("flag".to_string()),
-            command: None,
-            timeout_seconds: Some(1),
-        };
-
-        let planned = compose_command(&config, "unit", &entry).unwrap();
-        let result = execute_command(dir.path(), &planned).unwrap();
-
-        assert!(result.timed_out);
-    }
-
-    // Zero-tests-ran guard (derive-contracts-from-specodelic task 4.3):
-    // a `flags` binding whose runner output reports zero passing tests
-    // (e.g. `cargo test` with a filter matching nothing exits 0 with
-    // "0 passed; 1 filtered out") must be detectable so the gate can fail
-    // it instead of counting it as passed.
-
-    fn result_with_output(stdout: &str) -> TestResult {
-        TestResult {
-            test_type: "cargo".to_string(),
-            command: "cargo test -- p_token".to_string(),
-            exit_code: Some(0),
-            timed_out: false,
-            stdout_tail: stdout.to_string(),
-            stderr_tail: String::new(),
-        }
-    }
-
-    #[test]
-    fn matched_zero_tests_detects_cargo_zero_passed() {
-        let result = result_with_output(
-            "running 1 test\ntest result: ok. 0 passed; 1 filtered out; 0 finished\n",
-        );
-        assert!(matched_zero_tests(&result));
-    }
-
-    #[test]
-    fn matched_zero_tests_false_when_any_binary_reported_passes() {
-        // cargo runs one result block per test binary; a trailing zero-passed
-        // block must not mask earlier positive blocks.
-        let result = result_with_output(
-            "test result: ok. 3 passed; 0 failed\ntest result: ok. 0 passed; 0 failed\n",
-        );
-        assert!(!matched_zero_tests(&result));
-    }
-
-    #[test]
-    fn matched_zero_tests_false_for_positive_output() {
-        let result = result_with_output("test result: ok. 2 passed; 0 failed\n");
-        assert!(!matched_zero_tests(&result));
-    }
-
-    #[test]
-    fn matched_zero_tests_false_for_unrelated_output() {
-        let result = result_with_output("all targets up to date\n");
-        assert!(!matched_zero_tests(&result));
-    }
-
-    #[test]
-    fn matched_zero_tests_checks_stderr_tail_too() {
-        let mut result = result_with_output("");
-        result.stderr_tail = "test result: ok. 0 passed; 1 filtered out\n".to_string();
-        assert!(matched_zero_tests(&result));
-    }
-
-    #[test]
-    fn timeout_kills_process_group_children() {
-        let dir = tempfile::tempdir().unwrap();
-        // Child runs a long command AND backgrounds a grandchild that holds
-        // stdout open. Without process-group kill, child.kill() kills only
-        // the direct child but wait_with_output blocks until the grandchild
-        // closes the inherited pipe.
-        let helper = write_helper(dir.path(), "(sleep 20) &\nsleep 10");
-        let config = config_with_runner("unit", vec!["/bin/sh", helper.to_str().unwrap()]);
-        let entry = TestEntry {
-            flags: Some("flag".to_string()),
-            command: None,
-            timeout_seconds: Some(1),
-        };
-
-        let planned = compose_command(&config, "unit", &entry).unwrap();
-        let started = std::time::Instant::now();
-        let result = execute_command(dir.path(), &planned).unwrap();
-        let elapsed = started.elapsed();
-
-        assert!(result.timed_out, "expected timed_out=true");
-        // Must return near the 1s deadline, not block for 10s
-        assert!(
-            elapsed < std::time::Duration::from_secs(3),
-            "took {elapsed:?} — grandchild process not killed"
-        );
-    }
-
-    #[test]
-    fn commands_run_from_repo_root_with_inherited_environment() {
-        let dir = tempfile::tempdir().unwrap();
-        let out = dir.path().join("env.txt");
-        let helper = write_helper(
-            dir.path(),
-            &format!(
-                "pwd > {}\nprintf '\n%s' \"$SPECIAL_VALUE\" >> {}",
-                out.display(),
-                out.display()
-            ),
-        );
-        let config = config_with_runner("unit", vec!["/bin/sh", helper.to_str().unwrap()]);
-        let entry = TestEntry {
-            flags: Some("flag".to_string()),
-            command: None,
-            timeout_seconds: None,
-        };
-
-        std::env::set_var("SPECIAL_VALUE", "present");
-        let planned = compose_command(&config, "unit", &entry).unwrap();
-        let result = execute_command(dir.path(), &planned).unwrap();
-        std::env::remove_var("SPECIAL_VALUE");
-
-        assert_eq!(result.exit_code, Some(0));
-        let captured = fs::read_to_string(out).unwrap();
-        assert!(captured.contains(&dir.path().display().to_string()));
-        assert!(captured.contains("present"));
-    }
-
-    #[test]
-    fn declared_tests_run_sequentially_in_sorted_test_type_order() {
-        let dir = tempfile::tempdir().unwrap();
-        let out = dir.path().join("order.txt");
-        let helper = write_helper(
-            dir.path(),
-            &format!("printf '%s\n' \"$1\" >> {}", out.display()),
-        );
-        let config = Config {
-            tool_version: "0.1.0".to_string(),
-            paths: Paths {
-                specs: "openspec/specs".to_string(),
-                changes: "openspec/changes".to_string(),
-            },
-            runners: HashMap::from([
-                (
-                    "pbt".to_string(),
-                    vec!["/bin/sh".to_string(), helper.to_str().unwrap().to_string()],
-                ),
-                (
-                    "unit".to_string(),
-                    vec!["/bin/sh".to_string(), helper.to_str().unwrap().to_string()],
-                ),
-            ]),
-            quality: Default::default(),
-            capabilities: Default::default(),
-            lint: Default::default(),
-        };
-        let tests = HashMap::from([
-            (
-                "unit".to_string(),
-                vec![
-                    TestEntry {
-                        flags: Some("u1".to_string()),
-                        command: None,
-                        timeout_seconds: None,
-                    },
-                    TestEntry {
-                        flags: Some("u2".to_string()),
-                        command: None,
-                        timeout_seconds: None,
-                    },
-                ],
-            ),
-            (
-                "pbt".to_string(),
-                vec![TestEntry {
-                    flags: Some("p1".to_string()),
-                    command: None,
-                    timeout_seconds: None,
-                }],
-            ),
-        ]);
-
-        let results = run_declared_tests(dir.path(), &config, &tests).unwrap();
-
-        assert_eq!(results.len(), 3);
-        assert_eq!(fs::read_to_string(out).unwrap(), "p1\nu1\nu2\n");
-    }
-    // ---- property-derived contract bindings (DDL migration, design D6) ----
-
-    #[test]
-    fn p_execution() {
-        composes_non_shell_runner_with_flags_as_one_token();
-        executes_shell_tests_via_bin_sh_c();
-        captures_non_zero_exit_and_output_tails();
-        timeouts_kill_long_running_commands();
     }
 }

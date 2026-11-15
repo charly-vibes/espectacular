@@ -193,37 +193,38 @@ fn scan_dir_for_pytest_import(path: &Path) -> bool {
         return false;
     };
 
-    for entry in entries.flatten() {
-        let child = entry.path();
-        if entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false) {
-            let name = entry.file_name();
-            let name = name.to_string_lossy();
-            if IGNORED_DIRS.contains(&name.as_ref()) {
-                continue;
-            }
-            if scan_dir_for_pytest_import(&child) {
-                return true;
-            }
-            continue;
-        }
+    entries.flatten().any(|entry| entry_imports_pytest(&entry))
+}
 
-        let Some(name) = child.file_name().and_then(|value| value.to_str()) else {
-            continue;
-        };
-        if !(name.starts_with("test_") || name.ends_with("_test.py")) {
-            continue;
+/// True when the entry is a scanned-into directory carrying a pytest import,
+/// or a test module that imports pytest.
+fn entry_imports_pytest(entry: &fs::DirEntry) -> bool {
+    if entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false) {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if IGNORED_DIRS.contains(&name.as_ref()) {
+            return false;
         }
-        if child.extension().and_then(|value| value.to_str()) != Some("py") {
-            continue;
-        }
-        if let Ok(text) = fs::read_to_string(&child) {
-            if text.contains("import pytest") || text.contains("from pytest import") {
-                return true;
-            }
-        }
+        return scan_dir_for_pytest_import(&entry.path());
     }
+    test_module_imports_pytest(entry)
+}
 
-    false
+fn test_module_imports_pytest(entry: &fs::DirEntry) -> bool {
+    let child = entry.path();
+    let Some(name) = child.file_name().and_then(|value| value.to_str()) else {
+        return false;
+    };
+    if !(name.starts_with("test_") || name.ends_with("_test.py")) {
+        return false;
+    }
+    if child.extension().and_then(|value| value.to_str()) != Some("py") {
+        return false;
+    }
+    match fs::read_to_string(&child) {
+        Ok(text) => text.contains("import pytest") || text.contains("from pytest import"),
+        Err(_) => false,
+    }
 }
 
 #[cfg(test)]
