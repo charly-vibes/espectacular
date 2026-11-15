@@ -216,19 +216,22 @@ fn check_mode_reports_drifted_contracts() {
 
 #[test]
 fn sync_appears_in_help_and_completions() {
-    use assert_cmd::Command as AssertCommand;
-    AssertCommand::cargo_bin("ah")
-        .unwrap()
-        .arg("--help")
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("sync"));
-    AssertCommand::cargo_bin("ah")
-        .unwrap()
-        .args(["completions", "bash"])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("sync"));
+    use clap::CommandFactory;
+
+    // In-process: spawning the built binary needs `CARGO_BIN_EXE_ah`, which
+    // cargo does not set for unit tests and coverage runners (tarpaulin) do
+    // not set at all.
+    let mut cmd = crate::cli::Cli::command();
+    let help = cmd.render_long_help().to_string();
+    assert!(help.contains("sync"), "sync missing from --help:\n{help}");
+
+    let mut buf: Vec<u8> = Vec::new();
+    clap_complete::generate(clap_complete::Shell::Bash, &mut cmd, "ah", &mut buf);
+    let script = String::from_utf8(buf).expect("completion script is utf-8");
+    assert!(
+        script.contains("sync"),
+        "sync missing from bash completions"
+    );
 }
 
 // ---- real-spk end-to-end (skips gracefully without spk) --------------
