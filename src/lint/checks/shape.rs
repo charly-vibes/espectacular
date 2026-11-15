@@ -104,35 +104,38 @@ fn scan_ambiguity(line: &str) -> Option<String> {
     }
 }
 
-impl LintCheck for UnresolvedAmbiguityCheck {
-    fn kind(&self) -> &'static str {
-        "unresolved-ambiguity"
-    }
-
-    fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>) {
-        let mut push = |spec: &SpecFile, scenario_id: &str, marker: String| {
+/// Push one unresolved-ambiguity finding per marked line of `body`.
+fn scan_ambiguity_body(
+    spec_path: &str,
+    scenario_id: &str,
+    body: &str,
+    findings: &mut Vec<LintFinding>,
+) {
+    for line in body.lines() {
+        if let Some(marker) = scan_ambiguity(line) {
             findings.push(LintFinding::warning(
                 "unresolved-ambiguity",
-                &spec.spec_path,
+                spec_path,
                 scenario_id,
                 &format!("unresolved ambiguity marker {marker}"),
                 "resolve the deferred decision and remove the marker",
                 "edit_spec",
                 "ah explain unresolved-ambiguity",
             ));
-        };
+        }
+    }
+}
+
+impl LintCheck for UnresolvedAmbiguityCheck {
+    fn kind(&self) -> &'static str {
+        "unresolved-ambiguity"
+    }
+
+    fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>) {
         for req in &spec.requirements {
-            for line in req.body.lines() {
-                if let Some(marker) = scan_ambiguity(line) {
-                    push(spec, "", marker);
-                }
-            }
+            scan_ambiguity_body(&spec.spec_path, "", &req.body, findings);
             for scenario in &req.scenarios {
-                for line in scenario.body.lines() {
-                    if let Some(marker) = scan_ambiguity(line) {
-                        push(spec, &scenario.id, marker);
-                    }
-                }
+                scan_ambiguity_body(&spec.spec_path, &scenario.id, &scenario.body, findings);
             }
         }
     }
@@ -164,6 +167,28 @@ impl EntangledSpecCheck {
             .find(|m| line_contains_term(line, m))
             .copied()
     }
+
+    /// Push one finding per presentation primitive matched in a gated
+    /// scenario body.
+    fn check_scenario(spec: &SpecFile, scenario: &ScenarioBlock, findings: &mut Vec<LintFinding>) {
+        for line in scenario.body.lines() {
+            if let Some(primitive) = Self::matching_primitive(line) {
+                findings.push(LintFinding::warning(
+                    "entangled-spec",
+                    &spec.spec_path,
+                    &scenario.id,
+                    &format!(
+                        "presentation primitive '{}' in {} scenario",
+                        primitive,
+                        scenario.archetype.as_deref().unwrap_or("?")
+                    ),
+                    "specify the domain event or state instead of the visual primitive",
+                    "edit_spec",
+                    "ah explain entangled-spec",
+                ));
+            }
+        }
+    }
 }
 
 impl LintCheck for EntangledSpecCheck {
@@ -174,25 +199,8 @@ impl LintCheck for EntangledSpecCheck {
     fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>) {
         for req in &spec.requirements {
             for scenario in &req.scenarios {
-                if !Self::is_gated(scenario) {
-                    continue;
-                }
-                for line in scenario.body.lines() {
-                    if let Some(primitive) = Self::matching_primitive(line) {
-                        findings.push(LintFinding::warning(
-                            "entangled-spec",
-                            &spec.spec_path,
-                            &scenario.id,
-                            &format!(
-                                "presentation primitive '{}' in {} scenario",
-                                primitive,
-                                scenario.archetype.as_deref().unwrap_or("?")
-                            ),
-                            "specify the domain event or state instead of the visual primitive",
-                            "edit_spec",
-                            "ah explain entangled-spec",
-                        ));
-                    }
+                if Self::is_gated(scenario) {
+                    Self::check_scenario(spec, scenario, findings);
                 }
             }
         }

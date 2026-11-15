@@ -19,7 +19,7 @@
 
 use crate::check::verifies_property_ids;
 use crate::lint::bridge::is_dual_format;
-use crate::lint::walker::SpecFile;
+use crate::lint::walker::{ScenarioBlock, SpecFile};
 use crate::lint::{LintCheck, LintFinding};
 
 /// Property ids declared in the file's `## Properties` table (first column),
@@ -63,6 +63,15 @@ fn trace_target(spec: &SpecFile) -> bool {
 
 pub(crate) struct VerifiesDanglingCheck;
 
+/// VERIFIES ids cited by one scenario's body that have no matching Properties
+/// row in the file.
+fn dangling_ids(ids: &[String], file_id: Option<&str>, scenario: &ScenarioBlock) -> Vec<String> {
+    verifies_property_ids(&scenario.body, file_id)
+        .into_iter()
+        .filter(|prop| !ids.contains(prop))
+        .collect()
+}
+
 impl LintCheck for VerifiesDanglingCheck {
     fn kind(&self) -> &'static str {
         "verifies-dangling"
@@ -76,22 +85,20 @@ impl LintCheck for VerifiesDanglingCheck {
         let file_id = crate::openspec::frontmatter_id(&spec.raw);
         for req in &spec.requirements {
             for scenario in &req.scenarios {
-                for prop in verifies_property_ids(&scenario.body, file_id.as_deref()) {
-                    if !ids.contains(&prop) {
-                        findings.push(LintFinding::warning(
-                            self.kind(),
-                            &spec.spec_path,
-                            &scenario.id,
-                            &format!(
-                                "scenario's VERIFIES bullet links to property `{prop}` which has no Properties row in this file"
-                            ),
-                            &format!(
-                                "correct the property id in the bullet, or add a `{prop}` Properties row, or remove the bullet and give the scenario its own contract toml"
-                            ),
-                            "edit_spec",
-                            "ah explain verifies-dangling",
-                        ));
-                    }
+                for prop in dangling_ids(&ids, file_id.as_deref(), scenario) {
+                    findings.push(LintFinding::warning(
+                        self.kind(),
+                        &spec.spec_path,
+                        &scenario.id,
+                        &format!(
+                            "scenario's VERIFIES bullet links to property `{prop}` which has no Properties row in this file"
+                        ),
+                        &format!(
+                            "correct the property id in the bullet, or add a `{prop}` Properties row, or remove the bullet and give the scenario its own contract toml"
+                        ),
+                        "edit_spec",
+                        "ah explain verifies-dangling",
+                    ));
                 }
             }
         }

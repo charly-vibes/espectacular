@@ -15,6 +15,7 @@
 
 use crate::openspec::slugify;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
@@ -142,78 +143,110 @@ fn load_archetypes(spec: &mut SpecFile, contracts_root: Option<std::path::PathBu
 /// Parse one spec file's content into units. `pub(crate)` so check modules
 /// can unit-test against inline spec markdown.
 pub(crate) fn parse_spec(content: &str, spec_name: &str) -> SpecFile {
-    use std::collections::HashSet;
-
     let lines: Vec<&str> = content.lines().collect();
-    let mut requirements: Vec<RequirementUnit> = Vec::new();
-    let mut current_req: Option<usize> = None;
-    // Section-sync mirrors (same slugified id AND identical body, e.g. the
-    // `## ADDED Requirements` / `## Requirements` pair in a dual-format
-    // delta) are one logical scenario — same dedupe convention as
-    // openspec::parse_scenarios_from_spec (deployed gate semantics:
-    // deduplicate-mirrored-delta-sections).
-    let mut seen: HashSet<(String, String)> = HashSet::new();
+    let mut parser = SpecParser::new();
+    parser.scan(&lines);
+    SpecFile {
+        spec_path: spec_name.to_string(),
+        requirements: parser.requirements,
+        raw: content.to_string(),
+        source_path: std::path::PathBuf::new(),
+    }
+}
 
-    for (i, &line) in lines.iter().enumerate() {
-        if let Some(heading) = line.strip_prefix("### Requirement: ") {
-            requirements.push(RequirementUnit {
-                heading: heading.trim().to_string(),
-                body: String::new(),
-                scenarios: Vec::new(),
-            });
-            current_req = Some(requirements.len() - 1);
-            continue;
+/// Line-oriented state machine behind [`parse_spec`].
+///
+/// Section-sync mirrors (same slugified id AND identical body, e.g. the
+/// `## ADDED Requirements` / `## Requirements` pair in a dual-format delta)
+/// are one logical scenario — same dedupe convention as
+/// openspec::parse_scenarios_from_spec (deployed gate semantics:
+/// deduplicate-mirrored-delta-sections).
+struct SpecParser {
+    requirements: Vec<RequirementUnit>,
+    current_req: Option<usize>,
+    seen: HashSet<(String, String)>,
+}
+
+impl SpecParser {
+    fn new() -> Self {
+        Self {
+            requirements: Vec::new(),
+            current_req: None,
+            seen: HashSet::new(),
         }
-        if let Some(heading) = line.strip_prefix("#### Scenario: ") {
-            let heading = heading.trim();
-            let body = extract_body(&lines, i + 1);
-            if !seen.insert((slugify(heading), body.clone())) {
-                continue;
-            }
-            let scenario = ScenarioBlock {
-                id: slugify(heading),
-                heading: heading.to_string(),
-                body,
-                source_line: i + 1,
-                archetype: None,
-            };
-            let idx = match current_req {
-                Some(idx) => idx,
-                None => {
-                    // Scenario outside any requirement: attach to a
-                    // synthetic parent so the walker never drops context.
-                    requirements.push(RequirementUnit {
-                        heading: String::new(),
-                        body: String::new(),
-                        scenarios: Vec::new(),
-                    });
-                    requirements.len() - 1
-                }
-            };
-            requirements[idx].scenarios.push(scenario);
-            continue;
-        }
-        // Prose between the requirement heading and its first scenario.
-        if let Some(idx) = current_req {
-            let req = &mut requirements[idx];
-            if req.scenarios.is_empty()
-                && !req.heading.is_empty()
-                && !line.starts_with('#')
-                && !line.trim().is_empty()
-            {
-                if !req.body.is_empty() {
-                    req.body.push('\n');
-                }
-                req.body.push_str(line);
+    }
+
+    fn scan(&mut self, lines: &[&str]) {
+        for (i, &line) in lines.iter().enumerate() {
+            if let Some(heading) = line.strip_prefix("### Requirement: ") {
+                self.open_requirement(heading);
+            } else if let Some(heading) = line.strip_prefix("#### Scenario: ") {
+                self.push_scenario(lines, i, heading);
+            } else {
+                self.append_prose(line);
             }
         }
     }
 
-    SpecFile {
-        spec_path: spec_name.to_string(),
-        requirements,
-        raw: content.to_string(),
-        source_path: std::path::PathBuf::new(),
+    fn open_requirement(&mut self, heading: &str) {
+        self.requirements.push(RequirementUnit {
+            heading: heading.trim().to_string(),
+            body: String::new(),
+            scenarios: Vec::new(),
+        });
+        self.current_req = Some(self.requirements.len() - 1);
+    }
+
+    /// Attach one `#### Scenario:` block to the current requirement. Mirrored
+    /// duplicates (same id AND body) are dropped.
+    fn push_scenario(&mut self, lines: &[&str], line_no: usize, heading: &str) {
+        let heading = heading.trim();
+        let body = extract_body(lines, line_no + 1);
+        if !self.seen.insert((slugify(heading), body.clone())) {
+            return;
+        }
+        let scenario = ScenarioBlock {
+            id: slugify(heading),
+            heading: heading.to_string(),
+            body,
+            source_line: line_no + 1,
+            archetype: None,
+        };
+        let idx = self.parent_index();
+        self.requirements[idx].scenarios.push(scenario);
+    }
+
+    /// Index of the requirement a scenario hangs off. A scenario outside any
+    /// requirement attaches to a synthetic parent so the walker never drops
+    /// context.
+    fn parent_index(&mut self) -> usize {
+        if let Some(idx) = self.current_req {
+            return idx;
+        }
+        self.requirements.push(RequirementUnit {
+            heading: String::new(),
+            body: String::new(),
+            scenarios: Vec::new(),
+        });
+        self.requirements.len() - 1
+    }
+
+    /// Prose between the requirement heading and its first scenario.
+    fn append_prose(&mut self, line: &str) {
+        let Some(req) = self.current_req.map(|idx| &mut self.requirements[idx]) else {
+            return;
+        };
+        if !req.scenarios.is_empty()
+            || req.heading.is_empty()
+            || line.starts_with('#')
+            || line.trim().is_empty()
+        {
+            return;
+        }
+        if !req.body.is_empty() {
+            req.body.push('\n');
+        }
+        req.body.push_str(line);
     }
 }
 
@@ -258,27 +291,37 @@ mod tests {
         assert!(req.scenarios.iter().all(|s| !s.body.is_empty()));
     }
 
-    #[test]
-    fn walker_parses_every_fixture() {
-        for dir in [clean_specs(), defective_specs()] {
-            let (specs, _) = walk_specs_with_errors(&dir).unwrap();
-            assert!(!specs.is_empty(), "walker parsed nothing for {dir:?}");
-            for spec in &specs {
-                assert!(!spec.requirements.is_empty());
-                for req in &spec.requirements {
-                    for scenario in &req.scenarios {
-                        assert_eq!(scenario.id, slugify(&scenario.heading));
-                    }
+    /// Walk `dir` and assert every scenario id mirrors its heading slug —
+    /// one nesting level per concern keeps the fixture test flat.
+    fn assert_walk_ids_match_headings(dir: &Path) {
+        let (specs, _) = walk_specs_with_errors(dir).unwrap();
+        assert!(!specs.is_empty(), "walker parsed nothing for {dir:?}");
+        for spec in &specs {
+            assert!(!spec.requirements.is_empty());
+            for req in &spec.requirements {
+                for scenario in &req.scenarios {
+                    assert_eq!(scenario.id, slugify(&scenario.heading));
                 }
             }
         }
-        let (defective, _) = walk_specs_with_errors(&defective_specs()).unwrap();
-        let scenario_count: usize = defective
+    }
+
+    /// Total scenario count across every requirement of every spec file.
+    fn scenario_count(specs: &[SpecFile]) -> usize {
+        specs
             .iter()
             .flat_map(|s| &s.requirements)
             .map(|r| r.scenarios.len())
-            .sum();
-        assert_eq!(scenario_count, 2);
+            .sum()
+    }
+
+    #[test]
+    fn walker_parses_every_fixture() {
+        for dir in [clean_specs(), defective_specs()] {
+            assert_walk_ids_match_headings(&dir);
+        }
+        let (defective, _) = walk_specs_with_errors(&defective_specs()).unwrap();
+        assert_eq!(scenario_count(&defective), 2);
     }
 
     #[test]
@@ -290,11 +333,10 @@ mod tests {
         let (specs, _) =
             walk_specs_with_errors(&PathBuf::from("tests/fixtures/lint/dual/openspec/specs"))
                 .unwrap();
-        let scenario_count: usize = specs
-            .iter()
-            .flat_map(|s| &s.requirements)
-            .map(|r| r.scenarios.len())
-            .sum();
-        assert_eq!(scenario_count, 2, "mirrored scenarios double-emitted");
+        assert_eq!(
+            scenario_count(&specs),
+            2,
+            "mirrored scenarios double-emitted"
+        );
     }
 }

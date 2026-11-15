@@ -18,45 +18,12 @@
 //! they shape findings per the delta spec
 //! `openspec/changes/add-spec-quality-checks/specs/lint/spec.md`.
 
+mod markers;
+
 use crate::lint::checks::line_contains_term;
 use crate::lint::walker::{RequirementUnit, ScenarioBlock, SpecFile};
 use crate::lint::{LintCheck, LintFinding};
-
-/// Qualitative terms that must carry an adjacent numeric bound.
-const QUALIFIER_TERMS: &[&str] = &[
-    "fast",
-    "scalable",
-    "user-friendly",
-    "easy",
-    "simple",
-    "intuitive",
-];
-
-/// UI-mechanic markers that must not appear in WHEN/THEN/AND steps.
-const IMPERATIVE_MARKERS: &[&str] = &[
-    "click",
-    "navigates to",
-    "fills",
-    "button",
-    "modal",
-    "css",
-    "selector",
-    "hover",
-    "scroll",
-];
-
-/// Language marking a scenario as exercising an error, rejection, or
-/// boundary violation.
-const NEGATIVE_MARKERS: &[&str] = &[
-    "exits non-zero",
-    "reject",
-    "error",
-    "invalid",
-    "fail",
-    "denied",
-    "violation",
-    "exceed",
-];
+use markers::{IMPERATIVE_MARKERS, NEGATIVE_MARKERS, QUALIFIER_TERMS};
 
 /// Bullet-step marker of a scenario body line: `"- **WHEN** ..."` → `"WHEN"`.
 fn step_marker(line: &str) -> Option<&str> {
@@ -117,6 +84,40 @@ impl LintCheck for VagueQualifierCheck {
     }
 }
 
+/// Match a bullet line against the imperative markers. Returns the matched
+/// mechanic and the step marker (`WHEN`/`THEN`/`AND`) when the line qualifies.
+fn imperative_mechanic(line: &str) -> Option<(&'static str, &str)> {
+    let marker = step_marker(line).unwrap_or("");
+    if !matches!(marker, "WHEN" | "THEN" | "AND") {
+        return None;
+    }
+    let lower = line.to_lowercase();
+    let mechanic = IMPERATIVE_MARKERS.iter().find(|m| lower.contains(**m))?;
+    Some((*mechanic, marker))
+}
+
+/// Push one finding per WHEN/THEN/AND step that describes UI mechanics.
+fn check_imperative_scenario(
+    spec: &SpecFile,
+    scenario: &ScenarioBlock,
+    findings: &mut Vec<LintFinding>,
+) {
+    for line in bullet_lines(&scenario.body) {
+        let Some((mechanic, marker)) = imperative_mechanic(line) else {
+            continue;
+        };
+        findings.push(LintFinding::warning(
+            "imperative-step",
+            &spec.spec_path,
+            &scenario.id,
+            &format!("UI mechanic '{mechanic}' in {marker} step"),
+            "rephrase to describe the business action (e.g. submits the form)",
+            "edit_spec",
+            "ah explain imperative-step",
+        ));
+    }
+}
+
 /// Imperative step detection (task 3.2): flag WHEN/THEN/AND steps that
 /// describe UI mechanics rather than business intent.
 pub struct ImperativeStepCheck;
@@ -129,25 +130,7 @@ impl LintCheck for ImperativeStepCheck {
     fn check(&self, spec: &SpecFile, findings: &mut Vec<LintFinding>) {
         for req in &spec.requirements {
             for scenario in &req.scenarios {
-                for line in bullet_lines(&scenario.body) {
-                    let marker = step_marker(line).unwrap_or("");
-                    if !matches!(marker, "WHEN" | "THEN" | "AND") {
-                        continue;
-                    }
-                    let lower = line.to_lowercase();
-                    if let Some(mechanic) = IMPERATIVE_MARKERS.iter().find(|m| lower.contains(**m))
-                    {
-                        findings.push(LintFinding::warning(
-                            "imperative-step",
-                            &spec.spec_path,
-                            &scenario.id,
-                            &format!("UI mechanic '{mechanic}' in {marker} step"),
-                            "rephrase to describe the business action (e.g. submits the form)",
-                            "edit_spec",
-                            "ah explain imperative-step",
-                        ));
-                    }
-                }
+                check_imperative_scenario(spec, scenario, findings);
             }
         }
     }
