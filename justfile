@@ -18,7 +18,7 @@ status:
     dont list --plain || true
 
 validate:
-    openspec validate --all
+    openspec validate --all --no-interactive
 
 plugins:
     wai plugin list

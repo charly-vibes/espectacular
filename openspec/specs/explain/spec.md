@@ -7,6 +7,17 @@ statement: "WHEN a user runs ah explain THE playbook SHALL serve compile-enforce
 
 # explain Specification
 
+## Purpose
+
+The explain playbook provides actionable guidance — what a finding means, why
+it appeared, and what to do next — for every `FindingKind`, every
+`SuggestedAction`, the quality finding kinds, and each compiled-in adapter
+capability. Topics are embedded in the binary and compile-enforced, so adding an
+enum variant without its guidance fails the build instead of degrading into a
+dead end at runtime. The command serves a stable alphabetically sorted topic
+listing, a typed JSON object for tooling, and a non-zero exit with the topic
+list for unknown topics.
+
 ## Constraints
 
 | id | kind | expr | traces_to |
@@ -48,9 +59,6 @@ statement: "WHEN a user runs ah explain THE playbook SHALL serve compile-enforce
 | P-unknown | unit | [[explain.C-unknown-topic]] | `ah explain no-such-topic` | exits non-zero with the topic list or the `--list` pointer |
 | P-quality | unit | [[explain.C-quality-kinds]] | `ah explain quality-mutation`, `quality-property`, `quality-snapshot` | each prints kind-specific guidance (mutation meaning/enablement) and exits zero |
 | P-adapter | unit | [[explain.C-adapter-topics]] | a build with the pytest adapter compiled in vs two modules registering one topic id | the first serves `ah explain pytest` enablement guidance; the second fails the build naming the conflict |
-
-## Purpose
-TBD - created by archiving change add-quality-measurement-and-adapters. Update Purpose after archive.
 
 ## Non-Goals
 

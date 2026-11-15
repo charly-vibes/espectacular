@@ -7,6 +7,19 @@ statement: "WHEN contracts declare test commands THE adapter layer SHALL detect 
 
 # adapters Specification
 
+## Purpose
+
+The adapter layer turns a contract's declared test command into a clean pass or
+a normalized `test-failing` finding, so the gate can judge execution without
+knowing any framework's output format. It detects frameworks through the
+`configured` > `manifest` > `environment` > `source_import` precedence chain
+before invoking anything, dispatches per test type through the bundled pytest,
+cargo, and vitest adapters, and reports the winning `adapter`, `test_type`, and
+`detection_source` in doctor and check output. Custom runners plug in only
+through explicit `[runners.custom.<name>]` configuration and the strict JSON
+envelope, and a declared test with no matching adapter surfaces as a distinct
+`missing-adapter` finding rather than a silent skip.
+
 ## Constraints
 
 | id | kind | expr | traces_to |
@@ -47,9 +60,6 @@ statement: "WHEN contracts declare test commands THE adapter layer SHALL detect 
 | P-vitest | unit | [[adapters.C-vitest-adapter]] | vitest runs exiting zero and non-zero | pass normalization and `test-failing` with bounded tails |
 | P-missing-adapter | unit | [[adapters.C-missing-adapter]] | a contract declaring a test with no adapter anywhere | `missing-adapter` finding with all four fields, distinct from `no-tests-declared` |
 | P-envelope | unit | [[adapters.C-custom-runner-envelope]] | runners spanning the five envelope outcomes | each outcome maps to the mandated emission; no invocation occurs without config |
-
-## Purpose
-TBD - created by archiving change add-quality-measurement-and-adapters. Update Purpose after archive.
 
 ## Non-Goals
 

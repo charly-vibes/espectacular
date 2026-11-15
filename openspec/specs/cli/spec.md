@@ -7,6 +7,18 @@ statement: "WHEN a user drives the ah CLI THE system SHALL provide the command s
 
 # cli Specification
 
+## Purpose
+
+The `ah` command surface is how a user prepares a repository, runs the
+correspondence gate, and inspects its verdicts without leaving the terminal.
+Each subcommand is deterministic and single-purpose: `ah init` idempotently
+prepares the project and installs a supported hook integration, `ah check` and
+`ah lint` evaluate deployed specs plus change overlays, `ah doctor` diagnoses
+and enables capabilities, `ah report` and `ah explain` surface coverage and
+playbook guidance, and the scenario lifecycle, archive companion, and upgrade
+commands keep authoring and tool-version drift explicit. Exit codes carry the
+verdict, so the same commands compose in scripts and CI gates unchanged.
+
 ## Constraints
 
 | id | kind | expr | traces_to |
@@ -61,9 +73,6 @@ statement: "WHEN a user drives the ah CLI THE system SHALL provide the command s
 | P-report | unit | [[cli.C-report-command]] | scopes with complete coverage vs missing contracts | zero exit on completeness, non-zero on gaps, JSON output available |
 | P-recommendation | unit | [[cli.C-recommendation-findings]] | doctor runs over projects with unconfigured available capabilities | recommendation findings carry enable commands and are finding kinds |
 | P-lint | unit | [[cli.C-lint-command]] | clean specs, dirty specs, overlays, single categories, JSON output | quality findings without file modification or test execution; clean exits zero with empty findings |
-
-## Purpose
-TBD - created by archiving change add-spec-assertions. Update Purpose after archive.
 
 ## Non-Goals
 

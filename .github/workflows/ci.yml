@@ -60,7 +60,7 @@ jobs:
           bd --version >/dev/null
           ddl status >/dev/null
           wai status >/dev/null
-          openspec validate --all >/dev/null
+          openspec validate --all --no-interactive >/dev/null
           # guidance mode (not gate): pretender is a consumed tool here (mu5/djw
           # decision A), not the repo's own gate; the lease fails closed when
           # expired so the advisory stance stays a visible, renewable decision.
