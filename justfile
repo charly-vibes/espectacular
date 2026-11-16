@@ -40,6 +40,12 @@ build-release:
 test:
     #!/usr/bin/env bash
     set -uo pipefail
+    # Selection is fast feedback, never a gate substitute (DDL-85p): CI runs
+    # the full suite. AH_TEST_PLAIN=1 forces that path; it also covers
+    # environments without the testaruda binary or a usable store.
+    if [ "${AH_TEST_PLAIN:-0}" = "1" ] || ! command -v testaruda >/dev/null 2>&1; then
+      exec cargo test
+    fi
     # Guard on the store database, not the directory: an empty/partial
     # .testaruda (e.g. a restored cache dir) must not skip initialization.
     if [ ! -f .testaruda/store.db ]; then

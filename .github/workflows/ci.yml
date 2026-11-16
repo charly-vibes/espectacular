@@ -70,6 +70,10 @@ jobs:
       - name: Smoke live Pages URL
         run: curl -fsS --max-time 10 --retry 2 https://charly-vibes.github.io/espectacular/ >/dev/null
       - name: Run CI pipeline
+        # Full suite, not testaruda selection: selection is fast local
+        # feedback, never the gate (DDL-85p).
+        env:
+          AH_TEST_PLAIN: "1"
         run: just ci
 
       - name: Upload binary
