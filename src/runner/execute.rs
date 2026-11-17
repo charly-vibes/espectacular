@@ -5,7 +5,9 @@
 //!
 //! Responsibilities: process-group isolation, deadline kill of the whole
 //! group (grandchildren included), reader threads draining both pipes while
-//! the child runs, and 8 KiB findings tails from the full capture.
+//! the child runs, and 8 KiB findings tails from the full capture that retain
+//! every runner result block (the zero-tests guard reasons over all of them,
+//! not just the last 8 KiB).
 //!
 //! Rationale: a runner producing more output than the pipe buffer (~64 KiB)
 //! would otherwise block on write() forever — the polling loop does not
@@ -142,8 +144,28 @@ fn wait_with_deadline(child: &mut Child, timeout_seconds: u64) -> anyhow::Result
 }
 
 fn tail_string(bytes: &[u8]) -> String {
-    let start = bytes.len().saturating_sub(OUTPUT_TAIL_BYTES);
-    String::from_utf8_lossy(&bytes[start..]).into_owned()
+    if bytes.len() <= OUTPUT_TAIL_BYTES {
+        return String::from_utf8_lossy(bytes).into_owned();
+    }
+    // Start the tail on a line boundary so every line below is whole; the
+    // tail may exceed the cap by at most one line.
+    let mut start = bytes.len() - OUTPUT_TAIL_BYTES;
+    while start < bytes.len() && bytes[start] != b'\n' {
+        start += 1;
+    }
+    let start = (start + 1).min(bytes.len());
+    let mut kept = String::new();
+    // Preserve result blocks from the omitted prefix: the zero-tests guard
+    // reasons over every block, and a positive block from an earlier test
+    // binary must survive truncation (catherine-j17).
+    for line in String::from_utf8_lossy(&bytes[..start]).lines() {
+        if line.starts_with("test result:") {
+            kept.push_str(line);
+            kept.push('\n');
+        }
+    }
+    kept.push_str(&String::from_utf8_lossy(&bytes[start..]));
+    kept
 }
 
 #[cfg(test)]
@@ -151,6 +173,7 @@ mod tests {
     use super::execute_command;
     use crate::contracts::TestEntry;
     use crate::runner::compose_command;
+    use crate::runner::matched_zero_tests;
     use crate::runner::test_support::{config_with_runner, write_helper};
     use std::fs;
 
@@ -210,5 +233,44 @@ mod tests {
         let captured = fs::read_to_string(out).unwrap();
         assert!(captured.contains(&dir.path().display().to_string()));
         assert!(captured.contains("present"));
+    }
+
+    #[test]
+    fn truncated_tail_keeps_earlier_result_blocks() {
+        // A multi-crate `cargo test <filter>` run: the matching binary
+        // reports one pass first, then thousands of bytes of "0 passed"
+        // blocks from the remaining binaries push it past the 8 KiB tail.
+        // Losing it makes the zero-tests guard flag a run that did execute
+        // the selected test (catherine-j17).
+        let dir = tempfile::tempdir().unwrap();
+        let helper = write_helper(
+            dir.path(),
+            "printf 'test result: ok. 1 passed; 0 failed; 0 ignored\n'\n\
+             i=0\n\
+             while [ $i -lt 400 ]; do\n\
+             \tprintf 'padding line for tail truncation padding padding padding\n'\n\
+             \ti=$((i+1))\n\
+             done\n\
+             printf 'test result: ok. 0 passed; 0 failed; 1 filtered out\n'",
+        );
+        let config = config_with_runner("unit", vec!["/bin/sh", helper.to_str().unwrap()]);
+        let entry = TestEntry {
+            flags: Some("flag".to_string()),
+            command: None,
+            timeout_seconds: None,
+        };
+
+        let planned = compose_command(&config, "unit", &entry).unwrap();
+        let result = execute_command(dir.path(), &planned).unwrap();
+
+        assert!(
+            result.stdout_tail.contains("test result: ok. 1 passed"),
+            "earlier result block lost to truncation: {}",
+            result.stdout_tail
+        );
+        assert!(
+            !matched_zero_tests(&result),
+            "zero-tests guard misfired on a run that executed a test"
+        );
     }
 }
