@@ -1,0 +1,38 @@
+schema: spec-driven
+
+context: |
+  espectacular is the behavioral verification layer for the charly AI
+  development ecosystem. It compiles openspec specifications into executable
+  assertions and detects drift between specs and code over time. CLI binary:
+  `ah`.
+
+  Ecosystem roles: wai captures decisions; dont forces epistemic grounding
+  (claims carry evidence); pretender checks structural quality (complexity,
+  duplication, nesting); openspec owns the specification format (requirements +
+  scenarios); espectacular turns those specs into executable checks and
+  keeps them honest.
+
+  Design principles:
+  - Specs are the source of truth; assertions are derived artifacts.
+  - Drift detection is continuous, not one-shot.
+  - Language-agnostic core: a JSON Schema IR plus template-based emitters.
+  - AI-friendly structural frames: emits skeletal test stubs (archetypes) for
+    AI agents to implement.
+  - Fits the existing openspec workflow (proposal → implement → archive →
+    verify).
+
+rules:
+  proposal:
+    - Name the verification path a new capability needs (which archetype or
+      emitter covers it) and state what stays unverified
+  specs:
+    - Every requirement a verifier must check carries at least one scenario —
+      the scenario is the assertion's source
+  tasks:
+    - Map tasks to the spec scenarios their generated assertions cover
+
+operations:
+  archive:
+    guidance:
+      - Confirm the archived capability's assertions still pass before
+        finishing

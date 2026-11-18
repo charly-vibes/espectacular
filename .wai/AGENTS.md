@@ -13,7 +13,7 @@
 | Track work items/bugs | `bd` | `bd create --title="..." --type=task` |
 | Find available work | `bd` | `bd ready` |
 | Manage dependencies | `bd` | `bd dep add <blocked> <blocker>` |
-| Propose system changes | openspec | Read `openspec/AGENTS.md` |
+| Propose system changes | openspec | Read `openspec/config.yaml` and the `openspec-*` skills in `.agents/skills/` |
 | Define requirements | openspec | `openspec validate --strict` |
 
 Key distinction:
@@ -142,7 +142,7 @@ bd close <id>                # Complete work
 ```
 
 ### openspec
-Read `openspec/AGENTS.md` for full instructions.
+Read `openspec/config.yaml` and the `openspec-*` skills in `.agents/skills/` for full instructions.
 ```bash
 openspec list              # Active changes
 openspec list --specs      # Capabilities

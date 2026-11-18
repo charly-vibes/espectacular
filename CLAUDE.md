@@ -1,21 +1,3 @@
-<!-- OPENSPEC:START -->
-# OpenSpec Instructions
-
-These instructions are for AI assistants working in this project.
-
-Always open `@/openspec/AGENTS.md` when the request:
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
-
-Use `@/openspec/AGENTS.md` to learn:
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
-
-Keep this managed block so 'openspec update' can refresh the instructions.
-
-<!-- OPENSPEC:END -->
 
 <!-- DONT:START -->
 # DONT MANAGED BLOCK — DO NOT EDIT
@@ -40,7 +22,7 @@ to orient yourself.
 Detected workflow tools:
 - **wai** — research, reasoning, and design decisions
 - **beads** — issue tracking (tasks, bugs, dependencies). CLI command: **`bd`** (not `beads`)
-- **openspec** — specifications and change proposals (see `openspec/AGENTS.md`)
+- **openspec** — specifications and change proposals (see `openspec/config.yaml` and the `openspec-*` skills in `.agents/skills/`)
 
 > **CRITICAL**: Apply TDD and Tidy First throughout — not just when writing code:
 > - **Planning/task creation**: each ticket should map to a red→green→refactor cycle; refactoring tasks must be separate tickets from feature tasks.
@@ -81,7 +63,7 @@ Read it at the start of your first session or when you need detailed guidance.
 Keep this managed block so `wai init` can refresh the instructions.
 
 
-<!-- provenance: generator=wai version=0.12.3 source=WAI sha=3e02f7c4 -->
+<!-- provenance: generator=wai version=0.13.0 source=WAI sha=c2520444 -->
 <!-- WAI:END -->
 
 <!-- WAI:REFLECT:REF:START -->
@@ -95,9 +77,8 @@ context before starting research or creating tickets.
 > check for known patterns. Do not rediscover what is already documented.
 
 
-<!-- provenance: generator=wai version=0.12.3 source=WAI:REFLECT:REF sha=73879972 -->
+<!-- provenance: generator=wai version=0.13.0 source=WAI:REFLECT:REF sha=73879972 -->
 <!-- WAI:REFLECT:REF:END -->
-
 
 # Project Instructions for AI Agents
 
@@ -148,7 +129,6 @@ bd close <id>         # Complete work
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
-
 
 ## Build & Test
 
