@@ -1,0 +1,6 @@
+install_source = "auto"
+auto_upgrade = false
+gitignore_strategy = "prompt"
+
+[gates]
+spk_lint = "spk lint openspec"

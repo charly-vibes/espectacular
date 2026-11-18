@@ -42,9 +42,9 @@ keep per-binding spawns byte-identically.
 
 ### Transitions
 
-| id | from | to | event | guard |
-|----|------|----|-------|-------|
-| t-load | validating | executing | scope resolved and contracts loaded | [[gate.C-unbatched-unchanged]] |
+| id | from | to | guard |
+|----|------|----|-------|
+| t-load | validating | executing | [[gate.C-unbatched-unchanged]] |
 | t-attribute | executing | attributed | batched or per-binding invocations produce per-binding results | [[gate.C-batch-attribution]] |
 | t-report | attributed | reported | verdicts emit findings and matched-zero emits no-tests-ran | [[gate.C-batch-matched-zero]] |
 

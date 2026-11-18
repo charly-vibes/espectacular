@@ -35,11 +35,11 @@ nothing executed.
 
 ### Transitions
 
-| id | from | to | event | guard |
-|----|------|----|-------|-------|
-| t-collect | collecting | selecting | the changed-file set resolves from files, range, or worktree diff per the precedence order | [[gate.C-range-precedence]] |
-| t-select | selecting | executing | affected capabilities are chosen from the resolved set; a degenerate set selects every capability | [[gate.C-range-safe]] |
-| t-report | executing | reported | verdicts emit findings and the selection report is unchanged in shape | [[gate.C-range-unchanged]] |
+| id | from | to | guard |
+|----|------|----|-------|
+| t-collect | collecting | selecting | [[gate.C-range-precedence]] |
+| t-select | selecting | executing | [[gate.C-range-safe]] |
+| t-report | executing | reported | [[gate.C-range-unchanged]] |
 
 ## Properties
 
