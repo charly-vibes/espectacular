@@ -1,0 +1,36 @@
+# .podras/curation.toml — human-owned intent for this repository.
+#
+# `podras brief` reads this file; `podras focus` and `podras park` are the
+# supported ways to change it. Every key is optional, so the commented shape
+# below is the default. Dates are `YYYY-MM-DD` (RFC 3339 is also accepted).
+
+# One-line project purpose, used in the brief heading.
+# purpose_lite = "..."
+
+# Focus cap. Defaults to 1 when absent.
+# max_focus = 1
+
+# Whether whisper notes may appear in the committed render. Defaults to false.
+# publish_whisper = false
+
+# Human health verdict, owned by a person, never inferred from signals.
+# [health]
+# status = "green"          # green | amber | red
+# owner = "..."
+# confirmed_at = "YYYY-MM-DD"
+# reason = "..."
+
+# Focused items. The brief reports how many sources disagree; the human decides.
+# [[focus]]
+# id = "..."
+# reason = "..."
+# focused_since = "YYYY-MM-DD"
+# confirmed_at = "YYYY-MM-DD"
+
+# Parked items stay parked until the resurface trigger fires.
+# [[parked]]
+# id = "..."
+# reason = "..."
+# resurface = "YYYY-MM-DD"  # or "event:<name>"
+# parked_at = "YYYY-MM-DD"
+# confirmed_at = "YYYY-MM-DD"

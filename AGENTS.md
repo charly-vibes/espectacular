@@ -1,3 +1,17 @@
+<!-- PODRAS:START -->
+## podras
+
+- Run `podras brief --json` first; it is the machine-readable status contract.
+- Check freshness before inference: stale or missing sources are warnings, not facts.
+- Beads owns issue lifecycle; focus is intent, not permission.
+- Never silently change focus or unpark an item; ask the human and use the verbs.
+- Never hand-edit committed renders; regenerate them with `podras brief --write`.
+- Roadmap `later`/`shaping`/`deferred` items are not requirements; no-gos are hard constraints.
+- Never edit `.podras/roadmap.toml`; admission, deferral and kill are human decisions.
+
+<!-- provenance: generator=podras version=0.13.2 source=PODRAS sha=1ace28e8 -->
+<!-- PODRAS:END -->
+
 <!-- TURU:START -->
 # Whisper knowledge workspace (managed by turu — regenerate with `turu sync`)
 

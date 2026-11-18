@@ -1,0 +1,147 @@
+{
+  "ok": true,
+  "envelope_version": "0.1",
+  "cli_version": "0.1.0",
+  "envelope_kind": "ok",
+  "data": {
+    "schema_version": "brief.v1",
+    "as_of": "2026-11-18",
+    "generated_at": "2026-11-18T21:12:08.999646444Z",
+    "sources": [
+      {
+        "name": "beads",
+        "status": "present",
+        "observed_at": "2026-11-16T11:52:50Z",
+        "staleness": "fresh",
+        "detail": "6 malformed line(s) skipped in .beads/issues.jsonl"
+      },
+      {
+        "name": "git",
+        "status": "present",
+        "observed_at": "2026-11-18T16:02:33Z",
+        "staleness": "fresh",
+        "detail": null
+      },
+      {
+        "name": "openspec",
+        "status": "present",
+        "observed_at": "2026-11-15T23:10:02.091388863Z",
+        "staleness": "fresh",
+        "detail": null
+      },
+      {
+        "name": "whisper",
+        "status": "present",
+        "observed_at": "2026-10-14T19:55:29Z",
+        "staleness": "stale",
+        "detail": null
+      },
+      {
+        "name": "curation",
+        "status": "present",
+        "observed_at": "2026-11-18T21:12:08.993748686Z",
+        "staleness": "fresh",
+        "detail": null
+      }
+    ],
+    "curation": {
+      "updated_at": "2026-11-18T21:12:08.993748686Z",
+      "confirmed_at": null
+    },
+    "purpose_lite": null,
+    "focus": [],
+    "in_flight": [
+      {
+        "id": "espectacular-hf6",
+        "title": "docs: apply README front-door standard v0.4 (§5.1)",
+        "status": "open",
+        "priority": 1,
+        "blocked_by": [],
+        "age_days": 2,
+        "reason": null,
+        "confirmed_at": null
+      }
+    ],
+    "blocked": [],
+    "next": [
+      {
+        "id": "espectacular-hf6",
+        "title": "docs: apply README front-door standard v0.4 (§5.1)",
+        "status": "open",
+        "priority": 1,
+        "blocked_by": [],
+        "age_days": 2,
+        "reason": null,
+        "confirmed_at": null
+      }
+    ],
+    "parked": [],
+    "needs_retriage": [],
+    "recent": [
+      {
+        "sha": "10f885847f0fd96bc04bef32b4af6337d306c198",
+        "committed_at": "2026-11-18T16:02:33Z",
+        "subject": "chore(gates): render the managed gate block from .ddl/config.toml",
+        "outcome": null
+      },
+      {
+        "sha": "b4b1295a2bc1301863e6726d0e3412744617b199",
+        "committed_at": "2026-11-18T15:09:45Z",
+        "subject": "chore(openspec): end config.yaml with a newline",
+        "outcome": null
+      },
+      {
+        "sha": "c286c508a6b7a46be45fc346abb097eac0fc047e",
+        "committed_at": "2026-11-18T15:00:02Z",
+        "subject": "chore(openspec): migrate project.md into config.yaml; pin 2.1.0",
+        "outcome": null
+      },
+      {
+        "sha": "88f92bc8de56fd9b22fd442056c2d385cc648b4b",
+        "committed_at": "2026-11-18T14:59:59Z",
+        "subject": "chore(openspec): adopt the 2.1 artifact layout",
+        "outcome": null
+      },
+      {
+        "sha": "c1caed878ed427f414e7ace4277b8c60388a2d60",
+        "committed_at": "2026-11-17T23:37:45Z",
+        "subject": "chore(release): v0.12.3",
+        "outcome": null
+      }
+    ],
+    "health": {
+      "status": "amber",
+      "basis": "signals",
+      "signals": [
+        {
+          "kind": "orphan_commits",
+          "reason": "23 commits in the 14-day window link no tracker id or open work-item path: 0e97a250e160cffcbe7d7fb4ef88386696e7ca41 (refactor(check): split src/check.rs (3276 lines) into focused modules); 10f885847f0fd96bc04bef32b4af6337d306c198 (chore(gates): render the managed gate block from .ddl/config.toml); 200442d1ec6877bfe93ab507ca29369fbebd8fd2 (refactor(lint): split lint engine/bridge and flatten check nesting); 26531fe5b114bf953095f49a3e4dd958e0afd14e (docs: file README front-door and release tickets); 2ff31d08bc79759df1d7b497549685c6b4444f8d (ci: run the full suite in CI instead of testaruda selection); 465c186e450f199525f16efab4ffbf97ab5c52bd (fix(just): initialize the testaruda store when store.db is missing); 514b1584c25402d383fb6afbbc83a5ad2180591c (fix(specs): real Purpose sections for openspec 1.x; --no-interactive in gates); 51510edf69958db50a3d63fa912652b13e12f8f1 (ci: install testaruda in the CI tool set); 5450982e0334166c88be6b684926f2f755752563 (refactor(doctor,explain): split the 1709/1856-line modules under the gate limits); 6291aa55f1bac1e828cf83e5043189899217de25 (docs(brief): pretender debt fix brief (espectacular) — orchestrator artifact); 66f7578ac49e00265df54e457d64ffa715af1e1d (test(quality): satisfy the min_assertions gate with counted assertions); 671906dd77876e48af0f289d34cdc8efb63e1039 (fix(runner): keep runner result blocks when truncating the output tail); 7d480333276a016d7f5b0724286166e747360fe5 (refactor(runtime): split batching, runner, quality and scenario modules); 7dbf57d84dabf345365c28a2c0314628a57b60ca (docs: apply issue-review fixes to README/release tickets); 88f92bc8de56fd9b22fd442056c2d385cc648b4b (chore(openspec): adopt the 2.1 artifact layout); a0838675ba0e5c195171bef24fa0641727968a55 (test(sync): assert the sync command surface in-process); a81380bdc922c796fcf10a9069076309117eff66 (refactor(sync): split config/derive/openspec/sync and reduce validate/run_archive complexity); ac43c29af94ed2b24a115f94f23c03fedccac2bf (chore(release): v0.12.2 — module decomposition, openspec 1.x gates, CI testaruda); b4b1295a2bc1301863e6726d0e3412744617b199 (chore(openspec): end config.yaml with a newline); c1caed878ed427f414e7ace4277b8c60388a2d60 (chore(release): v0.12.3); c286c508a6b7a46be45fc346abb097eac0fc047e (chore(openspec): migrate project.md into config.yaml; pin 2.1.0); ebf5d5fa4cb68b58567473ff1c4386e851b71555 (test(doctor): deployed-only orphan matching stays selective (wanna-vk3 regression guard)); f1883d49429505ffaa2cf8ba7bc4f7f5d4ac38ce (docs: apply issue-review fixes to README/release tickets)"
+        }
+      ],
+      "owner": null,
+      "reason": "orphan_commits: 23 commits in the 14-day window link no tracker id or open work-item path: 0e97a250e160cffcbe7d7fb4ef88386696e7ca41 (refactor(check): split src/check.rs (3276 lines) into focused modules); 10f885847f0fd96bc04bef32b4af6337d306c198 (chore(gates): render the managed gate block from .ddl/config.toml); 200442d1ec6877bfe93ab507ca29369fbebd8fd2 (refactor(lint): split lint engine/bridge and flatten check nesting); 26531fe5b114bf953095f49a3e4dd958e0afd14e (docs: file README front-door and release tickets); 2ff31d08bc79759df1d7b497549685c6b4444f8d (ci: run the full suite in CI instead of testaruda selection); 465c186e450f199525f16efab4ffbf97ab5c52bd (fix(just): initialize the testaruda store when store.db is missing); 514b1584c25402d383fb6afbbc83a5ad2180591c (fix(specs): real Purpose sections for openspec 1.x; --no-interactive in gates); 51510edf69958db50a3d63fa912652b13e12f8f1 (ci: install testaruda in the CI tool set); 5450982e0334166c88be6b684926f2f755752563 (refactor(doctor,explain): split the 1709/1856-line modules under the gate limits); 6291aa55f1bac1e828cf83e5043189899217de25 (docs(brief): pretender debt fix brief (espectacular) — orchestrator artifact); 66f7578ac49e00265df54e457d64ffa715af1e1d (test(quality): satisfy the min_assertions gate with counted assertions); 671906dd77876e48af0f289d34cdc8efb63e1039 (fix(runner): keep runner result blocks when truncating the output tail); 7d480333276a016d7f5b0724286166e747360fe5 (refactor(runtime): split batching, runner, quality and scenario modules); 7dbf57d84dabf345365c28a2c0314628a57b60ca (docs: apply issue-review fixes to README/release tickets); 88f92bc8de56fd9b22fd442056c2d385cc648b4b (chore(openspec): adopt the 2.1 artifact layout); a0838675ba0e5c195171bef24fa0641727968a55 (test(sync): assert the sync command surface in-process); a81380bdc922c796fcf10a9069076309117eff66 (refactor(sync): split config/derive/openspec/sync and reduce validate/run_archive complexity); ac43c29af94ed2b24a115f94f23c03fedccac2bf (chore(release): v0.12.2 — module decomposition, openspec 1.x gates, CI testaruda); b4b1295a2bc1301863e6726d0e3412744617b199 (chore(openspec): end config.yaml with a newline); c1caed878ed427f414e7ace4277b8c60388a2d60 (chore(release): v0.12.3); c286c508a6b7a46be45fc346abb097eac0fc047e (chore(openspec): migrate project.md into config.yaml; pin 2.1.0); ebf5d5fa4cb68b58567473ff1c4386e851b71555 (test(doctor): deployed-only orphan matching stays selective (wanna-vk3 regression guard)); f1883d49429505ffaa2cf8ba7bc4f7f5d4ac38ce (docs: apply issue-review fixes to README/release tickets)"
+    },
+    "truncation": {
+      "applied": true,
+      "omitted_counts": {
+        "recent": 195
+      }
+    },
+    "head_sha": "10f885847f0fd96bc04bef32b4af6337d306c198",
+    "source_hash": "935f4331047a2a0fd772908e6f085fe3e162a046f462c908439474b11a97881e",
+    "warnings": [
+      {
+        "source": "beads",
+        "code": "beads_parse_error",
+        "detail": "6 malformed line(s) skipped in .beads/issues.jsonl"
+      }
+    ]
+  },
+  "warnings": [],
+  "hints": [],
+  "meta": {
+    "duration_ms": 0,
+    "tx": null,
+    "request_id": null
+  }
+}
