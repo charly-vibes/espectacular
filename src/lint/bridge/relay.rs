@@ -4,20 +4,192 @@
 //! frontmatter id is flagged instead of silently skipped.
 
 use super::graph::relay_graph;
-use super::invoke::{invoke, Failure, SpkIssue};
+use super::invoke::{invoke, invoke_dir, issue_matches_path, Failure, SpkIssue};
 use super::is_dual_format;
 use crate::lint::walker::SpecFile;
 use crate::lint::LintFinding;
+use std::path::Path;
 
 const SPK_PROGRAM: &str = "spk";
 
-/// Relay spk findings for every dual-format spec. Plain openspec files never
-/// trigger an invocation.
-pub fn relay_dual_format(specs: &[SpecFile], findings: &mut Vec<LintFinding>) {
-    relay_with(SPK_PROGRAM, specs, findings);
+/// Relay spk findings for every dual-format spec under `root`: ONE
+/// `spk lint <root>` spawn per linted root (espectacular-hcz) with issues
+/// partitioned by the per-issue `file` field. Specs outside `root` (test
+/// seams with virtual paths) keep per-file invocations. Plain openspec files
+/// never trigger an invocation.
+pub fn relay_dual_format(root: &Path, specs: &[SpecFile], findings: &mut Vec<LintFinding>) {
+    relay_with_root(SPK_PROGRAM, root, specs, findings);
 }
 
-/// Test seam: same relay against an explicit spk program path.
+/// Dir-mode orchestrator: one `spk lint <root>` spawn per linted root, with
+/// named fallbacks to the per-file path.
+///
+/// - `Unavailable` (spk missing): one `spk-unavailable` advisory per dual
+///   spec — identical to per-file mode.
+/// - `Broken` (dir envelope failed as a whole, e.g. one unparseable spec):
+///   per-file re-run preserves per-file isolation — broken files get their
+///   advisory, good files their findings (C-dual-bridge: linting continues).
+/// - Ok but any issue lacks the `file` field (older spk pins): named
+///   `spk-bridge-fallback` advisory, then per-file re-run. No silent loss.
+/// - Ok with attribution: graph relay + issues per spec; issues for files
+///   outside the walked set still surface, attributed by their file path.
+///   Skipped-file envelope warnings never become findings.
+pub(crate) fn relay_with_root(
+    program: &str,
+    root: &Path,
+    specs: &[SpecFile],
+    findings: &mut Vec<LintFinding>,
+) {
+    let in_root = partition_dual(program, root, specs, findings);
+    if in_root.is_empty() {
+        return;
+    }
+    match invoke_dir(program, root) {
+        Err(Failure::Unavailable(msg)) => unavailable_findings(&in_root, &msg, findings),
+        Err(Failure::Broken(_)) => per_file_relay(program, &in_root, findings),
+        Ok(issues) => relay_attributed(
+            &DirEnvelope {
+                program,
+                root,
+                issues,
+            },
+            &in_root,
+            findings,
+        ),
+    }
+}
+
+/// An attributed dir envelope plus its invocation identity, bundled to keep
+/// `relay_attributed` under the param budget.
+struct DirEnvelope<'a> {
+    program: &'a str,
+    root: &'a Path,
+    issues: Vec<SpkIssue>,
+}
+
+/// Route each walked spec: plain openspec files get the frontmatter-mismatch
+/// check, dual-format specs under `root` join the dir-mode batch, and specs
+/// outside `root` (test seams with virtual paths) keep per-file invocations.
+fn partition_dual<'a>(
+    program: &str,
+    root: &Path,
+    specs: &'a [SpecFile],
+    findings: &mut Vec<LintFinding>,
+) -> Vec<(&'a SpecFile, String)> {
+    let mut in_root = Vec::new();
+    for spec in specs {
+        if !is_dual_format(&spec.raw) {
+            relay_intent_mismatch(spec, findings);
+        } else if let Some(path) = spec.source_path.to_str() {
+            if spec.source_path.starts_with(root) {
+                in_root.push((spec, path.to_string()));
+            } else {
+                relay_one(program, spec, path, findings);
+            }
+        }
+    }
+    in_root
+}
+
+/// `spk` missing: one advisory per dual spec, identical to per-file mode.
+fn unavailable_findings(
+    in_root: &[(&SpecFile, String)],
+    msg: &str,
+    findings: &mut Vec<LintFinding>,
+) {
+    for (spec, _) in in_root {
+        findings.push(failure_finding(spec, "spk-unavailable", msg));
+    }
+}
+
+/// The authoritative per-file path (named fallback target): broken files
+/// get their advisory, good files their findings — linting continues
+/// (C-dual-bridge).
+fn per_file_relay(program: &str, in_root: &[(&SpecFile, String)], findings: &mut Vec<LintFinding>) {
+    for (spec, path) in in_root {
+        relay_one(program, spec, path, findings);
+    }
+}
+
+/// Relay an attributed dir envelope: `file`-field issues are partitioned per
+/// spec (graph relay interleaved, per-file order); issues for files outside
+/// the walked set still surface, attributed by their file path. Skipped-file
+/// envelope warnings never become findings.
+fn relay_attributed(
+    env: &DirEnvelope,
+    in_root: &[(&SpecFile, String)],
+    findings: &mut Vec<LintFinding>,
+) {
+    if env.issues.iter().any(|i| i.file.is_none()) {
+        findings.push(fallback_finding(env.root));
+        per_file_relay(env.program, in_root, findings);
+        return;
+    }
+    for (spec, _) in in_root {
+        relay_graph(
+            env.program,
+            spec,
+            &spec.source_path.to_string_lossy(),
+            findings,
+        );
+        let own: Vec<SpkIssue> = env
+            .issues
+            .iter()
+            .filter(|i| issue_matches_path(i, &spec.source_path))
+            .cloned()
+            .collect();
+        push_issues(spec, own, findings);
+    }
+    relay_unmatched(env, in_root, findings);
+}
+
+/// Attributed issues for files the walker did not surface (e.g. a dual-
+/// format file the walker errored on): surfaced by path, never dropped.
+fn relay_unmatched(
+    env: &DirEnvelope,
+    in_root: &[(&SpecFile, String)],
+    findings: &mut Vec<LintFinding>,
+) {
+    for issue in env.issues.iter().filter(|i| {
+        !in_root
+            .iter()
+            .any(|(spec, _)| issue_matches_path(i, &spec.source_path))
+    }) {
+        findings.push(unmatched_issue_finding(issue));
+    }
+}
+
+/// Named degradation for envelopes without per-issue attribution
+/// (espectacular-hcz; C-batch-fallback precedent): the advisory names the
+/// degradation, the per-file re-run carries the authoritative findings.
+fn fallback_finding(root: &Path) -> LintFinding {
+    LintFinding::warning(
+        "spk-bridge-fallback",
+        &root.to_string_lossy(),
+        "",
+        "dir-mode spk lint envelope lacked per-issue file attribution; findings re-relayed per file",
+        "upgrade specodelic to a version that emits per-issue `file` fields",
+        "upgrade_tool",
+        "ah explain lint",
+    )
+}
+
+/// An attributed issue for a file the walker did not surface (e.g. a dual-
+/// format file the walker errored on): surfaced by path, never dropped.
+fn unmatched_issue_finding(issue: &SpkIssue) -> LintFinding {
+    LintFinding::warning(
+        &format!("spk.{}", issue.rule_id),
+        issue.file.as_deref().unwrap_or("<unknown>"),
+        "",
+        &issue.message,
+        &suggestion_for(issue),
+        "edit_spec",
+        "ah explain lint",
+    )
+}
+
+/// Test seam: per-file relay against an explicit spk program path.
+#[cfg(test)]
 pub(crate) fn relay_with(program: &str, specs: &[SpecFile], findings: &mut Vec<LintFinding>) {
     for spec in specs {
         if !is_dual_format(&spec.raw) {

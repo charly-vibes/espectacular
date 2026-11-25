@@ -1,0 +1,258 @@
+# Autonomous TDD + Universal Rule of 5 Review Pipeline
+#
+# Test-driven implementation workflow with explicit orientation, verification,
+# Universal Rule of 5 review, bounded fixes, quality ledger, and wai handoff.
+#
+# Designed for: autonomous feature implementation, bug fixes, and refactoring
+# where correctness must be proven by tests and context must survive agent
+# session boundaries.
+#
+# Usage: wai pipeline start tdd-ro5 --topic="<what you're building>"
+
+[pipeline]
+name = "tdd-ro5"
+description = "Autonomous TDD implementation loop with Universal Rule of 5 review and wai handoff"
+
+[pipeline.metadata]
+when = "Autonomous feature, bugfix, or refactor work where tests and review must gate progress"
+skills = ["tdd", "rule-of-5-universal", "commit"]
+
+[[steps]]
+id = "orient"
+prompt = """
+{topic}: Orient before changing anything.
+
+Run:
+- `wai prime`
+- `wai status`
+- `bd ready` if beads is present
+- `openspec list` if openspec is present
+- `wai search "<topic>"`
+
+Select exactly one task. If the task is ambiguous, stop and ask. Otherwise proceed autonomously.
+
+Record orientation: `wai add research "ORIENT: ..."`
+Advance: `wai pipeline next`
+"""
+
+[steps.gate.structural]
+min_artifacts = 1
+types = ["research"]
+
+[[steps]]
+id = "plan"
+prompt = """
+{topic}: Produce a minimal TDD plan.
+
+Include:
+- desired behavior
+- out of scope
+- test cases to write
+- narrow test command
+- full verification command
+- files likely touched
+
+Do not edit code yet.
+
+Record plan: `wai add plan "..."`
+Advance: `wai pipeline next`
+"""
+
+[steps.gate.structural]
+min_artifacts = 1
+types = ["plan"]
+
+[[steps]]
+id = "red"
+prompt = """
+{topic}: Write failing tests first.
+
+Rules:
+- Only test files should change unless test scaffolding requires otherwise.
+- Run the narrow test command.
+- Confirm failure is for the expected missing behavior, not setup breakage.
+
+Record evidence: `wai add research "RED: command=... expected failure=..."`
+Advance: `wai pipeline next`
+"""
+
+[steps.gate.structural]
+min_artifacts = 1
+types = ["research"]
+
+[[steps]]
+id = "green"
+prompt = """
+{topic}: Implement the minimum production change.
+
+Rules:
+- Make the red test pass with the smallest correct change.
+- Run the narrow test command.
+- Then run the relevant package/module test suite.
+
+Record decision: `wai add design "GREEN: ..."`
+Advance: `wai pipeline next`
+"""
+
+[steps.gate.structural]
+min_artifacts = 1
+types = ["design"]
+
+[[steps.gate.oracles]]
+command = ".wai/resources/pipelines/tests-pass.sh"
+name = "tests-pass"
+description = "Relevant tests must pass after green implementation"
+timeout = 300
+
+[[steps]]
+id = "refactor"
+prompt = """
+{topic}: Refactor safely while tests stay green.
+
+Allowed:
+- simplify names
+- remove duplication
+- clarify structure
+- improve boundaries
+
+Forbidden:
+- behavior expansion
+- unrelated cleanup
+- large architectural rewrites
+
+Run tests after refactoring.
+
+Record refactor note: `wai add design "REFACTOR: ..."`
+Advance: `wai pipeline next`
+"""
+
+[steps.gate.structural]
+min_artifacts = 1
+types = ["design"]
+
+[[steps.gate.oracles]]
+command = ".wai/resources/pipelines/tests-pass.sh"
+name = "tests-pass"
+description = "Tests must pass after refactor"
+timeout = 300
+
+[[steps]]
+id = "ro5u-review"
+prompt = """
+{topic}: Review the diff using `rule-of-5-universal`.
+
+Review only. Do not fix yet.
+
+Return findings grouped by:
+- Critical
+- High
+- Medium
+- Low
+
+Each finding must include:
+- file/location
+- evidence
+- concrete fix
+
+Record review: `wai add review "RO5U: ..."`
+Advance: `wai pipeline next`
+"""
+
+[steps.gate.procedural]
+require_review = true
+max_critical = 0
+
+[[steps]]
+id = "fix-review"
+prompt = """
+{topic}: Fix review findings.
+
+Rules:
+- Critical/high must be fixed.
+- Medium fixed unless explicitly deferred with reason.
+- Low fixed if cheap, otherwise tracked.
+- Add tests for behavior-impacting fixes.
+- Run tests after fixes.
+
+Record fixes: `wai add research "RO5U-FIXES: ..."`
+Advance: `wai pipeline next`
+"""
+
+[steps.gate.structural]
+min_artifacts = 1
+
+[[steps.gate.oracles]]
+command = ".wai/resources/pipelines/tests-pass.sh"
+name = "tests-pass"
+description = "Tests must pass after review fixes"
+timeout = 300
+
+[[steps]]
+id = "quality-ledger"
+prompt = """
+{topic}: Produce final quality ledger.
+
+Record exactly:
+
+Changed:
+- files and purpose
+
+Verified:
+- commands run and result
+
+Review:
+- RO5U status and remaining findings
+
+Risks:
+- known remaining risks or "none known"
+
+Next:
+- exact next action
+
+Record ledger: `wai add research "QUALITY LEDGER: ..."`
+Advance: `wai pipeline next`
+"""
+
+[steps.gate.structural]
+min_artifacts = 1
+types = ["research"]
+
+[[steps]]
+id = "ship-close"
+prompt = """
+{topic}: Ship the completed task.
+
+Do:
+- inspect `git diff`
+- close/update beads issue if applicable
+- mark openspec task complete if applicable
+- commit atomically
+- run `wai close`
+
+Do not push unless project policy or user instruction explicitly says to push.
+
+Record ship: `wai add research "SHIP: <commit/ticket state>"`
+
+This step requires human approval: review the ship evidence, then run `wai pipeline approve` when ready.
+
+Pipeline complete.
+"""
+
+[steps.gate.structural]
+min_artifacts = 1
+
+[[steps.gate.oracles]]
+command = ".wai/resources/pipelines/tests-pass.sh"
+name = "tests-pass"
+description = "Final tests must pass before close"
+timeout = 300
+
+[[steps.gate.oracles]]
+command = ".wai/resources/pipelines/tests-pass.sh"
+name = "release-docs-fresh"
+description = "CHANGELOG newest release matches Cargo.toml version and docs/ has no uncommitted changes"
+timeout = 30
+
+[steps.gate.approval]
+required = true
+message = "Human checkpoint before ship-close — review ship evidence, then run 'wai pipeline approve'"

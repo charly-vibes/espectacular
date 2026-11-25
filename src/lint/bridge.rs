@@ -19,13 +19,15 @@
 //! `invoke` owns the `spk lint` process seam, and `graph` owns the additive
 //! `spk graph` relay (task 5.2).
 
+#[cfg(test)]
+mod dir_mode_tests;
 mod graph;
 mod invoke;
 mod relay;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use invoke::{invoke, Failure};
+pub(crate) use invoke::{invoke, invoke_dir, issue_matches_path, Failure, SpkIssue};
 pub use relay::relay_dual_format;
 
 /// A dual-format spec file carries YAML frontmatter with an `id:` line.
