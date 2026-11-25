@@ -45,11 +45,6 @@ fn opt<T>(o: Option<T>) -> T {
     o.unwrap_or_else(|| panic!("fixture: expected Some"))
 }
 
-fn shim_path(shim: &Path) -> &str {
-    shim.to_str()
-        .unwrap_or_else(|| panic!("non-utf8 shim path"))
-}
-
 /// Relay findings for a whole spec set against an explicit spk program
 /// path, returning the collected findings.
 fn relayed(program: &Path, specs: &[walker::SpecFile]) -> Vec<LintFinding> {

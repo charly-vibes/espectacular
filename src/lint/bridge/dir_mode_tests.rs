@@ -7,7 +7,6 @@ use super::relay::{relay_dual_format, relay_with_root};
 use crate::lint::walker;
 use crate::lint::Severity;
 use std::path::Path;
-use std::path::PathBuf;
 
 /// Revision-18 dual-format frontmatter shared by the dir-mode specs.
 const DUAL_RAW: &str = "---\nid: spec\nkind: intent\nstatement: \"do it\"\n---\n\n## Requirements\n\n### Requirement: Login\nThe system SHALL log in.\n";
