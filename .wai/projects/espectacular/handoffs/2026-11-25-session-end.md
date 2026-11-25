@@ -35,8 +35,7 @@ phase: implement
 ### git_status
 
 ```
- M .wai/pipeline-runs/tdd-ro5-2026-11-25-lint-bridge-dir-mode-spk-lint-per-root-espectacular-hcz.yml
-?? .wai/projects/espectacular/research/2026-11-25-ship-espectacular-hcz-commits-6675f6e-green.md
+ M .whisper/env.md
 ```
 
 ### open_issues
@@ -56,5 +55,6 @@ Total: 8 issues (8 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
+
 ```
 
