@@ -9,6 +9,39 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.4] — 2026-11-25
+
+### Changed
+
+- **One `spk lint` spawn per linted root** — `ah lint` and `ah sync` invoked
+  `spk lint <file>` once per dual-format spec, and every invocation rescans
+  the corpus context, so a consumer corpus paid that scan N times. The
+  bridge now invokes `spk lint <root>` once per linted directory root and
+  partitions the envelope's issues by their per-issue `file` field. On a
+  41-spec consumer corpus this turns a ~420s lint/sync pass into ~10–15s.
+  `spk graph` stays per-file (it does not rescan the corpus).
+- **Named degradation instead of lost findings** — a dir-mode envelope that
+  fails as a whole (one unparseable spec) falls back to the per-file pass, so
+  broken files get their advisory and good files keep their findings; an
+  `spk` whose envelope carries no per-issue `file` attribution (older pins)
+  emits one `spk-bridge-fallback` advisory and re-runs per file. Issues for
+  files the walker did not surface are still reported by path, and envelope
+  warnings about skipped non-spec files never become findings.
+
+### Fixed
+
+- **Release freshness** — the `0.12.3` entry was missing from this file
+  while the tag existed; it is backfilled below.
+
+## [0.12.3] — 2026-11-17
+
+### Fixed
+
+- **Runner-tail truncation** — result blocks from the truncated prefix stay
+  in the findings tail, so the zero-tests guard no longer reports
+  `no-tests-ran` for contracts whose tests actually ran in a multi-crate
+  workspace (catherine-j17).
+
 ## [0.12.2] — 2026-11-15
 
 ### Changed
