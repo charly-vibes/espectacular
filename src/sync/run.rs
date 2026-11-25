@@ -16,7 +16,7 @@
 
 use super::{slugify_property_id, SyncOutcome};
 use crate::derive::{canonical_hash, infer, parse_ir, Inferred, ParseData, Row};
-use crate::lint::bridge::{invoke as spk_lint, Failure};
+use crate::lint::bridge::{invoke as spk_lint, invoke_dir, issue_matches_path, Failure};
 use crate::lint::walker;
 use anyhow::anyhow;
 use std::fs;
@@ -36,10 +36,15 @@ pub(crate) fn run_sync(spk: &str, repo_root: &Path, check: bool) -> anyhow::Resu
     if outcome.spk_unavailable.is_some() || !outcome.refusals.is_empty() {
         return Ok(outcome);
     }
+    let mut ctx = SyncCtx {
+        contracts_dir: &contracts_dir,
+        check,
+        outcome: &mut outcome,
+    };
 
     for (spec_path, ir) in &parsed {
         for property in &ir.properties {
-            sync_property(&contracts_dir, spec_path, ir, property, check, &mut outcome)?;
+            sync_property(&mut ctx, spec_path, ir, property)?;
         }
     }
 
@@ -48,32 +53,122 @@ pub(crate) fn run_sync(spk: &str, repo_root: &Path, check: bool) -> anyhow::Resu
 
 /// Lint and parse every dual-format spec, recording refusals on `outcome`.
 ///
-/// Stops early on an unavailable `spk` (C-sync-refusal); a refusal on any
-/// other spec keeps collecting so the caller can report all of them.
+/// ONE `spk lint <specs_dir>` spawn per pass (espectacular-hcz); falls back
+/// to the per-file pass when the dir envelope fails as a whole or lacks
+/// per-issue `file` attribution. Stops early on an unavailable `spk`
+/// (C-sync-refusal); a refusal on any other spec keeps collecting so the
+/// caller can report all of them.
 fn collect_parsed(
     spk: &str,
     specs_dir: &Path,
     outcome: &mut SyncOutcome,
 ) -> anyhow::Result<Vec<(String, ParseData)>> {
     let (specs, _errors) = walker::walk_specs_with_errors(specs_dir)?;
+    let dual = dual_specs(&specs);
     let mut parsed: Vec<(String, ParseData)> = Vec::new();
-    for spec in &specs {
-        if !crate::lint::bridge::is_dual_format(&spec.raw) {
-            continue;
+    if dual.is_empty() {
+        return Ok(parsed);
+    }
+    match invoke_dir(spk, specs_dir) {
+        Err(Failure::Unavailable(msg)) => outcome.spk_unavailable = Some(msg),
+        Err(Failure::Broken(_)) => per_file_pass(spk, &dual, &mut parsed, outcome)?,
+        Ok(issues) if issues.iter().any(|i| i.file.is_none()) => {
+            per_file_pass(spk, &dual, &mut parsed, outcome)?
         }
-        let Some(path) = spec.source_path.to_str() else {
-            continue;
-        };
+        Ok(issues) => attribute_dir_issues(
+            spk,
+            &dual,
+            &issues,
+            &mut DirCollect {
+                parsed: &mut parsed,
+                outcome,
+            },
+        )?,
+    }
+    Ok(parsed)
+}
+
+/// Per-pass collector bundle (keeps `attribute_dir_issues` under the param
+/// budget).
+struct DirCollect<'a> {
+    parsed: &'a mut Vec<(String, ParseData)>,
+    outcome: &'a mut SyncOutcome,
+}
+
+/// The dual-format specs whose source paths survive `to_str`.
+fn dual_specs(specs: &[walker::SpecFile]) -> Vec<&walker::SpecFile> {
+    specs
+        .iter()
+        .filter(|s| crate::lint::bridge::is_dual_format(&s.raw) && s.source_path.to_str().is_some())
+        .collect()
+}
+
+/// Dir-mode attribution (espectacular-hcz): partition the envelope's issues
+/// per dual spec; refusals carry the offending rule ids, clean specs go
+/// straight to IR parse. Unattributed issues cannot reach this fn — the
+/// caller routes them to the per-file pass.
+fn attribute_dir_issues(
+    spk: &str,
+    dual: &[&walker::SpecFile],
+    issues: &[crate::lint::bridge::SpkIssue],
+    ctx: &mut DirCollect,
+) -> anyhow::Result<()> {
+    for spec in dual {
+        let own: Vec<_> = issues
+            .iter()
+            .filter(|i| issue_matches_path(i, &spec.source_path))
+            .collect();
+        if own.is_empty() {
+            let path = spec.source_path.to_str().unwrap();
+            ctx.parsed.push((
+                spec.spec_path.clone(),
+                parse_spec(spk, path, &spec.spec_path)?,
+            ));
+        } else {
+            refuse_spec(ctx, spec, own);
+        }
+    }
+    Ok(())
+}
+
+/// Record a lint-dirty refusal naming the offending rule ids.
+fn refuse_spec(
+    ctx: &mut DirCollect,
+    spec: &walker::SpecFile,
+    own: Vec<&crate::lint::bridge::SpkIssue>,
+) {
+    let detail = own
+        .iter()
+        .map(|i| i.rule_id.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    ctx.outcome.refusals.push((
+        spec.spec_path.clone(),
+        format!("spk lint is not clean ({detail})"),
+    ));
+}
+
+/// The pre-hcz per-file tri-state pass (C-sync-refusal), used as the named
+/// fallback when the dir envelope is broken or unattributed (older spk pins
+/// without per-issue attribution reproduce the pre-hcz behavior exactly).
+fn per_file_pass(
+    spk: &str,
+    dual: &[&walker::SpecFile],
+    parsed: &mut Vec<(String, ParseData)>,
+    outcome: &mut SyncOutcome,
+) -> anyhow::Result<()> {
+    for spec in dual {
+        let path = spec.source_path.to_str().unwrap();
         match lint_and_parse(spk, path, &spec.spec_path)? {
             Linted::Parsed(ir) => parsed.push((spec.spec_path.clone(), ir)),
             Linted::Refused(reason) => outcome.refusals.push((spec.spec_path.clone(), reason)),
             Linted::Unavailable(msg) => {
                 outcome.spk_unavailable = Some(msg);
-                return Ok(parsed);
+                return Ok(());
             }
         }
     }
-    Ok(parsed)
+    Ok(())
 }
 
 /// The tri-state result of linting one spec: parsed IR, a refusal, or a
@@ -113,30 +208,50 @@ fn parse_spec(spk: &str, path: &str, spec_path: &str) -> anyhow::Result<ParseDat
 }
 
 /// Derive, then check or write, the contract for one property row.
+/// Per-pass context bundle: the write target, the CI/check switch, and the
+/// outcome collector (keeps `sync_property` under the param budget).
+struct SyncCtx<'a> {
+    contracts_dir: &'a Path,
+    check: bool,
+    outcome: &'a mut SyncOutcome,
+}
+
 fn sync_property(
-    contracts_dir: &Path,
+    ctx: &mut SyncCtx,
     spec_path: &str,
     ir: &ParseData,
     property: &Row,
-    check: bool,
-    outcome: &mut SyncOutcome,
 ) -> anyhow::Result<()> {
     let contract_id = slugify_property_id(&property.id);
-    let path = contracts_dir
+    let path = ctx
+        .contracts_dir
         .join(spec_path)
         .join(format!("{contract_id}.toml"));
     let path_str = path.to_string_lossy().into_owned();
     let existing = load_table(&path);
     let inferred = infer(ir, property);
     let hash = canonical_hash(property);
-    let table = build_table(existing.as_ref(), &contract_id, property, &inferred, &hash);
+    let input = TableInput {
+        property,
+        inferred: &inferred,
+        hash: &hash,
+    };
+    let table = build_table(existing.as_ref(), &contract_id, &input);
 
-    if check {
-        record_check(existing.as_ref(), &table, path_str, outcome);
+    if ctx.check {
+        record_check(existing.as_ref(), &table, path_str, ctx.outcome);
     } else {
-        write_contract(&path, &table, path_str, outcome)?;
+        write_contract(&path, &table, path_str, ctx.outcome)?;
     }
     Ok(())
+}
+
+/// The derived-content inputs to table building, bundled to keep
+/// `build_table` under the param budget.
+struct TableInput<'a> {
+    property: &'a Row,
+    inferred: &'a Inferred,
+    hash: &'a str,
 }
 
 /// Merge the sync-owned fields (D3) over the existing table, adding the
@@ -144,13 +259,11 @@ fn sync_property(
 fn build_table(
     existing: Option<&toml::Table>,
     contract_id: &str,
-    property: &Row,
-    inferred: &Inferred,
-    hash: &str,
+    input: &TableInput,
 ) -> toml::Table {
     let mut table = existing.cloned().unwrap_or_default();
-    insert_derived_fields(&mut table, contract_id, property, inferred);
-    table.insert("derived_from".into(), hash.to_owned().into());
+    insert_derived_fields(&mut table, contract_id, input.property, input.inferred);
+    table.insert("derived_from".into(), input.hash.to_owned().into());
     if existing.is_none() {
         insert_provenance(&mut table);
     }
