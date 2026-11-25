@@ -34,17 +34,17 @@ pub fn run_change_overlay(
 }
 
 /// Merge deployed and overlay lint outputs: findings concatenate (deployed
-/// first), per-kind counts sum.
+/// first); counts recompute from the merged list — `counts_by_kind` is a
+/// pure function of the finding list, so this is identical to summing.
 pub fn merge_outputs(deployed: LintOutput, overlay: LintOutput) -> LintOutput {
-    let mut findings = deployed.findings;
-    findings.extend(overlay.findings);
-    let mut counts_by_kind = deployed.counts_by_kind;
-    for (kind, n) in overlay.counts_by_kind {
-        *counts_by_kind.entry(kind).or_insert(0) += n;
-    }
+    let findings: Vec<LintFinding> = deployed
+        .findings
+        .into_iter()
+        .chain(overlay.findings)
+        .collect();
     LintOutput {
+        counts_by_kind: count_by_kind(&findings),
         findings,
-        counts_by_kind,
     }
 }
 
@@ -69,23 +69,32 @@ pub(crate) fn run_lint_with(
     registered: &[Box<dyn LintCheck>],
 ) -> anyhow::Result<LintOutput> {
     let (specs, read_errors) = walker::walk_specs_with_errors(specs_dir)?;
-    let mut findings = Vec::new();
-    for spec in &specs {
-        for check in registered {
-            check.check(spec, &mut findings);
-        }
-    }
-    // Malformed spec files surface as error-severity findings (deployed lint
-    // spec C-finding-schema) instead of aborting the walk — the rest of the
-    // corpus still lints and exit_code() maps Error to non-zero.
-    findings.extend(read_errors.iter().map(malformed_spec_finding));
-    // Dual-format bridge: relay spk findings after the prose checks. Runs
-    // regardless of --check filtering — the bridge is not a registry check.
-    bridge::relay_dual_format(&specs, &mut findings);
+    let findings = lint_findings(specs_dir, &specs, registered, &read_errors);
     Ok(LintOutput {
         counts_by_kind: count_by_kind(&findings),
         findings,
     })
+}
+
+/// All findings for the walked specs: registry checks, malformed-spec errors
+/// (deployed lint spec C-finding-schema — the rest of the corpus still
+/// lints; exit_code() maps Error to non-zero), then the dual-format bridge
+/// relay (not a registry check; runs regardless of --check filtering).
+fn lint_findings(
+    specs_dir: &Path,
+    specs: &[walker::SpecFile],
+    registered: &[Box<dyn LintCheck>],
+    read_errors: &[walker::SpecReadError],
+) -> Vec<LintFinding> {
+    let mut findings = Vec::new();
+    for spec in specs {
+        for check in registered {
+            check.check(spec, &mut findings);
+        }
+    }
+    findings.extend(read_errors.iter().map(malformed_spec_finding));
+    bridge::relay_dual_format(specs_dir, specs, &mut findings);
+    findings
 }
 
 /// Error-severity finding for one unreadable spec file.

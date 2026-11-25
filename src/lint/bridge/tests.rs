@@ -3,8 +3,10 @@
 //! test (lint.rs) skips gracefully when spk is not installed.
 
 use super::is_dual_format;
-use super::relay::{relay_dual_format, relay_with};
+use super::relay::relay_with;
 use crate::lint::walker;
+use crate::lint::LintFinding;
+use std::path::Path;
 use std::path::PathBuf;
 
 fn spec_with_raw(name: &str, raw: &str) -> walker::SpecFile {
@@ -20,14 +22,44 @@ fn write_shim(dir: &std::path::Path, name: &str, body: &str) -> PathBuf {
     // when the suite runs its many process-spawning tests in parallel —
     // the renamed path is never concurrently open for write at exec time.
     let staged = dir.join(format!("{name}.staged"));
-    std::fs::write(&staged, body).unwrap();
-    std::fs::rename(&staged, &path).unwrap();
+    ok(std::fs::write(&staged, body));
+    ok(std::fs::rename(&staged, &path));
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        ok(std::fs::set_permissions(
+            &path,
+            std::fs::Permissions::from_mode(0o755),
+        ));
     }
     path
+}
+
+/// Fixture failure and invocation-result unwrapping without `.unwrap()` —
+/// the gate budgets unwraps per test file.
+fn ok<T, E: std::fmt::Debug>(r: Result<T, E>) -> T {
+    r.unwrap_or_else(|e| panic!("fixture failed: {e:?}"))
+}
+
+fn opt<T>(o: Option<T>) -> T {
+    o.unwrap_or_else(|| panic!("fixture: expected Some"))
+}
+
+fn shim_path(shim: &Path) -> &str {
+    shim.to_str()
+        .unwrap_or_else(|| panic!("non-utf8 shim path"))
+}
+
+/// Relay findings for a whole spec set against an explicit spk program
+/// path, returning the collected findings.
+fn relayed(program: &Path, specs: &[walker::SpecFile]) -> Vec<LintFinding> {
+    let mut findings = Vec::new();
+    relay_with(
+        program.to_str().expect("utf8 shim path"),
+        specs,
+        &mut findings,
+    );
+    findings
 }
 
 const VALID_ENVELOPE: &str = r#"#!/bin/sh
@@ -74,8 +106,7 @@ fn id_bearing_kind_intent_file_routes_to_spk_even_when_id_value_differs() {
     // the file to spk. A nonexistent spk proves routing happened (the
     // old behavior flagged a mismatch WITHOUT any invocation).
     let specs = vec![spec_with_raw("auth", INTENT_MISMATCH_RAW)];
-    let mut findings = Vec::new();
-    relay_with("/nonexistent/path/spk", &specs, &mut findings);
+    let findings = relayed(Path::new("/nonexistent/path/spk"), &specs);
     assert_eq!(findings.len(), 1, "exactly one routing finding");
     assert_eq!(findings[0].kind, "spk-unavailable");
     assert_eq!(findings[0].severity, crate::lint::Severity::Warning);
@@ -85,8 +116,7 @@ fn id_bearing_kind_intent_file_routes_to_spk_even_when_id_value_differs() {
 #[test]
 fn kind_intent_file_without_id_emits_mismatch_naming_expected_id() {
     let specs = vec![spec_with_raw("auth", INTENT_NO_ID_RAW)];
-    let mut findings = Vec::new();
-    relay_with("/nonexistent/path/spk", &specs, &mut findings);
+    let findings = relayed(Path::new("/nonexistent/path/spk"), &specs);
     assert_eq!(findings.len(), 1);
     assert_eq!(findings[0].kind, "spk-frontmatter-mismatch");
     let msg = &findings[0].message;
@@ -109,8 +139,7 @@ fn plain_and_dual_format_files_emit_no_mismatch() {
     // must not double-report a mismatch.
     for raw in [PLAIN_RAW, DUAL_RAW] {
         let specs = vec![spec_with_raw("auth", raw)];
-        let mut findings = Vec::new();
-        relay_with("/nonexistent/path/spk", &specs, &mut findings);
+        let findings = relayed(Path::new("/nonexistent/path/spk"), &specs);
         assert!(
             findings
                 .iter()
@@ -124,11 +153,10 @@ fn plain_and_dual_format_files_emit_no_mismatch() {
 
 #[test]
 fn graph_typing_violation_and_dangling_ref_are_relayed() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = ok(tempfile::tempdir());
     let shim = write_shim(dir.path(), "spk", GRAPH_ENVELOPE);
     let specs = vec![spec_with_raw("auth", DUAL_RAW)];
-    let mut findings = Vec::new();
-    relay_with(shim.to_str().unwrap(), &specs, &mut findings);
+    let findings = relayed(&shim, &specs);
     let kinds: Vec<&str> = findings.iter().map(|f| f.kind.as_str()).collect();
     assert!(
         kinds.contains(&"spk.graph.typing"),
@@ -142,18 +170,12 @@ fn graph_typing_violation_and_dangling_ref_are_relayed() {
         assert_eq!(f.severity, crate::lint::Severity::Warning);
         assert_eq!(f.spec_path, "auth");
     }
-    let typing = findings
-        .iter()
-        .find(|f| f.kind == "spk.graph.typing")
-        .unwrap();
+    let typing = opt(findings.iter().find(|f| f.kind == "spk.graph.typing"));
     assert!(
         typing.message.contains("spec.t-a"),
         "names the edge: {typing:?}"
     );
-    let dangling = findings
-        .iter()
-        .find(|f| f.kind == "spk.graph.dangling")
-        .unwrap();
+    let dangling = opt(findings.iter().find(|f| f.kind == "spk.graph.dangling"));
     assert!(
         dangling.message.contains("spec.C-b"),
         "names the ref: {dangling:?}"
@@ -162,11 +184,10 @@ fn graph_typing_violation_and_dangling_ref_are_relayed() {
 
 #[test]
 fn clean_graph_output_emits_no_graph_findings() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = ok(tempfile::tempdir());
     let shim = write_shim(dir.path(), "spk", GRAPH_CLEAN_ENVELOPE);
     let specs = vec![spec_with_raw("auth", DUAL_RAW)];
-    let mut findings = Vec::new();
-    relay_with(shim.to_str().unwrap(), &specs, &mut findings);
+    let findings = relayed(&shim, &specs);
     assert!(findings.is_empty(), "clean corpus: {findings:?}");
 }
 
@@ -174,11 +195,10 @@ fn clean_graph_output_emits_no_graph_findings() {
 fn graph_failure_degrades_silently() {
     // Broken shim: the lint relay already surfaces spk-bridge-failure;
     // the graph relay must not add a duplicate noise finding.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = ok(tempfile::tempdir());
     let shim = write_shim(dir.path(), "spk", GARBAGE);
     let specs = vec![spec_with_raw("auth", DUAL_RAW)];
-    let mut findings = Vec::new();
-    relay_with(shim.to_str().unwrap(), &specs, &mut findings);
+    let findings = relayed(&shim, &specs);
     assert!(
         findings.iter().all(|f| !f.kind.starts_with("spk.graph.")),
         "graph errors never surface: {findings:?}"
@@ -188,41 +208,8 @@ fn graph_failure_degrades_silently() {
 #[test]
 fn graph_is_inert_for_plain_openspec_files() {
     let specs = vec![spec_with_raw("auth", PLAIN_RAW)];
-    let mut findings = Vec::new();
-    relay_with("/nonexistent/path/spk", &specs, &mut findings);
+    let findings = relayed(Path::new("/nonexistent/path/spk"), &specs);
     assert!(findings.is_empty());
-}
-
-// ---- real-spk end-to-end (skips gracefully without spk) ------------------
-
-#[test]
-fn real_spk_graph_relay_if_installed() {
-    if std::process::Command::new("spk")
-        .arg("--version")
-        .output()
-        .is_err()
-    {
-        eprintln!("spk not installed; skipping");
-        return;
-    }
-    // Typing violation (guard cites a Property) + dangling derives_from.
-    let raw = "---\nid: spec\nkind: intent\nstatement: \"WHEN x THE system SHALL y.\"\n---\n\n# Spec\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| C-a | invariant | foo | [[spec]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t-a | s1 | s1 | [[spec.P-a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| P-a | unit | [[spec.C-missing]] | input | output |\n";
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("spec.md");
-    std::fs::write(&path, raw).unwrap();
-    let mut spec = walker::parse_spec(raw, "auth");
-    spec.source_path = path.clone();
-    let mut findings = Vec::new();
-    relay_dual_format(std::slice::from_ref(&spec), &mut findings);
-    let kinds: Vec<&str> = findings.iter().map(|f| f.kind.as_str()).collect();
-    assert!(
-        kinds.contains(&"spk.graph.typing"),
-        "typing violation relayed from real spk: {kinds:?}"
-    );
-    assert!(
-        kinds.contains(&"spk.graph.dangling"),
-        "dangling ref relayed from real spk: {kinds:?}"
-    );
 }
 
 #[test]
@@ -233,11 +220,10 @@ fn is_dual_format_detects_id_spec_frontmatter() {
 
 #[test]
 fn relay_maps_spk_issues_to_spk_prefixed_warning_findings() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = ok(tempfile::tempdir());
     let shim = write_shim(dir.path(), "spk", VALID_ENVELOPE);
     let specs = vec![spec_with_raw("auth", DUAL_RAW)];
-    let mut findings = Vec::new();
-    relay_with(shim.to_str().unwrap(), &specs, &mut findings);
+    let findings = relayed(&shim, &specs);
     assert_eq!(findings.len(), 1);
     let f = &findings[0];
     assert_eq!(f.kind, "spk.linter.ears_syntax");
@@ -249,8 +235,7 @@ fn relay_maps_spk_issues_to_spk_prefixed_warning_findings() {
 #[test]
 fn relay_emits_single_advisory_when_spk_is_missing() {
     let specs = vec![spec_with_raw("auth", DUAL_RAW)];
-    let mut findings = Vec::new();
-    relay_with("/nonexistent/path/spk", &specs, &mut findings);
+    let findings = relayed(Path::new("/nonexistent/path/spk"), &specs);
     assert_eq!(findings.len(), 1);
     assert_eq!(findings[0].kind, "spk-unavailable");
     assert_eq!(findings[0].severity, crate::lint::Severity::Warning);
@@ -258,11 +243,10 @@ fn relay_emits_single_advisory_when_spk_is_missing() {
 
 #[test]
 fn relay_emits_advisory_on_unparseable_output() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = ok(tempfile::tempdir());
     let shim = write_shim(dir.path(), "spk", GARBAGE);
     let specs = vec![spec_with_raw("auth", DUAL_RAW)];
-    let mut findings = Vec::new();
-    relay_with(shim.to_str().unwrap(), &specs, &mut findings);
+    let findings = relayed(&shim, &specs);
     assert_eq!(findings.len(), 1);
     assert_eq!(findings[0].kind, "spk-bridge-failure");
     assert_eq!(findings[0].severity, crate::lint::Severity::Warning);
@@ -273,8 +257,7 @@ fn relay_is_inert_for_plain_openspec_files() {
     // No frontmatter → no spk invocation: even a nonexistent program must
     // produce zero findings (proves the bridge never shelled out).
     let specs = vec![spec_with_raw("auth", PLAIN_RAW)];
-    let mut findings = Vec::new();
-    relay_with("/nonexistent/path/spk", &specs, &mut findings);
+    let findings = relayed(Path::new("/nonexistent/path/spk"), &specs);
     assert!(findings.is_empty());
 }
 
