@@ -2,8 +2,9 @@ run_id: tdd-ro5-2026-11-25-lint-bridge-dir-mode-spk-lint-per-root-espectacular-h
 pipeline: tdd-ro5
 topic: lint-bridge dir-mode spk lint per root (espectacular-hcz)
 created_at: '2026-11-25T21:13:12.167558608+00:00'
-current_step: 8
-approvals: {}
+current_step: 9
+approvals:
+  ship-close: '2026-11-25T22:13:20.259636505+00:00'
 epic: null
 child_issues: []
 child_runs: []
