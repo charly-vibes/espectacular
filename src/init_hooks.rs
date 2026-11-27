@@ -9,33 +9,32 @@ use genesis::managed_block::BlockDef;
 use std::fs;
 use std::path::Path;
 
-// Content is the entries INSIDE the stage's `commands:` mapping
-// (genesis-r99 contract): ensure_wired inserts it verbatim after the
-// stage's `commands:` line, so it carries the commands:-child indent
+// Splicing and idempotence live in genesis 0.14 (genesis-5sm.3 fork
+// retirement): ensure_wired inserts the block inside the stage's
+// `commands:` mapping and its idempotence is per stage section
+// (stage_section contains the content), and the stage-scoped semantic
+// check is lefthook::is_wired. What remains espectacular-specific is
+// the content itself: the ah-check entry at the commands:-child indent
 // (4 spaces). Leading \n keeps the start marker on its own line:
 // ensure_wired concatenates marker + content verbatim, and without it
 // the glued line begins with "#" — YAML comments swallow the ah-check
-// key (genesis-au8 glue pattern). Found while pinning espectacular-n4v.
+// key (genesis-au8 glue pattern).
 const LEFTHOOK_AH_COMMAND: &str = "\n    ah-check:\n      run: ah check\n";
 
 pub(crate) fn install_lefthook(repo_root: &Path, result: &mut InitResult) -> anyhow::Result<()> {
-    // Managed block wired through genesis::git_hooks::lefthook::ensure_wired
-    // (espectacular-6ye R2): column-0 anchor injection + file-level idempotence,
-    // replacing the hand-rolled find/split injection.
     let block = BlockDef::with_markers("ah:managed", "# ah:managed:start", "# ah:managed:end");
     let stages = [
         genesis::git_hooks::lefthook::Stage::PreCommit,
         genesis::git_hooks::lefthook::Stage::PrePush,
     ];
-    let existing = fs::read_to_string(repo_root.join("lefthook.yml")).unwrap_or_default();
     for stage in stages {
-        // GH#47 (espectacular-r2p): ensure_wired's idempotence matches only
-        // the exact managed block text — a user-authored `run: ah check`
-        // gate outside the block is invisible to it, so injection would
-        // double the gate. Scan the stage's section per stage (mirroring
-        // the install_prek guard) and skip wiring a stage that already
-        // runs ah check. A stage without the user gate is still wired.
-        if stage_section_has_ah_check(&existing, stage.key()) {
+        // GH#47 (espectacular-r2p): a user-authored `run: ah check`
+        // gate outside the managed block is invisible to marker
+        // idempotence, so injection would double the gate. genesis's
+        // semantic, stage-scoped is_wired scan catches the user gate;
+        // skip a stage that already runs ah check. A stage without the
+        // gate is still wired.
+        if genesis::git_hooks::lefthook::is_wired(repo_root, stage, "ah check") {
             continue;
         }
         match genesis::git_hooks::lefthook::ensure_wired(
@@ -52,30 +51,6 @@ pub(crate) fn install_lefthook(repo_root: &Path, result: &mut InitResult) -> any
         }
     }
     Ok(())
-}
-
-/// Whether the given lefthook stage's section already contains an `ah check`
-/// invocation (GH#47). The section spans from the stage's column-0 key to the
-/// next non-blank column-0 line. A missing stage returns false — its wiring
-/// proceeds.
-fn stage_section_has_ah_check(content: &str, stage_key: &str) -> bool {
-    let start = if content.starts_with(stage_key) {
-        0
-    } else {
-        match content.find(&format!("\n{stage_key}:")) {
-            Some(index) => index + 1,
-            None => return false,
-        }
-    };
-    for line in content[start..].lines().skip(1) {
-        if !line.is_empty() && !line.starts_with([' ', '\t']) {
-            break;
-        }
-        if line.contains("ah check") {
-            return true;
-        }
-    }
-    false
 }
 
 pub(crate) fn install_prek(repo_root: &Path, result: &mut InitResult) -> anyhow::Result<()> {

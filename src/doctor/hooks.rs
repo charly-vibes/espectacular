@@ -88,7 +88,6 @@ impl DoctorCheck for HookWiredCheck {
         if git_hooks::framework(repo_root) != git_hooks::Framework::Lefthook {
             return Ok(vec![]);
         }
-        let _results: Vec<LintResult> = Vec::new();
         if !is_wired(repo_root, git_hooks::lefthook::Stage::PreCommit, "ah check") {
             return Ok(vec![LintResult::new(
                 "lefthook pre-commit stage does not run `ah check` — run `ah init` to wire it",

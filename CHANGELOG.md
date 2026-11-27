@@ -9,6 +9,19 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **genesis-vibes 0.14** — pin bumped from 0.13 (genesis-5sm.3 fork
+  retirement). `ah init`'s lefthook wiring no longer carries a local
+  fork of the stage-scan logic: the hand-rolled per-stage `ah check`
+  scan is replaced by `genesis::git_hooks::lefthook::is_wired`, and
+  marker splicing / per-stage-section idempotence stay in
+  `genesis::git_hooks::lefthook::ensure_wired`. The `ah:managed`
+  markers and the `ah-check` command entry remain espectacular config
+  values. Envelope constructors gained a caller `envelope_version`
+  argument (`ah` passes its own `CARGO_PKG_VERSION` for both version
+  slots).
+
 ## [0.12.4] — 2026-11-25
 
 ### Changed

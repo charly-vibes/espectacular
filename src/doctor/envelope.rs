@@ -25,6 +25,7 @@ pub fn doctor_to_envelope(outcome: &DoctorOutcome) -> serde_json::Value {
 
     let envelope = genesis::envelope::Envelope::success(
         env!("CARGO_PKG_VERSION"),
+        env!("CARGO_PKG_VERSION"),
         genesis::envelope::EnvelopeKind::Doctor,
         &data,
         vec![],

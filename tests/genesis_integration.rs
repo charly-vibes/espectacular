@@ -11,6 +11,7 @@ fn genesis_modules_are_resolvable() {
     // ── Envelope ──────────────────────────────────────────────────────
     let _env: Envelope<&str> = Envelope::success(
         env!("CARGO_PKG_VERSION"),
+        env!("CARGO_PKG_VERSION"),
         EnvelopeKind::Ok,
         "hello",
         vec![],
@@ -33,7 +34,12 @@ fn genesis_modules_are_resolvable() {
         }],
     )
     .unwrap();
-    let _err_env = Envelope::error(env!("CARGO_PKG_VERSION"), err, vec![]);
+    let _err_env = Envelope::error(
+        env!("CARGO_PKG_VERSION"),
+        env!("CARGO_PKG_VERSION"),
+        err,
+        vec![],
+    );
     assert!(!_err_env.ok);
 
     suggestions_resolve_typo();
@@ -101,6 +107,7 @@ fn scratch_records_expose_fields() {
         exit: 1,
         footer: Some("→ Run: ah doctor".to_string()),
         kind: "Fix".to_string(),
+        message: None,
     };
     assert_eq!(record.exit, 1);
     assert_eq!(record.argv, vec!["ah", "check"]);

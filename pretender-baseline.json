@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "adopted_at": "2026-11-27T15:20:33Z",
+  "finding_ids": [
+    "src/cli.rs::::mut_ratio",
+    "src/init_hooks.rs::::unwraps",
+    "src/init_hooks.rs::install_lefthook::function_lines_max"
+  ]
+}

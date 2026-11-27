@@ -173,7 +173,14 @@ pub fn build_guide() -> Guide {
 
 /// Wrap any serializable data in a shared genesis envelope.
 pub fn to_json_envelope<T: serde::Serialize>(kind: EnvelopeKind, data: T) -> String {
-    let env: Envelope<T> = Envelope::success(env!("CARGO_PKG_VERSION"), kind, data, vec![], vec![]);
+    let env: Envelope<T> = Envelope::success(
+        env!("CARGO_PKG_VERSION"),
+        env!("CARGO_PKG_VERSION"),
+        kind,
+        data,
+        vec![],
+        vec![],
+    );
     serde_json::to_string(&env).expect("envelope serialization")
 }
 
@@ -192,8 +199,14 @@ pub fn to_json_envelope_with_ok<T: serde::Serialize>(
     data: T,
     ok: bool,
 ) -> String {
-    let mut env: Envelope<T> =
-        Envelope::success(env!("CARGO_PKG_VERSION"), kind, data, vec![], vec![]);
+    let mut env: Envelope<T> = Envelope::success(
+        env!("CARGO_PKG_VERSION"),
+        env!("CARGO_PKG_VERSION"),
+        kind,
+        data,
+        vec![],
+        vec![],
+    );
     env.ok = ok;
     serde_json::to_string(&env).expect("envelope serialization")
 }
