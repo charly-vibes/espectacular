@@ -22,11 +22,21 @@ pub fn run_feedback_command(
     let body = build_issue_body(from_last_error)?;
     let repo = std::env::current_dir()?;
     let target_repo = target_repo(&repo);
+    create_feedback_issue(&kind, body, target_repo, dry_run)
+}
+
+/// File the issue (or preview it under --dry-run) and print the outcome.
+fn create_feedback_issue(
+    kind: &str,
+    body: String,
+    target_repo: String,
+    dry_run: bool,
+) -> anyhow::Result<()> {
     let opts = feedback::gh::CreateIssueOptions {
         repo: target_repo,
         title: format!("[ah] {kind}: auto-reported"),
         body: body.clone(),
-        labels: labels_for(&kind),
+        labels: labels_for(kind),
         dry_run,
     };
 
@@ -139,25 +149,53 @@ fn last_error_section() -> anyhow::Result<String> {
     }
 }
 
-/// Extract the `repository` field from a Cargo.toml manifest string.
+/// Extract the `repository` field from a Cargo.toml manifest string,
+/// reduced to `owner/repo` via `genesis::git::remote_key`.
 fn extract_repository(manifest: &str) -> Option<String> {
     for line in manifest.lines() {
         let trimmed = line.trim();
         if let Some(val) = trimmed.strip_prefix("repository = ") {
-            // Strip quotes
             let clean = val.trim_matches('"').trim_matches('\'');
-            // Reduce to owner/repo format
-            let clean = clean
-                .strip_prefix("https://github.com/")
-                .or_else(|| clean.strip_prefix("git@github.com:"))
-                .unwrap_or(clean);
-            // Strip trailing .git and slashes
-            let clean = clean
-                .trim_end_matches(".git")
-                .trim_end_matches('/')
-                .to_string();
-            return Some(clean);
+            // `remote_key` keeps the host (`github.com/owner/repo`); the
+            // repo's call sites expect `owner/repo`, so drop the known
+            // github host here rather than reimplementing the reduction.
+            let key = genesis::git::remote_key(clean);
+            return Some(key.strip_prefix("github.com/").unwrap_or(&key).to_string());
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_repository;
+
+    /// Fixture set: each expected value is `genesis::git::remote_key`'s
+    /// output with the known `github.com/` host dropped (the same
+    /// mapping `extract_repository` applies at the call site). Covers
+    /// plain https, scp/ssh, PAT-authenticated https, trailing `.git`,
+    /// and a non-github URL.
+    #[test]
+    fn extract_repository_matches_remote_key_on_fixtures() {
+        let fixtures: &[(&str, &str)] = &[
+            ("https://github.com/owner/repo", "owner/repo"),
+            ("https://github.com/owner/repo.git", "owner/repo"),
+            ("git@github.com:owner/repo.git", "owner/repo"),
+            ("https://pat@github.com/owner/repo.git", "owner/repo"),
+            ("https://gitlab.com/owner/repo.git", "gitlab.com/owner/repo"),
+        ];
+        for (url, expected) in fixtures {
+            let manifest = format!("repository = \"{url}\"\n");
+            assert_eq!(
+                Some(expected.to_string()),
+                extract_repository(&manifest),
+                "fixture {url}"
+            );
+        }
+    }
+
+    #[test]
+    fn extract_repository_missing_field_is_none() {
+        assert_eq!(None, extract_repository("[package]\nname = \"x\"\n"));
+    }
 }
