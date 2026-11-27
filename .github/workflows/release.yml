@@ -159,6 +159,20 @@ jobs:
           (cd bins/windows_amd64 && zip "../../dist/ah_${VERSION}_windows_amd64.zip" ah.exe)
           cd dist && sha256sum *.tar.gz *.zip > checksums.txt
 
+      # Rung-2 fleet rollout (beads wild-39w, openspec
+      # add-wild-contract-bundle-convention task 3.2): extract the contract
+      # bundle from the exact release checkout (this job's checkout, the same
+      # tree the published binaries were built from) and attach it to the
+      # release below. The pinned extractor version is part of the bundle's
+      # trust chain (manifest.extractor_version) — never `latest`. The step
+      # runs before the provenance manifest so the bundle digest is bound
+      # into provenance.json too.
+      - name: Install wild extractor
+        run: cargo install wild-vibes --version 0.2.1 --locked
+
+      - name: Extract contract bundle
+        run: bash scripts/make-contract-bundle.sh "${{ steps.pkg.outputs.version }}" dist
+
       # DDL-wof (SEC-03/06): publish cryptographically verifiable provenance
       # for every supported binary. provenance.json binds each published
       # artifact's sha256 to the publisher/build identity (repository,
@@ -212,6 +226,7 @@ jobs:
             dist/ah_${VERSION}_darwin_amd64.tar.gz \
             dist/ah_${VERSION}_darwin_arm64.tar.gz \
             dist/ah_${VERSION}_windows_amd64.zip \
+            dist/ah-$VERSION-contract-bundle.tar.gz \
             dist/checksums.txt \
             dist/provenance.json
         env:
